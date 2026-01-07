@@ -20,10 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${urbanist.variable} antialiased`}>
-        <div className="absolute -top-80 w-full z-0"><Image src={ellipseImg} alt="ellipse for background" width={240} height={240} className="scale-200 w-full" /></div>
-        <div className="relative flex flex-col flex-wrap max-w-md w-full h-svh mx-auto z-10">{children}</div>
+    <html lang="en" className="overflow-x-hidden">
+      <body className={`${urbanist.variable} antialiased overflow-x-hidden`}>
+        <div className="absolute -top-60 w-full z-0"><Image src={ellipseImg} alt="ellipse for background" width={240} height={240} className="scale-200 w-full" /></div>
+        <div className="relative h-svh mx-auto z-10">{children}</div>
       </body>
     </html>
   );
