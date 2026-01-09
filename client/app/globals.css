@@ -121,6 +121,7 @@
   --breakpoint-xx: 24rem;
   --breakpoint-xs: 30rem;
   --spacing: 0.30rem;
+  --color-icon: oklch(0.5847 0.2262 26.59);
 }
 
 @layer base {
@@ -134,6 +135,14 @@
   }
 }
 
-@utility x-icon-bg{
+@utility x-icon-bg {
   @apply bg-linear-to-t from-black to-stone-900 border border-input;
+}
+
+@utility body {
+  scrollbar-width: none;
+
+  &:-webkit-scrollbar {
+    display: none;
+  }
 }

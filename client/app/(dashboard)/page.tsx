@@ -1,9 +1,10 @@
+import { RootChart } from "@/components/RootChart";
 import { Button } from "@/components/ui/button";
 import {BriefcaseBusiness, Car, CarFront, ChevronLeft,ChevronRight, Gamepad2, ShoppingBag, ShoppingBasket, ShoppingCart, Utensils } from "lucide-react";
 
 export default function Home() {
   return (
-    <main className="flex flex-col">
+    <main className="flex flex-col overflow-y-auto">
       <section className="text-center my-6">
         <h2 className="text-stone-400 font-bold uppercase tracking-wide">available balance</h2>
         <h3 className="text-4xl font-bold">$2,483.39</h3>
@@ -21,6 +22,9 @@ export default function Home() {
           <h2 className="uppercase text-xs">Saved</h2>
           <h3 className="text-xl text-right">$1,800</h3>
         </div>
+      </section>
+      <section>
+        <RootChart />
       </section>
       <section className="space-y-3 px-3">
         <h2 className="font-bold text-lg">Recent Transactions</h2>
