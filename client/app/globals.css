@@ -47,19 +47,19 @@
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
-  --foreground: oklch(0.147 0.004 49.25);
+  --foreground: oklch(0% 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.147 0.004 49.25);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.147 0.004 49.25);
-  --primary: oklch(0.216 0.006 56.043);
+  --popover: oklch(0% 0 0);
+  --popover-foreground: oklch(1 0 0);
+  --primary: oklch(1 0 0);
   --primary-foreground: oklch(0.985 0.001 106.423);
   --secondary: oklch(0.97 0.001 106.424);
   --secondary-foreground: oklch(0.216 0.006 56.043);
   --muted: oklch(0.97 0.001 106.424);
   --muted-foreground: oklch(0.553 0.013 58.071);
-  --accent: oklch(0.97 0.001 106.424);
-  --accent-foreground: oklch(0.216 0.006 56.043);
+  --accent: oklch(14.7% 0.004 49.25);
+  --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(44.4% 0.011 73.639);
   --input: oklch(44.4% 0.011 73.639);
@@ -120,14 +120,20 @@
   --text-xx-line-height: 0.875rem;
   --breakpoint-xx: 24rem;
   --breakpoint-xs: 30rem;
+  --spacing: 0.30rem;
 }
 
 @layer base {
-  body{
+  body {
     @apply relative max-w-md w-full mx-auto text-sm text-white bg-black;
   }
 
-  input, textarea{
+  input,
+  textarea {
     @apply focus:border-0 focus:ring-0
   }
+}
+
+@utility x-icon-bg{
+  @apply bg-linear-to-t from-black to-stone-900 border border-input;
 }
