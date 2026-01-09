@@ -4,7 +4,7 @@ import { ICONS } from "@/lib/imageConstant";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function Page() {
+export default function LoginPage() {
   return (
     <section className="flex flex-col items-center justify-center h-full px-3 pb-9">
       <Image src={ICONS.RedIcon} alt="Red Icon" width={62} height={62} />

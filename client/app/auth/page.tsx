@@ -3,13 +3,13 @@ import { Input } from "@/components/ui/input";
 import { ICONS } from "@/lib/imageConstant";
 import Image from "next/image";
 
-export default function Page () {
+export default function AuthPage () {
      return (
           <section className="flex flex-col h-full px-3 pb-9 justify-end">
                <div className="text-center space-y-4 mb-6">
                     <Image src={ICONS.RedIcon} alt="Red Icon" width={62} height={62} className="mx-auto" />
                     <h3 className="font-bold text-4xl tracking-wide">Welcome Back</h3>
-                    <h2 className="font-semibold text-2xl">Login or sign up</h2>
+                    <h2 className="font-semibold text-xl">Login or sign up</h2>
                </div>
                <form className="space-y-4">
                     <div className="space-y-px">

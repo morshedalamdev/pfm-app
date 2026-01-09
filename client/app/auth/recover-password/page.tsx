@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { ICONS } from "@/lib/imageConstant";
 import Image from "next/image";
 
-export default function Page () {
+export default function RecoverPasswordPage() {
      return (
     <section className="flex flex-col items-center justify-center h-full px-3 pb-9">
       <Image src={ICONS.RedIcon} alt="Red Icon" width={62} height={62} />
