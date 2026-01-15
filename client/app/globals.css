@@ -139,6 +139,10 @@
   @apply bg-linear-to-t from-black to-stone-900 border border-input;
 }
 
+@utility x-animation{
+  @apply transition-all duration-300 ease-in-out;
+}
+
 @utility body {
   scrollbar-width: none;
 
