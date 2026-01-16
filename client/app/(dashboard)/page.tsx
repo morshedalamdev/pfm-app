@@ -1,6 +1,6 @@
 import { RootChart } from "@/components/RootChart";
 import { Button } from "@/components/ui/button";
-import {BriefcaseBusiness, Car, CarFront, ChevronLeft,ChevronRight, Gamepad2, ShoppingBag, ShoppingBasket, ShoppingCart, Utensils } from "lucide-react";
+import {BriefcaseBusiness, CarFront, ChevronRight, Gamepad2, ShoppingBag, ShoppingBasket, ShoppingCart, Utensils } from "lucide-react";
 
 export default function Home() {
   return (

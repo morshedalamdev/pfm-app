@@ -31,7 +31,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function RootChart() {
-  const [showFor, setShowFor] = useState<"expense" | "income">("expense");
+  const [sortBy, setSortBy] = useState<"expense" | "income">("expense");
   const [showLimit, setShowLimit] = useState<"day" | "week" | "month" | "year">(
     "week"
   );
@@ -39,7 +39,7 @@ export function RootChart() {
   return (
     <>
       <div className="flex items-center justify-between px-2 mb-1">
-        <h2 className="font-bold capitalize">{showFor}</h2>
+        <h2 className="font-bold capitalize">{sortBy}</h2>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm">
@@ -47,10 +47,10 @@ export function RootChart() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={() => setShowFor("expense")}>
+            <DropdownMenuItem onClick={() => setSortBy("expense")}>
               Expense
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowFor("income")}>
+            <DropdownMenuItem onClick={() => setSortBy("income")}>
               Income
             </DropdownMenuItem>
           </DropdownMenuContent>
