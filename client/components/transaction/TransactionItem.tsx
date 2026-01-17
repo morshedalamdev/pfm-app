@@ -11,6 +11,7 @@ import {
 } from "../ui/drawer";
 import { Button } from "../ui/button";
 import Link from "next/link";
+import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 
 type TransactionItemProps = {
   type: string;
@@ -63,36 +64,45 @@ export default function TransactionItem({
         <DrawerHeader>
           <DrawerTitle>Transaction Details</DrawerTitle>
         </DrawerHeader>
-        <div className="text-black px-2 space-y-1.5">
-          <h3 className="flex items-center gap-3 font-bold text-base line-clamp-1">
-            {categoryIcon?.icon && <categoryIcon.icon className="size-4" />}
-            <span>{category}</span>
-          </h3>
-          <p>{note}</p>
-          <div className="grid grid-cols-2 items-end gap-2">
-            <p>
-              <b>Type:</b> {type}
-            </p>
-            <p className="font-bold text-xl">${amount.toFixed(2)}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <p>
-              <b>Time:</b> {date}
-            </p>
-            <p>
-              <b>Date:</b> {date}
-            </p>
-          </div>
-        </div>
+        <Table className="text-black capitalize">
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={5}>
+                <h3 className="flex items-center gap-2 font-bold text-base line-clamp-1">
+                  {categoryIcon?.icon && (
+                    <categoryIcon.icon className="size-4" />
+                  )}
+                  <span>{category}</span>
+                </h3>
+              </TableCell>
+              <TableCell>
+                <p className="font-bold text-2xl">${amount.toFixed(2)}</p>
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell colSpan={6}>{note}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="font-bold">Type:</TableCell>
+              <TableCell colSpan={2}>{type}</TableCell>
+              <TableCell className="font-bold">Recurring:</TableCell>
+              <TableCell colSpan={2}>Daily</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="font-bold">Time:</TableCell>
+              <TableCell colSpan={2}>{date}</TableCell>
+              <TableCell className="font-bold">Date:</TableCell>
+              <TableCell colSpan={2}>12/01/2026</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
         <DrawerFooter>
           <Link href="/transaction/edit">
             <Button variant="outline" className="text-black">
-              Edit Transaction
+              Edit
             </Button>
           </Link>
-          <DrawerClose asChild>
-            <Button variant="secondary">Close</Button>
-          </DrawerClose>
+          <Button variant="secondary">Delete</Button>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
