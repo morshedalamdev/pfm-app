@@ -35,7 +35,7 @@ export default function Transaction() {
       </Header>
       <section className="flex items-center justify-between gap-1 h-[58px] p-2">
         <InputGroup className="mr-2">
-          <InputGroupInput placeholder="Search..." className="h-8" />
+          <InputGroupInput placeholder="Search..." />
           <InputGroupAddon>
             <Search className="size-3.5" />
           </InputGroupAddon>
