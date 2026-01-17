@@ -98,6 +98,10 @@ export const categoryIcons = [
     icon: CreditCard,
   },
   {
+    name: "Debt Payment",
+    icon: CreditCard,
+  },
+  {
     name: "Other",
     icon: MoreHorizontal,
   },

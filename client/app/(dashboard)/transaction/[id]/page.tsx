@@ -29,9 +29,9 @@ const EXPENSE_CATEGORY = [
   "Personal Care",
   "Gifts & Donations",
   "Bills & Fees",
+  "Debt Payment",
   "Other",
 ];
-
 const INCOME_SOURCE = [
   "Salary",
   "Business",
@@ -40,6 +40,12 @@ const INCOME_SOURCE = [
   "Rental",
   "Bonuses",
   "Other",
+];
+const RECURRENCE_OPTIONS = [
+  "Daily",
+  "Weekly",
+  "Monthly",
+  "Yearly",
 ];
 
 export default function CreateTransaction() {
@@ -69,7 +75,6 @@ export default function CreateTransaction() {
             <TabsList>
               <TabsTrigger value="expense">Expense</TabsTrigger>
               <TabsTrigger value="income">Income</TabsTrigger>
-              <TabsTrigger value="transfer">Transfer</TabsTrigger>
             </TabsList>
             <TabsContent value="expense">
               <FieldSet>
@@ -91,6 +96,14 @@ export default function CreateTransaction() {
                       type="boolean"
                       label="Ignore form Budgets"
                     />
+                    <FieldError />
+                  </Field>
+                  <Field>
+                    <TransactionInput type="boolean" label="Recurring" />
+                    <FieldError />
+                  </Field>
+                  <Field>
+                    <TransactionInput type="select" label="Recurring Every" list={RECURRENCE_OPTIONS} />
                     <FieldError />
                   </Field>
                   <Field>
@@ -130,40 +143,11 @@ export default function CreateTransaction() {
                     <FieldError />
                   </Field>
                   <Field>
-                    <InputGroup>
-                      <InputGroupTextarea
-                        placeholder="Type here.."
-                        className="pt-0"
-                      />
-                      <InputGroupAddon
-                        align="block-start"
-                        className="text-white font-bold"
-                      >
-                        Note
-                      </InputGroupAddon>
-                    </InputGroup>
+                    <TransactionInput type="boolean" label="Recurring" />
                     <FieldError />
                   </Field>
                   <Field>
-                    <Button type="submit">Add Transaction</Button>
-                  </Field>
-                </FieldGroup>
-              </FieldSet>
-            </TabsContent>
-            <TabsContent value="transfer">
-              <FieldSet>
-                <FieldGroup>
-                  <Field>
-                    <TransactionInput type="date" label="Date" />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <InputGroup>
-                      <InputGroupInput placeholder="Type here.." />
-                      <InputGroupAddon className="text-white font-bold pr-1">
-                        To
-                      </InputGroupAddon>
-                    </InputGroup>
+                    <TransactionInput type="select" label="Recurring Every" list={RECURRENCE_OPTIONS} />
                     <FieldError />
                   </Field>
                   <Field>
