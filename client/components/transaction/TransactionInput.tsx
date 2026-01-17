@@ -9,11 +9,11 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "./ui/drawer";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { InputGroup, InputGroupTextarea } from "./ui/input-group";
-import { Calendar } from "./ui/calendar";
+} from "../ui/drawer";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { InputGroup, InputGroupTextarea } from "../ui/input-group";
+import { Calendar } from "../ui/calendar";
 
 type TransactionInputProps = {
   type?: "text" | "number" | "date" | "boolean" | "select";
@@ -40,7 +40,7 @@ export default function TransactionInput({
             <DrawerHeader>
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <div className="p-1">
+            <div className="p-1 pb-3">
               <InputGroup className="border-input/15">
                 <InputGroupTextarea placeholder="Type here.." />
               </InputGroup>
@@ -64,16 +64,18 @@ export default function TransactionInput({
             <DrawerHeader className="hidden">
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <DrawerClose asChild>
-              <Calendar
-                mode="single"
-                selected={value as Date}
-                onSelect={(date) => {
-                  onChange(date);
-                }}
-                className="w-full text-black"
-              />
-            </DrawerClose>
+            <div className="pb-2">
+              <DrawerClose asChild>
+                <Calendar
+                  mode="single"
+                  selected={value as Date}
+                  onSelect={(date) => {
+                    onChange(date);
+                  }}
+                  className="w-full text-black"
+                />
+              </DrawerClose>
+            </div>
           </Fragment>
         );
       case "boolean":
@@ -137,8 +139,8 @@ export default function TransactionInput({
             <DrawerHeader>
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <div className="p-1">
-              <Input placeholder="Type here..." />
+            <div className="p-1 pb-3">
+              <Input placeholder="Type here..." className="border-input/15" />
             </div>
           </Fragment>
         );

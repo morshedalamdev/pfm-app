@@ -18,10 +18,14 @@ const list = [
   { href: "/report", icon: <ChartPie />, label: "Report" },
   { href: "/profile", icon: <CircleEllipsis />, label: "Profile" },
 ];
+const MAIN_ROUTES = ["/", "/income", "/transaction", "/report", "/profile"];
 
 export default function Footer() {
   const pathname = usePathname();
 
+  if (!MAIN_ROUTES.includes(pathname)) {
+    return null;
+  }
   return (
     <footer className="fixed bottom-0 left-0 w-full h-[70px] p-2 bg-linear-to-t from-black from-50% to-black/0 z-999">
       <nav className="w-full flex items-end justify-evenly flex-wrap">
