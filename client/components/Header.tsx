@@ -1,4 +1,3 @@
-import { Button } from "./ui/button";
 
 type HeaderProps = {
   title: string;
@@ -7,11 +6,9 @@ type HeaderProps = {
 
 export default function Header({ title, children }: HeaderProps) {
   return (
-    <header className="sticky top-0 flex items-center justify-between flex-wrap h-10 p-2">
+    <header className="sticky top-0 flex items-center justify-between flex-wrap h-10 p-3">
       <h2 className="font-bold tracking-wide text-lg">{title}</h2>
-      <Button variant="link" size="icon-sm" className="x-icon-bg">
-        {children}
-      </Button>
+      {children}
     </header>
   );
 }
