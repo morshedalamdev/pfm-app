@@ -20,7 +20,7 @@ export default function RecoverPasswordPage() {
               {/* <FieldError errors={} /> */}
             </Field>
             <Field>
-              <Button type="submit" className="bg-stone-100 text-black">
+              <Button type="submit" >
                 Log in
               </Button>
             </Field>
