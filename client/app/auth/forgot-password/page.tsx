@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
               {/* <FieldError errors={} /> */}
             </Field>
             <Field>
-              <Button type="submit" className="bg-stone-100 text-black">
+              <Button type="submit" >
                 Send Code
               </Button>
             </Field>
@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
               </p>
             </Field>
             <Field>
-              <Button type="submit" className="bg-stone-100 text-black">
+              <Button type="submit" >
                 Confirm
               </Button>
             </Field>

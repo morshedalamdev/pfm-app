@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldSet,
@@ -17,7 +18,29 @@ import { DollarSign, X } from "lucide-react";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import TransactionInput from "@/components/TransactionInput";
+
+const EXPENSE_CATEGORY = [
+  "Groceries",
+  "Food",
+  "Dining",
+  "Transport",
+  "Utilities",
+  "Entertainment",
+  "Health",
+  "Education",
+  "Shopping",
+  "Travel",
+];
 
 export default function CreateTransaction() {
   return (
@@ -29,7 +52,7 @@ export default function CreateTransaction() {
       </Header>
       <section className="px-3 pt-6">
         <form action="">
-          <InputGroup className="border-0 border-b rounded-none h-12 mb-4">
+          <InputGroup className="border-0 border-b rounded-none h-12 mb-5">
             <InputGroupAddon>
               <InputGroupText>
                 <DollarSign />
@@ -41,30 +64,39 @@ export default function CreateTransaction() {
               className="font-bold text-center text-5xl"
             />
           </InputGroup>
-          <Tabs defaultValue="account">
+          <Tabs defaultValue="expense">
             <TabsList>
-              <TabsTrigger value="account">Expense</TabsTrigger>
+              <TabsTrigger value="expense">Expense</TabsTrigger>
               <TabsTrigger value="password">Income</TabsTrigger>
               <TabsTrigger value="transfer">Transfer</TabsTrigger>
             </TabsList>
-            <TabsContent value="account">
+            <TabsContent value="expense">
               <FieldSet>
                 <FieldGroup>
                   <Field>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an occupation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Occupation</SelectLabel>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="job">Job</SelectItem>
-                          <SelectItem value="business">Business</SelectItem>
-                          <SelectItem value="nothing">Nothing</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <TransactionInput type="select" label="Category" list={EXPENSE_CATEGORY} />
+                    <FieldError />
+                  </Field>
+                  <Field>
+                    <TransactionInput type="text" label="Note" />
+                    <FieldError />
+                  </Field>
+                  <Field>
+                    <TransactionInput type="date" label="Date"/>
+                    <FieldError />
+                  </Field>
+                  <Field>
+                    <TransactionInput type="boolean" label="Recurring" />
+                    <FieldError />
+                  </Field>
+                  <Field>
+                    <TransactionInput type="boolean" label="Ignore form Budgets" />
+                    <FieldError />
+                  </Field>
+                  <Field>
+                    <Button type="submit">
+                      Add Transaction
+                    </Button>
                   </Field>
                 </FieldGroup>
               </FieldSet>

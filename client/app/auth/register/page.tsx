@@ -63,7 +63,7 @@ export default function RegisterPage() {
               {/* <FieldError errors={} /> */}
             </Field>
             <Field>
-              <Button type="submit" className="bg-stone-100 text-black">
+              <Button type="submit" >
                 Create Account
               </Button>
             </Field>
