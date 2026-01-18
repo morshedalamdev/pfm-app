@@ -46,23 +46,23 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0% 0 0);
+  --background: oklch(0% 0 0);
+  --foreground: oklch(1 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.147 0.004 49.25);
+  --card-foreground: oklch(0% 0 0);
   --popover: oklch(0% 0 0);
   --popover-foreground: oklch(1 0 0);
   --primary: oklch(1 0 0);
-  --primary-foreground: oklch(0.985 0.001 106.423);
-  --secondary: oklch(0.97 0.001 106.424);
-  --secondary-foreground: oklch(0.216 0.006 56.043);
-  --muted: oklch(0.97 0.001 106.424);
-  --muted-foreground: oklch(0.553 0.013 58.071);
-  --accent: oklch(37.4% 0.01 67.558);
+  --primary-foreground: oklch(0% 0 0);
+  --secondary: oklch(0.2478 0 0);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.2478 0 0);
+  --muted-foreground: oklch(1 0 0 / 70%);
+  --accent: oklch(0.2178 0 129.63);
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(44.4% 0.011 73.639);
-  --input: oklch(44.4% 0.011 73.639);
+  --border: oklch(0.2478 0 0);
+  --input: oklch(1 0 0 / 55%);
   --ring: oklch(0.709 0.01 56.259);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -71,11 +71,11 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0.001 106.423);
   --sidebar-foreground: oklch(0.147 0.004 49.25);
-  --sidebar-primary: oklch(0.216 0.006 56.043);
+  --sidebar-primary: oklch(0.2478 0 0);
   --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
-  --sidebar-accent: oklch(0.97 0.001 106.424);
-  --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
-  --sidebar-border: oklch(44.4% 0.011 73.639);
+  --sidebar-accent: oklch(1 0 0);
+  --sidebar-accent-foreground: oklch(0.2478 0 0);
+  --sidebar-border: oklch(0.2478 0 0);
   --sidebar-ring: oklch(0.709 0.01 56.259);
 }
 
@@ -126,17 +126,13 @@
 
 @layer base {
   body {
-    @apply relative max-w-md w-full mx-auto text-sm text-white bg-black;
+    @apply relative max-w-md w-full mx-auto text-sm bg-background text-foreground;
   }
 
   input,
   textarea {
     @apply focus:border-0 focus:ring-0
   }
-}
-
-@utility x-icon-bg {
-  @apply bg-linear-to-t from-black to-stone-900 border border-input;
 }
 
 @utility x-animation{

@@ -37,7 +37,7 @@ export default function Footer() {
               className={`${
                 pathname === i.href
                   ? "p-5 text-white bg-icon"
-                  : "text-stone-500"
+                  : "text-input"
               } x-animation`}
             >
               {i.icon}

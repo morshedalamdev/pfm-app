@@ -34,12 +34,12 @@ export default function TransactionItem({
     <Drawer>
       <DrawerTrigger asChild>
         <div className="flex flex-wrap">
-          <div className="size-8 flex items-center justify-center rounded-lg x-icon-bg">
+          <Button variant="secondary" size="icon">
             {categoryIcon?.icon && <categoryIcon.icon />}
-          </div>
+          </Button>
           <div className="flex-1 px-2">
             <h3 className="font-bold text-base line-clamp-1">{category}</h3>
-            <h5 className="text-stone-400 text-xs line-clamp-1">{note}</h5>
+            <h5 className="text-input text-xs line-clamp-1">{note}</h5>
           </div>
           <div>
             <h4
@@ -53,7 +53,7 @@ export default function TransactionItem({
             >
               ${amount.toFixed(2)}
             </h4>
-            <h6 className="flex items-center justify-end gap-1 text-stone-400 text-xs">
+            <h6 className="flex items-center justify-end gap-1 text-input text-xs">
               <Clock className="size-2.5" />
               <span>{date}</span>
             </h6>
@@ -64,7 +64,7 @@ export default function TransactionItem({
         <DrawerHeader>
           <DrawerTitle>Transaction Details</DrawerTitle>
         </DrawerHeader>
-        <Table className="text-black capitalize">
+        <Table className="capitalize">
           <TableBody>
             <TableRow>
               <TableCell colSpan={5}>
@@ -98,11 +98,11 @@ export default function TransactionItem({
         </Table>
         <DrawerFooter>
           <Link href="/transaction/edit">
-            <Button variant="outline" className="text-black">
+            <Button variant="outline">
               Edit
             </Button>
           </Link>
-          <Button variant="secondary">Delete</Button>
+          <Button variant="reverse">Delete</Button>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

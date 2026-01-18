@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <main className="flex flex-col overflow-y-auto pb-[70px]">
       <section className="text-center mt-9 mb-3">
-        <h2 className="text-stone-400 font-bold uppercase tracking-wide">
+        <h2 className="text-input font-bold uppercase tracking-wide">
           available balance
         </h2>
         <h3 className="text-5xl font-bold">$2,483.39</h3>

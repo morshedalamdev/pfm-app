@@ -56,14 +56,14 @@ export function RootChart() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="bg-linear-to-t from-black to-stone-900 rounded-3xl">
+      <div className="bg-linear-to-t from-black to-accent rounded-3xl">
         <nav className="w-full flex flex-wrap justify-center pt-2">
           <Button
             onClick={() => setShowLimit("day")}
             type="button"
             variant="ghost"
             className={`w-fit rounded-none font-bold h-5 border-b-2 border-transparent transform-fill duration-300 ${
-              showLimit === "day" ? "border-white" : "text-stone-400"
+              showLimit === "day" ? "border-white" : "text-input"
             }`}
           >
             Today
@@ -73,7 +73,7 @@ export function RootChart() {
             type="button"
             variant="ghost"
             className={`w-fit rounded-none font-bold h-5 border-b-2 border-transparent transform-fill duration-300 ${
-              showLimit === "week" ? "border-white" : "text-stone-400"
+              showLimit === "week" ? "border-white" : "text-input"
             }`}
           >
             Week
@@ -83,7 +83,7 @@ export function RootChart() {
             type="button"
             variant="ghost"
             className={`w-fit rounded-none font-bold h-5 border-b-2 border-transparent transform-fill duration-300 ${
-              showLimit === "month" ? "border-white" : "text-stone-400"
+              showLimit === "month" ? "border-white" : "text-input"
             }`}
           >
             Month
@@ -93,7 +93,7 @@ export function RootChart() {
             type="button"
             variant="ghost"
             className={`w-fit rounded-none font-bold h-5 border-b-2 border-transparent transform-fill duration-300 ${
-              showLimit === "year" ? "border-white" : "text-stone-400"
+              showLimit === "year" ? "border-white" : "text-input"
             }`}
           >
             Year
@@ -115,7 +115,7 @@ export function RootChart() {
                   fill={
                     entry.highlight
                       ? "oklch(0.5847 0.2262 26.59)"
-                      : "oklch(44.4% 0.011 73.639)"
+                      : "oklch(0.2178 0 129.63)"
                   }
                 />
               ))}
