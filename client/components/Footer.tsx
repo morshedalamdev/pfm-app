@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import {
   ArrowLeftRight,
-  ChartPie,
   CircleEllipsis,
+  Coins,
   Home,
   Wallet,
 } from "lucide-react";
@@ -15,10 +15,10 @@ const list = [
   { href: "/income", icon: <Wallet />, label: "Income" },
   { href: "/transaction", icon: <ArrowLeftRight />, label: "Transaction" },
   { href: "/", icon: <Home />, label: "Home" },
-  { href: "/report", icon: <ChartPie />, label: "Report" },
+  { href: "/loan", icon: <Coins />, label: "Loan" },
   { href: "/profile", icon: <CircleEllipsis />, label: "Profile" },
 ];
-const MAIN_ROUTES = ["/", "/income", "/transaction", "/report", "/profile"];
+const MAIN_ROUTES = ["/", "/income", "/transaction", "/loan", "/profile"];
 
 export default function Footer() {
   const pathname = usePathname();

@@ -1,8 +1,7 @@
 import { categoryIcons } from "@/lib/categoryIcons";
-import { CarFront, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
@@ -11,7 +10,15 @@ import {
 } from "../ui/drawer";
 import { Button } from "../ui/button";
 import Link from "next/link";
-import { Table, TableBody, TableCell, TableRow } from "../ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../ui/alert-dialog";
 
 type TransactionItemProps = {
   type: string;
@@ -45,10 +52,10 @@ export default function TransactionItem({
             <h4
               className={
                 type === "income"
-                  ? "font-bold text-green-500"
+                  ? "font-bold text-green-500 text-base"
                   : type === "transfer"
-                  ? "font-bold text-blue-500"
-                  : "font-bold"
+                  ? "font-bold text-blue-500 text-base"
+                  : "font-bold text-base"
               }
             >
               ${amount.toFixed(2)}
@@ -64,45 +71,45 @@ export default function TransactionItem({
         <DrawerHeader>
           <DrawerTitle>Transaction Details</DrawerTitle>
         </DrawerHeader>
-        <Table className="capitalize">
-          <TableBody>
-            <TableRow>
-              <TableCell colSpan={5}>
-                <h3 className="flex items-center gap-2 font-bold text-base line-clamp-1">
-                  {categoryIcon?.icon && (
-                    <categoryIcon.icon className="size-4" />
-                  )}
-                  <span>{category}</span>
-                </h3>
-              </TableCell>
-              <TableCell>
-                <p className="font-bold text-2xl">${amount.toFixed(2)}</p>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell colSpan={6}>{note}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-bold">Type:</TableCell>
-              <TableCell colSpan={2}>{type}</TableCell>
-              <TableCell className="font-bold">Recurring:</TableCell>
-              <TableCell colSpan={2}>Daily</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-bold">Time:</TableCell>
-              <TableCell colSpan={2}>{date}</TableCell>
-              <TableCell className="font-bold">Date:</TableCell>
-              <TableCell colSpan={2}>12/01/2026</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <div className="grid grid-cols-2 gap-2 capitalize px-3">
+          <div className="flex flex-col">
+            <h3 className="col-span-2 font-bold text-lg line-clamp-1">
+              {category}
+            </h3>
+            <p>{note}</p>
+          </div>
+          <p className="col-span-2 font-bold text-3xl">${amount.toFixed(2)}</p>
+          <p>
+            <b>Type:</b> {type}
+          </p>
+          <p>
+            <b>Recurring:</b> Daily
+          </p>
+          <p>
+            <b>Time:</b> {date}
+          </p>
+          <p>
+            <b>Date:</b> 12/01/2026
+          </p>
+        </div>
         <DrawerFooter>
           <Link href="/transaction/edit">
-            <Button variant="outline">
-              Edit
-            </Button>
+            <Button variant="outline">Edit</Button>
           </Link>
-          <Button variant="reverse">Delete</Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="reverse">Delete</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogTitle>
+                Are you sure you want to delete this transaction?
+              </AlertDialogTitle>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
