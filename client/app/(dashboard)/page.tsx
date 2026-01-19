@@ -5,15 +5,15 @@ export default function Home() {
   return (
     <main className="flex flex-col overflow-y-auto pb-[70px]">
       <section className="text-center mt-9 mb-3">
-        <h2 className="text-stone-400 font-bold uppercase tracking-wide">
+        <h2 className="text-input font-bold uppercase tracking-wide">
           available balance
         </h2>
         <h3 className="text-5xl font-bold">$2,483.39</h3>
       </section>
-      <section className="grid grid-cols-3 gap-1 px-1 mb-4">
+      <section className="grid grid-cols-3 gap-2 px-2 mb-4">
         <div className="border border-input rounded-md p-2 flex flex-col font-bold">
           <h2 className="uppercase text-xs">Income</h2>
-          <h3 className="text-xl text-right">$99,99,000</h3>
+          <h3 className="text-xl text-right">$99,000</h3>
         </div>
         <div className="border border-input rounded-md p-2 flex flex-col font-bold">
           <h2 className="uppercase text-xs">Expense</h2>

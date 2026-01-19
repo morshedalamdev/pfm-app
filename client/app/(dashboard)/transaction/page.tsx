@@ -33,9 +33,9 @@ export default function Transaction() {
       </section>
       <section className="space-y-4 h-[calc(100%-106px)] pb-[70px] overflow-y-auto">
         <div className="space-y-1.5">
-          <div className="sticky top-0 backdrop-blur-lg flex items-center justify-between border-b border-input py-1 px-2">
+          <div className="sticky top-0 backdrop-blur-lg flex items-center justify-between border-b border-border py-1 px-2">
             <h3 className="font-bold">31 May</h3>
-            <p className="text-xs">4 Transactions</p>
+            <p className="text-xs text-input">4 Transactions</p>
           </div>
           <div className="space-y-2 px-2">
             <TransactionItem

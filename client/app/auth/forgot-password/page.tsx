@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
           </FieldGroup>
         </FieldSet>
       </form>
-      <form className="hidden w-full my-6">
+      <form className="w-full my-6">
         <FieldSet>
           <FieldGroup>
             <Field>
