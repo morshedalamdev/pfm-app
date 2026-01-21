@@ -15,8 +15,8 @@ export default function Loan() {
     <main className="flex flex-col h-dvh">
       <Header title="Loan & Debt">
         <Link href="/loan/create">
-          <Button variant="link" size="icon-sm" className="x-icon-bg">
-            <Plus className="size-3" />
+          <Button variant="link" size="icon-sm">
+            <Plus />
           </Button>
         </Link>
       </Header>

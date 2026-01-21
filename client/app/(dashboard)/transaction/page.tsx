@@ -16,8 +16,8 @@ export default function Transaction() {
     <main className="flex flex-col h-dvh">
       <Header title="Transaction">
         <Link href="/transaction/create">
-          <Button variant="link" size="icon-sm" className="x-icon-bg">
-            <Plus className="size-3" />
+          <Button variant="link" size="icon-sm">
+            <Plus />
           </Button>
         </Link>
       </Header>

@@ -67,7 +67,7 @@ export function RootChart() {
   return (
     <>
       <div className="flex items-center justify-between px-2 mb-1">
-        <h2 className="font-bold capitalize">{sortBy}</h2>
+        <h4 className="font-bold capitalize">{sortBy}</h4>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm">

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import {
   ArrowLeftRight,
+  ChartNoAxesColumn,
+  ChartPie,
   CircleEllipsis,
   Coins,
   Home,
@@ -11,14 +13,14 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-const list = [
-  { href: "/income", icon: <Wallet />, label: "Income" },
+const LIST = [
+  { href: "/analytics", icon: <ChartNoAxesColumn />, label: "Income" },
   { href: "/transaction", icon: <ArrowLeftRight />, label: "Transaction" },
   { href: "/", icon: <Home />, label: "Home" },
   { href: "/loan", icon: <Coins />, label: "Loan" },
   { href: "/profile", icon: <CircleEllipsis />, label: "Profile" },
 ];
-const MAIN_ROUTES = ["/", "/income", "/transaction", "/loan", "/profile"];
+const MAIN_ROUTES = ["/", "/analytics", "/transaction", "/loan", "/profile"];
 
 export default function Footer() {
   const pathname = usePathname();
@@ -29,7 +31,7 @@ export default function Footer() {
   return (
     <footer className="fixed bottom-0 left-0 w-full h-[70px] p-2 bg-linear-to-t from-black from-50% to-black/0 z-999">
       <nav className="w-full flex items-end justify-evenly flex-wrap">
-        {list.map((i) => (
+        {LIST.map((i) => (
           <Link key={i.label} href={i.href}>
             <Button
               variant="link"
