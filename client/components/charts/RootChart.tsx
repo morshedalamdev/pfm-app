@@ -3,14 +3,14 @@
 import { Bar, BarChart, Cell, LabelList, XAxis } from "recharts";
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { Button } from "./ui/button";
+import { Button } from "../ui/button";
 import { Ellipsis } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+} from "../ui/dropdown-menu";
 import { useState } from "react";
 
 const weekData = [
@@ -67,7 +67,7 @@ export function RootChart() {
   return (
     <>
       <div className="flex items-center justify-between px-2 mb-1">
-        <h2 className="font-bold capitalize">{sortBy}</h2>
+        <h4 className="font-bold capitalize">{sortBy}</h4>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm">

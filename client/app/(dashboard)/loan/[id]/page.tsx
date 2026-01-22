@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/input-group";
 import { DollarSign, Phone, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import TransactionInput from "@/components/transaction/TransactionInput";
+import TransactionInput from "@/components/items/TransactionInput";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

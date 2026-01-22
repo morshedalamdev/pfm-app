@@ -1,6 +1,6 @@
 import { Calendar, Coins, HandCoins } from "lucide-react";
-import { Button } from "./ui/button";
-import { Progress } from "./ui/progress";
+import { Button } from "../ui/button";
+import { Progress } from "../ui/progress";
 import {
   Drawer,
   DrawerContent,
@@ -8,7 +8,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "./ui/drawer";
+} from "../ui/drawer";
 import Link from "next/link";
 import {
   AlertDialog,
@@ -18,7 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "./ui/alert-dialog";
+} from "../ui/alert-dialog";
 
 export default function LoanItem({ type }: { type?: "lent" | "borrowed" }) {
   return (
