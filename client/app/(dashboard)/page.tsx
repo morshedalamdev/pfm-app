@@ -1,5 +1,6 @@
-import { RootChart } from "@/components/RootChart";
-import TransactionItem from "@/components/transaction/TransactionItem";
+import HeaderItem from "@/components/items/HeaderItem";
+import { RootChart } from "@/components/charts/RootChart";
+import TransactionItem from "@/components/items/TransactionItem";
 
 export default function Home() {
   return (
@@ -11,19 +12,13 @@ export default function Home() {
         <h3 className="text-5xl font-bold">$2,483.39</h3>
       </section>
       <section className="grid grid-cols-2 gap-2 p-2">
-        <div className="border border-input rounded-md p-2 flex flex-col font-bold">
-          <h2 className="uppercase text-xs">Income</h2>
-          <h3 className="text-2xl text-right">$99,99,000</h3>
-        </div>
-        <div className="border border-input rounded-md p-2 flex flex-col font-bold">
-          <h2 className="uppercase text-xs">Expense</h2>
-          <h3 className="text-2xl text-right">$3,200</h3>
-        </div>
+        <HeaderItem title="Income" amount="$5,000.00" />
+        <HeaderItem title="Expense" amount="$2,516.61" />
       </section>
       <section>
         <RootChart />
       </section>
-      <section className="space-y-3 px-3">
+      <section className="space-y-3 px-2">
         <h2 className="font-bold text-lg">Recent Transactions</h2>
         <TransactionItem
           type="expense"

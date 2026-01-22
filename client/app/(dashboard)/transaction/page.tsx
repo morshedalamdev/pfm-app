@@ -1,7 +1,7 @@
-import DateFilter from "@/components/filter/DateFilter";
-import FilterMenu from "@/components/filter/FilterMenu";
+import DateFilter from "@/components/filters/DateFilter";
+import FilterMenu from "@/components/filters/FilterMenu";
 import Header from "@/components/Header";
-import TransactionItem from "@/components/transaction/TransactionItem";
+import TransactionItem from "@/components/items/TransactionItem";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,

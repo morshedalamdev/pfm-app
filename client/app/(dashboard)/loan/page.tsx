@@ -1,6 +1,7 @@
-import FilterMenu from "@/components/filter/FilterMenu";
+import FilterMenu from "@/components/filters/FilterMenu";
 import Header from "@/components/Header";
-import LoanItem from "@/components/LoanItem";
+import HeaderItem from "@/components/items/HeaderItem";
+import LoanItem from "@/components/items/LoanItem";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,
@@ -21,14 +22,8 @@ export default function Loan() {
         </Link>
       </Header>
       <section className="grid grid-cols-2 gap-2 p-2">
-        <div className="border border-input rounded-md p-2 flex flex-col font-bold">
-          <h2 className="uppercase text-xs">Lent Out</h2>
-          <h3 className="text-2xl text-right">$99,99,000</h3>
-        </div>
-        <div className="border border-input rounded-md p-2 flex flex-col font-bold">
-          <h2 className="uppercase text-xs">Borrowed</h2>
-          <h3 className="text-2xl text-right">$3,200</h3>
-        </div>
+        <HeaderItem title="Lent Out" amount="$12,500" />
+        <HeaderItem title="Borrowed" amount="$3,200" />
       </section>
       <section className="flex items-center justify-between gap-1 h-[58px] p-2">
         <InputGroup className="mr-2">

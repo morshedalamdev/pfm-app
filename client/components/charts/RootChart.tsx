@@ -3,14 +3,14 @@
 import { Bar, BarChart, Cell, LabelList, XAxis } from "recharts";
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { Button } from "./ui/button";
+import { Button } from "../ui/button";
 import { Ellipsis } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+} from "../ui/dropdown-menu";
 import { useState } from "react";
 
 const weekData = [
