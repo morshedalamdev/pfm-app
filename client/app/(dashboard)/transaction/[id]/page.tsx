@@ -12,7 +12,7 @@ import {
 import { DollarSign, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import TransactionInput from "@/components/items/TransactionInput";
+import TransactionInput from "@/components/inputs/TransactionInput";
 import { useRouter } from "next/navigation";
 
 const EXPENSE_CATEGORY = [
