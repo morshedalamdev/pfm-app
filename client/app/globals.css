@@ -125,6 +125,15 @@
 }
 
 @layer base {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
   body {
     @apply relative max-w-md w-full mx-auto text-sm bg-background text-foreground;
   }
@@ -137,12 +146,4 @@
 
 @utility x-animation{
   @apply transition-all duration-300 ease-in-out;
-}
-
-@utility body {
-  scrollbar-width: none;
-
-  &:-webkit-scrollbar {
-    display: none;
-  }
 }
