@@ -52,7 +52,7 @@ export default function CreateTransaction() {
   const router = useRouter();
   return (
     <main className="flex flex-col h-dvh">
-      <Header title="Add New Transaction">
+      <Header homeBtn={true} title="Add New Transaction">
         <Button variant="link" size="icon-sm" className="x-icon-bg" onClick={router.back}>
           <X className="size-3" />
         </Button>

@@ -21,7 +21,7 @@ export default function CreateLoan() {
 
   return (
     <main className="flex flex-col h-dvh">
-      <Header title="Add New Loan">
+      <Header homeBtn={true} title="Add New Loan">
         <Button
           variant="link"
           size="icon-sm"
