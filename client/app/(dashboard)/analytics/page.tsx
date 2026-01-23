@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/command";
 import HeaderItem from "@/components/items/HeaderItem";
 import { Progress } from "@/components/ui/progress";
+import IncomeVsExpenseChart from "@/components/charts/IncomeVsExpenseChart";
+import SpendingChart from "@/components/charts/SpendingChart";
 
 const MONTHS = [
   { value: "Jan-2026", label: "Jan 2026" },
@@ -139,13 +141,15 @@ export default function Analytics() {
             </div>
           </Link>
         </section>
-        <section className="p-2">
+        <section className="p-2 space-y-2">
           <h2 className="font-bold text-lg">Income vs Expense</h2>
+          <IncomeVsExpenseChart />
         </section>
-        <section className="p-2">
+        <section className="p-2 space-y-2">
           <h2 className="font-bold text-lg">Spending by Category</h2>
+          <SpendingChart />
         </section>
-        <section className="p-2">
+        <section className="p-2 space-y-2">
           <h2 className="font-bold text-lg mb-2">Top Expenses</h2>
           <ul className="space-y-2">
             <li className="border border-input rounded-md p-2">
@@ -210,8 +214,8 @@ export default function Analytics() {
             </li>
           </ul>
         </section>
-        <section className="p-2">
-          <h2 className="font-bold text-lg mb-2">Monthly Trends</h2>
+        <section className="p-2 space-y-2">
+          <h2 className="font-bold text-lg">Monthly Trends</h2>
           <ul className="space-y-2">
             <li className="border border-input rounded-md p-2">
               <div className="flex flex-wrap gap-2">
