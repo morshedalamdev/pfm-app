@@ -58,7 +58,7 @@ const MONTHS = [
   { value: "Nov-2024", label: "Nov 2024" },
   { value: "Dec-2024", label: "Dec 2024" },
 ];
-export default function Analytics() {
+export default function AnalyticsPage() {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("Jan 2026");
 

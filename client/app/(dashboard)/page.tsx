@@ -2,7 +2,7 @@ import HeaderItem from "@/components/items/HeaderItem";
 import { RootChart } from "@/components/charts/RootChart";
 import TransactionItem from "@/components/items/TransactionItem";
 
-export default function Home() {
+export default function HomePage() {
   return (
     <main className="flex flex-col overflow-y-auto pb-[70px]">
       <section className="text-center mt-9 mb-3">

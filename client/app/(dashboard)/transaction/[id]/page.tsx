@@ -48,7 +48,7 @@ const RECURRENCE_OPTIONS = [
   "Yearly",
 ];
 
-export default function CreateTransaction() {
+export default function CreateTransactionPage() {
   const router = useRouter();
   return (
     <main className="flex flex-col h-dvh">

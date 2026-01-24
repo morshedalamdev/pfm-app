@@ -29,15 +29,13 @@ import {
 } from "../ui/input-group";
 import { Calendar } from "../ui/calendar";
 
-export default function SavingsItem({ type }: { type?: "lent" | "borrowed" }) {
+export default function SavingsItem() {
   return (
     <Drawer>
       <DrawerTrigger asChild>
         <div className="border border-input rounded-md p-3 space-y-3 text-xs">
           <div className="flex flex-wrap">
-            <Button variant="secondary" size="icon">
-              {type === "lent" ? <HandCoins /> : <Coins />}
-            </Button>
+            <Button variant="secondary" size="icon"><Coins /></Button>
             <h3 className="flex-1 px-2 font-bold text-base line-clamp-1">
               Vacation Fund
             </h3>

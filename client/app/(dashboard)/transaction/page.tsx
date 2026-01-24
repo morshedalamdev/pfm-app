@@ -11,7 +11,7 @@ import {
 import { Plus, Search } from "lucide-react";
 import Link from "next/link";
 
-export default function Transaction() {
+export default function TransactionPage() {
   return (
     <main className="flex flex-col h-dvh">
       <Header title="Transaction">

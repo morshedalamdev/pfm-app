@@ -14,7 +14,7 @@ import {
 import { DollarSign, Phone, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export default function CreateSavings() {
+export default function CreateSavingsPage() {
   const router = useRouter();
   return (
     <main className="flex flex-col h-dvh">

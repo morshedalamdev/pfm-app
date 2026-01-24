@@ -32,7 +32,7 @@ function FieldLegend({
       data-variant={variant}
       className={cn(
         "mb-3 font-medium",
-        "data-[variant=legend]:text-base",
+        "data-[variant=legend]:text-base data-[variant=legend]:font-bold",
         "data-[variant=label]:text-sm",
         className
       )}
@@ -55,7 +55,7 @@ function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 const fieldVariants = cva(
-  "group/field flex w-full gap-3 data-[invalid=true]:text-destructive",
+  "group/field flex w-full gap-1 data-[invalid=true]:text-destructive",
   {
     variants: {
       orientation: {

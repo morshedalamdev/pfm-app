@@ -8,7 +8,7 @@ import { Dot, Plus } from "lucide-react";
 import Link from "next/link";
 import SavingsItem from "@/components/items/SavingsItem";
 
-export default function Savings() {
+export default function SavingsPage() {
   const [filter, setFilter] = useState<"active" | "completed" | "all">(
     "active",
   );

@@ -15,7 +15,7 @@ import TransactionInput from "@/components/inputs/TransactionInput";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function CreateLoan() {
+export default function CreateLoanPage() {
   const [active, setActive] = useState<"lent" | "borrowed">("lent");
   const router = useRouter();
 
