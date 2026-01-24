@@ -37,7 +37,7 @@ const inputGroupAddonVariants = cva(
         "inline-start":
           "order-first pl-2 has-[>button]:ml-[-0.45rem] has-[>kbd]:ml-[-0.35rem]",
         "inline-end":
-          "order-last pr-2 has-[>button]:mr-[-0.45rem] has-[>kbd]:mr-[-0.35rem]",
+          "order-last has-[>button]:mr-[-0.45rem] has-[>kbd]:mr-[-0.35rem] border-l border-input px-2",
         "block-start":
           "order-first w-full justify-start px-2 pt-1 [.border-b]:pb-3 group-has-[>input]/input-group:pt-2.5",
         "block-end":
