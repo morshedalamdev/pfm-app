@@ -22,11 +22,7 @@ export default function RegisterPage() {
         <FieldSet>
           <FieldGroup>
             <Field data-invalid>
-              <Input type="text" placeholder="First Name" />
-              {/* <FieldError errors={} /> */}
-            </Field>
-            <Field data-invalid>
-              <Input type="text" placeholder="Last Name" />
+              <Input type="text" placeholder="Name" />
               {/* <FieldError errors={} /> */}
             </Field>
             <Field data-invalid>
