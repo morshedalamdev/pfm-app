@@ -3,7 +3,7 @@ import { Home } from "lucide-react";
 
 type HeaderProps = {
   title: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   homeBtn?: boolean;
 };
 

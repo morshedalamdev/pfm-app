@@ -61,9 +61,9 @@ export default function Footer() {
             </Button>
           </SheetTrigger>
           <SheetContent>
-            <SheetTitle></SheetTitle>
+            <SheetTitle className="p-3 text-lg font-bold">Profile</SheetTitle>
             <div>
-              <div className="p-5">
+              <div className="p-3">
                 <Skeleton className="size-15 rounded-full" />
                 <div className="flex items-center gap-3 mt-3">
                   <h2 className="font-bold text-xl">Chief Dodson</h2>
@@ -75,7 +75,7 @@ export default function Footer() {
                 </div>
                 <p className="text-input">test@example.com</p>
               </div>
-              <div className="flex flex-col h-[calc(100vh-197px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-5 py-3">
+              <div className="flex flex-col h-[calc(100vh-236px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-5 py-3">
                 <p className="text-xs font-black tracking-wide text-input uppercase">
                   Board
                 </p>
