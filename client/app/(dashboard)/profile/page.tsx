@@ -105,6 +105,9 @@ export default function ProfilePage() {
                 </InputGroup>
                 <FieldError />
               </Field>
+              <Field>
+                <Button type="submit">Save Changes</Button>
+              </Field>
             </FieldGroup>
           </FieldSet>
         </form>
