@@ -39,7 +39,7 @@ export default function Footer() {
     return null;
   }
   return (
-    <footer className="fixed bottom-0 left-0 w-full h-[70px] p-2 bg-linear-to-t from-black from-50% to-black/0 z-999">
+    <footer className="fixed bottom-0 left-0 w-full h-[70px] p-1.5 bg-linear-to-t from-black from-50% to-black/0 z-999">
       <nav className="w-full flex items-end justify-evenly flex-wrap">
         {LIST.map((i) => (
           <Link key={i.label} href={i.href}>
@@ -75,14 +75,14 @@ export default function Footer() {
                 </div>
                 <p className="text-input">test@example.com</p>
               </div>
-              <div className="flex flex-col h-[calc(100vh-236px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-5 py-3">
+              <div className="flex flex-col h-[calc(100svh-236px)] overflow-y-auto bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-3 py-3">
                 <p className="text-xs font-black tracking-wide text-input uppercase">
                   Board
                 </p>
                 <Link href="/savings">
                   <Button
                     variant="ghost"
-                    className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                   >
                     <TargetIcon />
                     Savings Goals
@@ -91,7 +91,7 @@ export default function Footer() {
                 <Link href="/budget">
                   <Button
                     variant="ghost"
-                    className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                   >
                     <ClipboardListIcon />
                     Budget Planning
@@ -100,7 +100,7 @@ export default function Footer() {
                 <Link href="/budget/setup">
                   <Button
                     variant="ghost"
-                    className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                   >
                     <ClipboardPenLineIcon />
                     Budget Setup
@@ -111,28 +111,28 @@ export default function Footer() {
                 </p>
                 <Button
                   variant="ghost"
-                  className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                  className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                 >
                   <InfoIcon />
                   What is Infiny PFM
                 </Button>
                 <Button
                   variant="ghost"
-                  className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                  className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                 >
                   <LockIcon />
                   Privacy Notice
                 </Button>
                 <Button
                   variant="ghost"
-                  className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                  className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                 >
                   <FileTextIcon />
                   User Agreement
                 </Button>
                 <Button
                   variant="ghost"
-                  className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                  className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                 >
                   <MessageCircleMoreIcon />
                   Contact Us
@@ -142,7 +142,7 @@ export default function Footer() {
                 </p>
                 <Button
                   variant="ghost"
-                  className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                  className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                 >
                   <SettingsIcon />
                   Settings
@@ -150,7 +150,7 @@ export default function Footer() {
                 <Link href="/auth/forgot-password">
                   <Button
                     variant="ghost"
-                    className="border-b border-input/50 rounded-none justify-start gap-2 px-0!"
+                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
                   >
                     <KeyRoundIcon />
                     Reset Password
@@ -158,7 +158,7 @@ export default function Footer() {
                 </Link>
                 <Button
                   variant="ghost"
-                  className="rounded-none justify-start gap-2 px-0!"
+                  className="rounded-none justify-start gap-1.5 px-0!"
                 >
                   <Trash2Icon />
                   Delete Account

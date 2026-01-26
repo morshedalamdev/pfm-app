@@ -12,8 +12,7 @@ import Image from "next/image";
 
 export default function AuthPage() {
   return (
-    <section className="flex flex-col h-full px-3 pb-9 justify-end">
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-3">
         <Image
           src={ICONS.RedIcon}
           alt="Red Icon"
@@ -22,7 +21,7 @@ export default function AuthPage() {
           className="mx-auto"
         />
         <h3 className="font-bold text-4xl tracking-wide">Welcome Back</h3>
-        <h2 className="font-semibold text-xl">Login or sign up</h2>
+        <h2 className="font-semibold text-xl">Login or Sign up</h2>
       </div>
       <form className="w-full my-6">
         <FieldSet>
@@ -73,7 +72,6 @@ export default function AuthPage() {
           </FieldGroup>
         </FieldSet>
       </form>
-      <div className="space-y-4"></div>
     </section>
   );
 }

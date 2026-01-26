@@ -11,14 +11,14 @@ export default function HomePage() {
         </h2>
         <h3 className="text-5xl font-bold">$2,483.39</h3>
       </section>
-      <section className="grid grid-cols-2 gap-2 p-2">
+      <section className="grid grid-cols-2 gap-3 p-3">
         <HeaderItem title="Income" amount="$5,000.00" />
         <HeaderItem title="Expense" amount="$2,516.61" />
       </section>
       <section>
         <RootChart />
       </section>
-      <section className="space-y-3 px-2">
+      <section className="space-y-3 px-3 ">
         <h2 className="font-bold text-lg">Recent Transactions</h2>
         <TransactionItem
           type="expense"

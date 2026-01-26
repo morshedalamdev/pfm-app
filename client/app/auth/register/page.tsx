@@ -16,7 +16,7 @@ import Link from "next/link";
 
 export default function RegisterPage() {
   return (
-    <section className="flex flex-col items-center justify-end h-full px-3 pb-9">
+    <section className="flex flex-col items-center justify-center h-full px-3 pb-9">
       <Image src={ICONS.RedIcon} alt="Red Icon" width={62} height={62} />
       <form className="w-full my-6">
         <FieldSet>

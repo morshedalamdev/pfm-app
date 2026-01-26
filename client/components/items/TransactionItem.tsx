@@ -44,7 +44,7 @@ export default function TransactionItem({
           <Button variant="secondary" size="icon">
             {categoryIcon?.icon && <categoryIcon.icon />}
           </Button>
-          <div className="flex-1 px-2">
+          <div className="flex-1 px-1.5">
             <h3 className="font-bold text-base line-clamp-1">{category}</h3>
             <h5 className="text-input text-xs line-clamp-1">{note}</h5>
           </div>
@@ -71,7 +71,7 @@ export default function TransactionItem({
         <DrawerHeader>
           <DrawerTitle>Transaction Details</DrawerTitle>
         </DrawerHeader>
-        <div className="grid grid-cols-2 gap-2 capitalize px-3">
+        <div className="grid grid-cols-2 gap-3 capitalize px-3">
           <div className="flex flex-col">
             <h3 className="col-span-2 font-bold text-lg line-clamp-1">
               {category}

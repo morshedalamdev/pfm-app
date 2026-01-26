@@ -66,7 +66,7 @@ export function RootChart() {
 
   return (
     <>
-      <div className="flex items-center justify-between px-2 mb-1">
+      <div className="flex items-center justify-between px-3 mb-1.5">
         <h4 className="font-bold capitalize">{sortBy}</h4>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -85,7 +85,7 @@ export function RootChart() {
         </DropdownMenu>
       </div>
       <div className="bg-linear-to-t from-black to-accent rounded-3xl">
-        <nav className="w-full flex flex-wrap justify-center pt-2">
+        <nav className="w-full flex flex-wrap justify-center pt-1.5">
           <Button
             onClick={() => setShowLimit("week")}
             type="button"
