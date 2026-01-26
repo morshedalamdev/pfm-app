@@ -246,7 +246,7 @@ export default function SetupBudgetPage() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent>
-                        <ul>
+                        <ul className="overflow-y-auto">
                           {EXPENSE_CATEGORY.map((category) => (
                             <li key={category}>
                               <Button

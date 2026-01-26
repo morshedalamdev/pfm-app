@@ -72,7 +72,7 @@ export default function TransactionInput({
                   onSelect={(date) => {
                     onChange(date);
                   }}
-                  className="mx-auto text-black"
+                  className="max-w-sm w-full mx-auto text-black"
                 />
               </DrawerClose>
             </div>
@@ -116,7 +116,7 @@ export default function TransactionInput({
             <DrawerHeader className="border-b border-input/15">
               <DrawerTitle>Select {label}</DrawerTitle>
             </DrawerHeader>
-            <ul className="text-black p-1.5">
+            <ul className="text-black p-1.5 overflow-y-auto">
               {list.map((item) => (
                 <li key={item}>
                   <DrawerClose asChild>
