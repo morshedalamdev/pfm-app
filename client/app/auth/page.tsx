@@ -12,6 +12,7 @@ import Image from "next/image";
 
 export default function AuthPage() {
   return (
+    <section className="flex flex-col items-center justify-center h-full px-3 pb-9">
       <div className="text-center space-y-3">
         <Image
           src={ICONS.RedIcon}
