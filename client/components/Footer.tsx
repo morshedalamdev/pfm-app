@@ -60,7 +60,7 @@ export default function Footer() {
               <CircleEllipsisIcon />
             </Button>
           </SheetTrigger>
-          <SheetContent className="overflow-y-auto">
+          <SheetContent>
             <SheetTitle className="p-3 text-lg font-bold">Profile</SheetTitle>
             <div>
               <div className="p-3">
@@ -75,7 +75,7 @@ export default function Footer() {
                 </div>
                 <p className="text-input">test@example.com</p>
               </div>
-              <div className="flex flex-col h-[calc(100svh-236px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-3 py-3">
+              <div className="flex flex-col h-[calc(100svh-236px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-3 py-3 overflow-y-auto">
                 <p className="text-xs font-black tracking-wide text-input uppercase">
                   Board
                 </p>

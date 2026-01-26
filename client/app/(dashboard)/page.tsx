@@ -4,7 +4,7 @@ import TransactionItem from "@/components/items/TransactionItem";
 
 export default function HomePage() {
   return (
-    <main className="flex flex-col overflow-y-auto pb-[70px]">
+    <main className="flex flex-col overflow-y-auto">
       <section className="text-center mt-9 mb-3">
         <h2 className="text-input font-bold uppercase tracking-wide">
           available balance
@@ -18,36 +18,80 @@ export default function HomePage() {
       <section>
         <RootChart />
       </section>
-      <section className="space-y-3 px-3 ">
-        <h2 className="font-bold text-lg">Recent Transactions</h2>
-        <TransactionItem
-          type="expense"
-          category="Transport"
-          note="Uber"
-          amount={45.0}
-          date="14:32"
-        />
-        <TransactionItem
-          type="income"
-          category="Salary"
-          note="Monthly Salary"
-          amount={3000.0}
-          date="09:00"
-        />
-        <TransactionItem
-          type="expense"
-          category="Dining"
-          note="Restaurant"
-          amount={75.5}
-          date="19:20"
-        />
-        <TransactionItem
-          type="expense"
-          category="Groceries"
-          note="Supermarket"
-          amount={120.25}
-          date="16:45"
-        />
+      <section className="px-3">
+        <h2 className="font-bold text-lg pb-3">Recent Transactions</h2>
+        <div className="h-[calc(100svh-550px)] overflow-y-auto space-y-3 pb-[70px]">
+          <TransactionItem
+            type="expense"
+            category="Transport"
+            note="Uber"
+            amount={45.0}
+            date="14:32"
+          />
+          <TransactionItem
+            type="income"
+            category="Salary"
+            note="Monthly Salary"
+            amount={3000.0}
+            date="09:00"
+          />
+          <TransactionItem
+            type="expense"
+            category="Dining"
+            note="Restaurant"
+            amount={75.5}
+            date="19:20"
+          />
+          <TransactionItem
+            type="expense"
+            category="Groceries"
+            note="Supermarket"
+            amount={120.25}
+            date="16:45"
+          />
+          <TransactionItem
+            type="expense"
+            category="Dining"
+            note="Restaurant"
+            amount={75.5}
+            date="19:20"
+          />
+          <TransactionItem
+            type="expense"
+            category="Groceries"
+            note="Supermarket"
+            amount={120.25}
+            date="16:45"
+          />
+          <TransactionItem
+            type="expense"
+            category="Dining"
+            note="Restaurant"
+            amount={75.5}
+            date="19:20"
+          />
+          <TransactionItem
+            type="expense"
+            category="Groceries"
+            note="Supermarket"
+            amount={120.25}
+            date="16:45"
+          />
+          <TransactionItem
+            type="expense"
+            category="Dining"
+            note="Restaurant"
+            amount={75.5}
+            date="19:20"
+          />
+          <TransactionItem
+            type="expense"
+            category="Groceries"
+            note="Supermarket"
+            amount={120.25}
+            date="16:45"
+          />
+        </div>
       </section>
     </main>
   );

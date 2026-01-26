@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontalIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -9,7 +9,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 
@@ -21,7 +20,7 @@ export default function FilterMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon-sm">
-          <SlidersHorizontal />
+          <SlidersHorizontalIcon />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>

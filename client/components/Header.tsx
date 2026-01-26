@@ -7,13 +7,19 @@ type HeaderProps = {
   homeBtn?: boolean;
 };
 
-export default function Header({ title, children, homeBtn = false }: HeaderProps) {
+export default function Header({
+  title,
+  children,
+  homeBtn = false,
+}: HeaderProps) {
   return (
-    <header className="sticky top-0 flex items-center justify-between flex-wrap p-3">
-      <div className="flex items-center gap-2">
-        {homeBtn && <Link href="/" ><Home className="size-4" /></Link>}
-        <h2 className="font-bold tracking-wide text-lg">{title}</h2>
-      </div>
+    <header className="sticky top-0 flex items-center justify-between flex-wrap py-1.5 p-3">
+      {homeBtn && (
+        <Link href="/">
+          <Home className="size-4" />
+        </Link>
+      )}
+      <h2 className="font-bold tracking-wide text-lg">{title}</h2>
       {children}
     </header>
   );
