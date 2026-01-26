@@ -64,7 +64,7 @@ export default function TransactionInput({
             <DrawerHeader className="hidden">
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <div className="p-1.5 pb-3">
+            <div className="p-1.5 pb-3 overflow-y-auto max-h-[calc(95svh-2rem)]">
               <DrawerClose asChild>
                 <Calendar
                   mode="single"
