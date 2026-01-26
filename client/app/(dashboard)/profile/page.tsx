@@ -1,3 +1,4 @@
+import BackBtn from "@/components/BackBtn";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
@@ -18,12 +19,13 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SquarePenIcon } from "lucide-react";
-import Link from "next/link";
 
 export default function ProfilePage() {
   return (
     <main className="flex flex-col h-dvh">
-      <Header title="Profile" homeBtn={true} />
+      <Header title="Profile" homeBtn={true}>
+        <BackBtn />
+      </Header>
       <section className="px-3 space-y-3 mt-5">
         <form action="">
           <FieldSet>

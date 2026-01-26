@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,11 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  SettingsIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronDownIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import {
   Command,
@@ -53,7 +49,7 @@ export default function BudgetPage() {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("Jan 2026");
   return (
-    <main className="flex flex-col h-dvh">
+    <Fragment>
       <Header homeBtn={true} title="Savings Goals">
         <Link href="/budget/setup">
           <Button variant="link" size="icon-sm">
@@ -61,7 +57,7 @@ export default function BudgetPage() {
           </Button>
         </Link>
       </Header>
-      <section className="p-2 pt-0">
+      <section className="p-3">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -101,12 +97,12 @@ export default function BudgetPage() {
           </PopoverContent>
         </Popover>
       </section>
-      <section className="p-2 font-medium">
+      <section className="p-3 font-medium">
         <h2 className="text-input font-bold uppercase tracking-wide">
           Monthly Budget
         </h2>
         <h3 className="text-5xl font-bold">$2,483.39</h3>
-        <div className="flex flex-wrap items-center justify-between gap-1 mt-3">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 mt-3">
           <div>
             <span className="text-input">Spent</span>
             <h4 className="font-bold text-2xl">$2100.00</h4>
@@ -120,11 +116,21 @@ export default function BudgetPage() {
           <span>15 days remaining</span>
         </div>
       </section>
-      <section className="space-y-4 h-[calc(100%-276px)] overflow-y-auto">
-        <div className="space-y-2 px-2">
+      <section className="space-y-3 p-3 h-[calc(100%-320px)] overflow-y-auto">
           <BudgetItem />
-        </div>
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
+          <BudgetItem />
       </section>
-    </main>
+    </Fragment>
   );
 }

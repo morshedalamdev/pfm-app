@@ -1,5 +1,7 @@
 "use client";
 
+import { Fragment } from "react";
+import BackBtn from "@/components/BackBtn";
 import Header from "@/components/Header";
 import TransactionInput from "@/components/inputs/TransactionInput";
 import { Button } from "@/components/ui/button";
@@ -11,30 +13,21 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { DollarSign, Phone, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { DollarSignIcon } from "lucide-react";
 
 export default function CreateSavingsPage() {
-  const router = useRouter();
   return (
-    <main className="flex flex-col h-dvh">
+    <Fragment>
       <Header homeBtn={true} title="Add New Goal">
-        <Button
-          variant="link"
-          size="icon-sm"
-          className="x-icon-bg"
-          onClick={router.back}
-        >
-          <X className="size-3" />
-        </Button>
+        <BackBtn />
       </Header>
-      <section className="px-3 pt-9">
+      <section className="px-3 pt-6">
         <form action="">
           <FieldSet>
             <InputGroup className="border-0 border-b rounded-none h-12">
               <InputGroupAddon>
                 <InputGroupText>
-                  <DollarSign />
+                  <DollarSignIcon />
                 </InputGroupText>
               </InputGroupAddon>
               <InputGroupInput
@@ -88,6 +81,6 @@ export default function CreateSavingsPage() {
           </FieldSet>
         </form>
       </section>
-    </main>
+    </Fragment>
   );
 }

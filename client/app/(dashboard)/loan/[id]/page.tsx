@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Header from "@/components/Header";
 import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
 import {
@@ -9,34 +10,26 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { DollarSign, Phone, User, X } from "lucide-react";
+import { DollarSignIcon, PhoneIcon, UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TransactionInput from "@/components/inputs/TransactionInput";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import BackBtn from "@/components/BackBtn";
 
 export default function CreateLoanPage() {
   const [active, setActive] = useState<"lent" | "borrowed">("lent");
-  const router = useRouter();
 
   return (
-    <main className="flex flex-col h-dvh">
+    <Fragment>
       <Header homeBtn={true} title="Add New Loan">
-        <Button
-          variant="link"
-          size="icon-sm"
-          className="x-icon-bg"
-          onClick={router.back}
-        >
-          <X className="size-3" />
-        </Button>
+        <BackBtn />
       </Header>
-      <section className="px-3 pt-9">
+      <section className="px-3 pt-6">
         <form action="">
-          <InputGroup className="border-0 border-b rounded-none h-12 mb-5">
+          <InputGroup className="border-0 border-b rounded-none h-12 mb-6">
             <InputGroupAddon>
               <InputGroupText>
-                <DollarSign />
+                <DollarSignIcon />
               </InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
@@ -46,16 +39,34 @@ export default function CreateLoanPage() {
             />
           </InputGroup>
           <div className="bg-secondary text-primary inline-flex h-8 p-1 w-full items-center rounded-full mb-3">
-            <Button onClick={()=>setActive("lent")} type="button" variant={active == "lent" ? "default" : "ghost"} className="w-1/2 rounded-full h-6">Lent</Button>
-            <Button onClick={()=>setActive("borrowed")} type="button" variant={active == "borrowed" ? "default" : "ghost"} className="w-1/2 rounded-full h-6">Borrowed</Button>
+            <Button
+              onClick={() => setActive("lent")}
+              type="button"
+              variant={active == "lent" ? "default" : "ghost"}
+              className="w-1/2 rounded-full h-6"
+            >
+              Lent
+            </Button>
+            <Button
+              onClick={() => setActive("borrowed")}
+              type="button"
+              variant={active == "borrowed" ? "default" : "ghost"}
+              className="w-1/2 rounded-full h-6"
+            >
+              Borrowed
+            </Button>
           </div>
           <FieldSet>
             <FieldGroup>
               <Field>
                 <InputGroup>
-                  <InputGroupInput placeholder={active === "lent" ? "Lent to..." : "Borrowed from..."} />
+                  <InputGroupInput
+                    placeholder={
+                      active === "lent" ? "Lent to..." : "Borrowed from..."
+                    }
+                  />
                   <InputGroupAddon className="text-white">
-                    <User />
+                    <UserIcon />
                   </InputGroupAddon>
                 </InputGroup>
                 <FieldError />
@@ -64,7 +75,7 @@ export default function CreateLoanPage() {
                 <InputGroup>
                   <InputGroupInput placeholder="Optional" />
                   <InputGroupAddon className="text-white">
-                    <Phone className="size-3.5" />
+                    <PhoneIcon className="size-3.5" />
                   </InputGroupAddon>
                 </InputGroup>
                 <FieldError />
@@ -93,12 +104,14 @@ export default function CreateLoanPage() {
                 <FieldError />
               </Field>
               <Field>
-                <Button type="submit">{active === "lent" ? "Add Lent" : "Add Borrowed"}</Button>
+                <Button type="submit">
+                  {active === "lent" ? "Add Lent" : "Add Borrowed"}
+                </Button>
               </Field>
             </FieldGroup>
           </FieldSet>
         </form>
       </section>
-    </main>
+    </Fragment>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import {
   Drawer,
   DrawerClose,
@@ -40,7 +40,7 @@ export default function TransactionInput({
             <DrawerHeader>
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <div className="p-1 pb-3">
+            <div className="p-1.5 pb-3">
               <InputGroup className="border-input/15">
                 <InputGroupTextarea placeholder="Type here.." />
               </InputGroup>
@@ -53,7 +53,7 @@ export default function TransactionInput({
             <DrawerHeader>
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <div className="p-1">
+            <div className="p-1.5 pb-3">
               <Input type="number" />
             </div>
           </Fragment>
@@ -64,7 +64,7 @@ export default function TransactionInput({
             <DrawerHeader className="hidden">
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <div className="pb-2">
+            <div className="p-1.5 pb-3">
               <DrawerClose asChild>
                 <Calendar
                   mode="single"
@@ -84,7 +84,7 @@ export default function TransactionInput({
             <DrawerHeader className="border-b border-input/15">
               <DrawerTitle>{label}?</DrawerTitle>
             </DrawerHeader>
-            <ul className="text-black p-1">
+            <ul className="text-black p-1.5">
               <li>
                 <DrawerClose asChild>
                   <Button
@@ -116,7 +116,7 @@ export default function TransactionInput({
             <DrawerHeader className="border-b border-input/15">
               <DrawerTitle>Select {label}</DrawerTitle>
             </DrawerHeader>
-            <ul className="text-black p-1">
+            <ul className="text-black p-1.5">
               {list.map((item) => (
                 <li key={item}>
                   <DrawerClose asChild>
@@ -139,7 +139,7 @@ export default function TransactionInput({
             <DrawerHeader>
               <DrawerTitle>{label}</DrawerTitle>
             </DrawerHeader>
-            <div className="p-1 pb-3">
+            <div className="p-1.5 pb-3">
               <Input placeholder="Type here..." className="border-input/15" />
             </div>
           </Fragment>
@@ -154,9 +154,9 @@ export default function TransactionInput({
           <p className={`font-bold ${error ? " text-destructive" : ""}`}>
             {label}
           </p>
-          <p className="flex items-center gap-1 font-semibold text-muted-foreground">
+          <p className="flex items-center gap-1.5 font-semibold text-muted-foreground">
             <span>{value && value.toString()}</span>
-            <ChevronRight className="size-4" />
+            <ChevronRightIcon className="size-4" />
           </p>
         </div>
       </DrawerTrigger>

@@ -1,5 +1,6 @@
 "use client";
 
+import BackBtn from "@/components/BackBtn";
 import Header from "@/components/Header";
 import BudgetInput from "@/components/inputs/BudgetInput";
 import { Button } from "@/components/ui/button";
@@ -26,19 +27,16 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  BriefcaseBusinessIcon,
   CarFrontIcon,
-  DollarSign,
+  DollarSignIcon,
   HeartIcon,
   HouseIcon,
   PiggyBankIcon,
   ShoppingBagIcon,
   UtensilsCrossedIcon,
-  XIcon,
   ZapIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 const EXPENSE_CATEGORY = [
   "Groceries",
@@ -59,21 +57,13 @@ const EXPENSE_CATEGORY = [
 ];
 export default function SetupBudgetPage() {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
   return (
-    <main className="flex flex-col h-dvh">
+    <Fragment>
       <Header homeBtn={true} title="Budget Setup">
-        <Button
-          variant="link"
-          size="icon-sm"
-          className="x-icon-bg"
-          onClick={router.back}
-        >
-          <XIcon className="size-3" />
-        </Button>
+        <BackBtn />
       </Header>
-      <section className="p-3 mt-6">
-        <Field className="mb-5">
+      <section className="p-3 pt-6">
+        <Field className="mb-6">
           <FieldLabel>Monthly Income</FieldLabel>
           <FieldDescription>
             Include all sources of monthly income (after taxes)
@@ -81,7 +71,7 @@ export default function SetupBudgetPage() {
           <InputGroup className="border-0 border-b rounded-none h-12">
             <InputGroupAddon>
               <InputGroupText>
-                <DollarSign />
+                <DollarSignIcon />
               </InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
@@ -105,7 +95,7 @@ export default function SetupBudgetPage() {
                       Allocate Budget for Each Category
                     </FieldLegend>
                     <div className="bg-secondary/60 p-3 rounded-lg">
-                      <div className="flex flex-wrap justify-between gap-2 mb-2">
+                      <div className="flex flex-wrap justify-between gap-3 mb-1.5">
                         <div>
                           <span className="text-input">Total</span>
                           <h4 className="font-bold text-xl">$2100.00</h4>
@@ -121,7 +111,7 @@ export default function SetupBudgetPage() {
                           </h4>
                         </div>
                       </div>
-                      <Progress value={40} className="h-2 mb-1" />
+                      <Progress value={40} className="h-2 mb-0.5" />
                       <div className="flex items-center justify-between">
                         <span className="text-input">60% allocated</span>
                         <span className="text-input">Savings 10%</span>
@@ -221,7 +211,7 @@ export default function SetupBudgetPage() {
                       Allocate Budget for Each Category
                     </FieldLegend>
                     <div className="bg-secondary/60 p-3 rounded-lg">
-                      <div className="flex flex-wrap justify-between gap-2 mb-2">
+                      <div className="flex flex-wrap justify-between gap-3 mb-1.5">
                         <div>
                           <span className="text-input">Total</span>
                           <h4 className="font-bold text-xl">$2100.00</h4>
@@ -237,7 +227,7 @@ export default function SetupBudgetPage() {
                           </h4>
                         </div>
                       </div>
-                      <Progress value={40} className="h-2 mb-1" />
+                      <Progress value={40} className="h-2 mb-0.5" />
                       <div className="flex items-center justify-between">
                         <span className="text-input">60% allocated</span>
                         <span className="text-input">Savings 10%</span>
@@ -280,6 +270,6 @@ export default function SetupBudgetPage() {
           </TabsContent>
         </Tabs>
       </section>
-    </main>
+    </Fragment>
   );
 }

@@ -35,19 +35,17 @@ export default function LoanPage() {
         </InputGroup>
         <FilterLoan />
       </section>
-      <section className="h-[calc(100%-194px)] overflow-y-auto p-3 pb-[70px]">
-        <div className="space-y-3">
-          <LoanItem type="lent" />
-          <LoanItem type="borrowed" />
-          <LoanItem type="lent" />
-          <LoanItem type="borrowed" />
-          <LoanItem type="lent" />
-          <LoanItem type="borrowed" />
-          <LoanItem type="lent" />
-          <LoanItem type="borrowed" />
-          <LoanItem type="lent" />
-          <LoanItem type="borrowed" />
-        </div>
+      <section className="h-[calc(100%-194px)] space-y-3 overflow-y-auto p-3 pb-[70px]">
+        <LoanItem type="lent" />
+        <LoanItem type="borrowed" />
+        <LoanItem type="lent" />
+        <LoanItem type="borrowed" />
+        <LoanItem type="lent" />
+        <LoanItem type="borrowed" />
+        <LoanItem type="lent" />
+        <LoanItem type="borrowed" />
+        <LoanItem type="lent" />
+        <LoanItem type="borrowed" />
       </section>
     </Fragment>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Header from "@/components/Header";
 import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
 import {
@@ -9,11 +10,11 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { DollarSign, X } from "lucide-react";
+import { DollarSignIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import TransactionInput from "@/components/inputs/TransactionInput";
-import { useRouter } from "next/navigation";
+import BackBtn from "@/components/BackBtn";
 
 const EXPENSE_CATEGORY = [
   "Groceries",
@@ -41,28 +42,20 @@ const INCOME_SOURCE = [
   "Bonuses",
   "Other",
 ];
-const RECURRENCE_OPTIONS = [
-  "Daily",
-  "Weekly",
-  "Monthly",
-  "Yearly",
-];
+const RECURRENCE_OPTIONS = ["Daily", "Weekly", "Monthly", "Yearly"];
 
 export default function CreateTransactionPage() {
-  const router = useRouter();
   return (
-    <main className="flex flex-col h-dvh">
+    <Fragment>
       <Header homeBtn={true} title="Add New Transaction">
-        <Button variant="link" size="icon-sm" className="x-icon-bg" onClick={router.back}>
-          <X className="size-3" />
-        </Button>
+        <BackBtn />
       </Header>
-      <section className="px-3 pt-9">
+      <section className="px-3 pt-6">
         <form action="">
-          <InputGroup className="border-0 border-b rounded-none h-12 mb-5">
+          <InputGroup className="border-0 border-b rounded-none h-12 mb-6">
             <InputGroupAddon>
               <InputGroupText>
-                <DollarSign />
+                <DollarSignIcon />
               </InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
@@ -103,7 +96,11 @@ export default function CreateTransactionPage() {
                     <FieldError />
                   </Field>
                   <Field>
-                    <TransactionInput type="select" label="Recurring Every" list={RECURRENCE_OPTIONS} />
+                    <TransactionInput
+                      type="select"
+                      label="Recurring Every"
+                      list={RECURRENCE_OPTIONS}
+                    />
                     <FieldError />
                   </Field>
                   <Field>
@@ -147,7 +144,11 @@ export default function CreateTransactionPage() {
                     <FieldError />
                   </Field>
                   <Field>
-                    <TransactionInput type="select" label="Recurring Every" list={RECURRENCE_OPTIONS} />
+                    <TransactionInput
+                      type="select"
+                      label="Recurring Every"
+                      list={RECURRENCE_OPTIONS}
+                    />
                     <FieldError />
                   </Field>
                   <Field>
@@ -174,6 +175,6 @@ export default function CreateTransactionPage() {
           </Tabs>
         </form>
       </section>
-    </main>
+    </Fragment>
   );
 }
