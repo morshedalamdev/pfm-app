@@ -72,7 +72,7 @@ export default function TransactionInput({
                   onSelect={(date) => {
                     onChange(date);
                   }}
-                  className="w-full text-black"
+                  className="max-w-md max-h-[448px] w-full mx-auto text-black"
                 />
               </DrawerClose>
             </div>
