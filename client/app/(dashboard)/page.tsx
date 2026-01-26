@@ -1,10 +1,11 @@
+import { Fragment } from "react";
 import HeaderItem from "@/components/items/HeaderItem";
 import { RootChart } from "@/components/charts/RootChart";
 import TransactionItem from "@/components/items/TransactionItem";
 
 export default function HomePage() {
   return (
-    <main className="flex flex-col overflow-y-auto">
+    <Fragment>
       <section className="text-center mt-9 mb-3">
         <h2 className="text-input font-bold uppercase tracking-wide">
           available balance
@@ -18,9 +19,9 @@ export default function HomePage() {
       <section>
         <RootChart />
       </section>
-      <section className="px-3">
+      <section className="px-3 pb-[70px]">
         <h2 className="font-bold text-lg pb-3">Recent Transactions</h2>
-        <div className="h-[calc(100svh-550px)] overflow-y-auto space-y-3 pb-[70px]">
+        <div className="space-y-3">
           <TransactionItem
             type="expense"
             category="Transport"
@@ -63,36 +64,8 @@ export default function HomePage() {
             amount={120.25}
             date="16:45"
           />
-          <TransactionItem
-            type="expense"
-            category="Dining"
-            note="Restaurant"
-            amount={75.5}
-            date="19:20"
-          />
-          <TransactionItem
-            type="expense"
-            category="Groceries"
-            note="Supermarket"
-            amount={120.25}
-            date="16:45"
-          />
-          <TransactionItem
-            type="expense"
-            category="Dining"
-            note="Restaurant"
-            amount={75.5}
-            date="19:20"
-          />
-          <TransactionItem
-            type="expense"
-            category="Groceries"
-            note="Supermarket"
-            amount={120.25}
-            date="16:45"
-          />
         </div>
       </section>
-    </main>
+    </Fragment>
   );
 }

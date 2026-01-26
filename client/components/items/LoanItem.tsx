@@ -29,7 +29,7 @@ export default function LoanItem({ type }: { type?: "lent" | "borrowed" }) {
             <Button variant="secondary" size="icon">
               {type === "lent" ? <HandCoins /> : <Coins />}
             </Button>
-            <div className="flex-1 px-2">
+            <div className="flex-1 px-1.5">
               <h3 className="font-bold text-base line-clamp-1">Mike Johnson</h3>
               <h5 className="text-input line-clamp-1">
                 {type === "lent" ? "Owns you" : "You owe"}
@@ -40,7 +40,7 @@ export default function LoanItem({ type }: { type?: "lent" | "borrowed" }) {
               <h6 className="text-input">of $2000.00</h6>
             </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <p>40% repaid</p>
             <Progress value={40} />
           </div>
@@ -67,7 +67,7 @@ export default function LoanItem({ type }: { type?: "lent" | "borrowed" }) {
             <span className="text-secondary/80">Feb 15</span>
           </div>
           <p>Owns you</p>
-          <div className="flex items-center justify-between my-2">
+          <div className="flex items-center justify-between my-1.5">
             <p className="font-bold text-3xl">$250.00</p>
             <p>of $2000.00</p>
           </div>

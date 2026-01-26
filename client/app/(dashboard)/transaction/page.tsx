@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import DateFilter from "@/components/filters/DateFilter";
 import FilterMenu from "@/components/filters/FilterMenu";
 import Header from "@/components/Header";
@@ -8,30 +9,30 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Plus, Search } from "lucide-react";
+import { PlusIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function TransactionPage() {
   return (
-    <main className="flex flex-col h-svh">
+    <Fragment>
       <Header title="Transaction" homeBtn>
         <Link href="/transaction/create">
           <Button variant="link" size="icon-sm">
-            <Plus />
+            <PlusIcon />
           </Button>
         </Link>
       </Header>
-      <section className="flex items-center justify-between gap-1.5 h-[58px] p-3">
+      <section className="flex items-center justify-between gap-1.5 p-3">
         <InputGroup className="mr-1.5">
           <InputGroupInput placeholder="Search..." />
           <InputGroupAddon>
-            <Search className="size-3.5" />
+            <SearchIcon className="size-3.5" />
           </InputGroupAddon>
         </InputGroup>
         <FilterMenu />
         <DateFilter />
       </section>
-      <section className="space-y-3 h-[calc(100%-103px)] pb-[70px] overflow-y-auto">
+      <section className="space-y-3 h-[calc(100%-112px)] pb-[70px] overflow-y-auto">
         <div className="space-y-1.5">
           <div className="sticky top-0 backdrop-blur-lg flex items-center justify-between border-b border-border p-1.5">
             <h3 className="font-bold">31 May</h3>
@@ -177,6 +178,6 @@ export default function TransactionPage() {
           </div>
         </div>
       </section>
-    </main>
+    </Fragment>
   );
 }

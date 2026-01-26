@@ -1,4 +1,5 @@
-import FilterMenu from "@/components/filters/FilterMenu";
+import { Fragment } from "react";
+import FilterLoan from "@/components/filters/FilterLoan";
 import Header from "@/components/Header";
 import HeaderItem from "@/components/items/HeaderItem";
 import LoanItem from "@/components/items/LoanItem";
@@ -8,38 +9,46 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Plus, Search } from "lucide-react";
+import { PlusIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function LoanPage() {
   return (
-    <main className="flex flex-col h-dvh">
+    <Fragment>
       <Header title="Loan & Debt">
         <Link href="/loan/create">
           <Button variant="link" size="icon-sm">
-            <Plus />
+            <PlusIcon />
           </Button>
         </Link>
       </Header>
-      <section className="grid grid-cols-2 gap-2 p-2">
+      <section className="grid grid-cols-2 gap-3 p-3 pb-0">
         <HeaderItem title="Lent Out" amount="$12,500" />
         <HeaderItem title="Borrowed" amount="$3,200" />
       </section>
-      <section className="flex items-center justify-between gap-1 h-[58px] p-2">
-        <InputGroup className="mr-2">
+      <section className="flex items-center justify-between gap-1.5 p-3">
+        <InputGroup className="mr-1.5">
           <InputGroupInput placeholder="Search..." />
           <InputGroupAddon>
-            <Search className="size-3.5" />
+            <SearchIcon className="size-3.5" />
           </InputGroupAddon>
         </InputGroup>
-        <FilterMenu />
+        <FilterLoan />
       </section>
-      <section className="space-y-4 h-[calc(100%-194px)] pb-[70px] overflow-y-auto mt-2">
-        <div className="space-y-2 px-2">
+      <section className="h-[calc(100%-194px)] overflow-y-auto p-3 pb-[70px]">
+        <div className="space-y-3">
+          <LoanItem type="lent" />
+          <LoanItem type="borrowed" />
+          <LoanItem type="lent" />
+          <LoanItem type="borrowed" />
+          <LoanItem type="lent" />
+          <LoanItem type="borrowed" />
+          <LoanItem type="lent" />
+          <LoanItem type="borrowed" />
           <LoanItem type="lent" />
           <LoanItem type="borrowed" />
         </div>
       </section>
-    </main>
+    </Fragment>
   );
 }

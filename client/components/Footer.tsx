@@ -75,7 +75,7 @@ export default function Footer() {
                 </div>
                 <p className="text-input">test@example.com</p>
               </div>
-              <div className="flex flex-col h-[calc(100svh-236px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-3 py-3 overflow-y-auto">
+              <div className="relative h-[calc(100svh-236px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-3 pt-3 pb-[68px] overflow-y-auto">
                 <p className="text-xs font-black tracking-wide text-input uppercase">
                   Board
                 </p>
@@ -163,8 +163,8 @@ export default function Footer() {
                   <Trash2Icon />
                   Delete Account
                 </Button>
-                <div className="mt-auto">
-                  <Button variant="destructive" className="mt-3">
+                <div className="absolute bottom-0 left-0 w-full p-3">
+                  <Button variant="destructive">
                     Logout
                   </Button>
                 </div>

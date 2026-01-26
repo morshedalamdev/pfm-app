@@ -13,7 +13,7 @@ export default function Header({
   homeBtn = false,
 }: HeaderProps) {
   return (
-    <header className="sticky top-0 flex items-center justify-between flex-wrap py-1.5 p-3">
+    <header className="flex items-center justify-between flex-wrap py-1.5 p-3">
       {homeBtn && (
         <Link href="/">
           <Home className="size-4" />
