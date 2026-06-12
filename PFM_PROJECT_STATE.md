@@ -1,88 +1,50 @@
 # PFM_PROJECT_STATE.md — Persistent Project Memory
 
-> Every Codex milestone agent must read this file before inspecting or modifying code. Update it at the end of each completed milestone. Do not delete historical progress entries.
+> Every Codex phase must read this file before inspecting or modifying code. Update this file after each completed phase. Preserve historical entries.
 
 ## 1. Project identity
 
 - Repository: `https://github.com/morshedalamdev/pfm-app`
 - Live frontend: `https://pfm.morshedalam.dev`
-- Product: personal finance tracker for income, expenses, savings, budgets, reports, recurring transactions, receipts, and notifications.
-- Current user instruction: preserve the completed Next.js UI, replace the backend with Python FastAPI, connect the UI to responsive server data after the backend milestones, and work milestone-by-milestone with permission gates.
+- Product: personal finance tracker for income, expenses, transfers, savings, budgets, reports, recurring transactions, receipts, and notifications.
+- Goal: replace the existing Node backend scaffold with Python FastAPI, preserve the completed Next.js UI, then connect the UI to responsive PostgreSQL-backed server data.
+- Execution strategy: one milestone branch at a time; one narrowly scoped Codex execution per phase; explicit user permission before the next phase.
 
-## 2. Confirmed repository observations
+## 2. Repository observations verified in milestone 00
 
-Verified during milestone 00 against the local clone on 2026-06-12.
-
-- Current branch for milestone 00: `discovery-architecture`.
-- The local `main` branch was behind `origin/main` by 1 commit before branch creation.
-- Root project files include `.gitignore`, `.gitattributes`, `README.md`, `AGENTS.md`, `PFM_PROJECT_STATE.md`, `agents/`, `client/`, and milestone-created `docs/architecture/`.
-- The worktree already had uncommitted changes before milestone 00 work began: `README.md` modified, tracked `server/` scaffold files deleted, and `AGENTS.md`, `PFM_PROJECT_STATE.md`, and `agents/` untracked.
-- The current worktree has no `server/` directory. Tracked `HEAD` only had `server/package.json`, `server/package-lock.json`, `server/tsconfig.json`, and an empty `server/server.ts`; no meaningful backend implementation needs to be preserved.
-- The client is a Next.js App Router application using React, TypeScript, Tailwind CSS v4, Radix/shadcn-style UI primitives, Recharts, Lucide React, date-fns, Axios, Zod, and Zustand dependencies. No active API helper, Axios call, generated client, or Zustand store was found.
-- The frontend currently renders placeholder finance values, charts, profile data, transaction examples, savings goals, budget rows, and loan/debt examples.
-- `client/next.config.ts` sets `typescript.ignoreBuildErrors: true`, so `npm run build` does not currently enforce TypeScript validation.
-- No `.env`, `.env.example`, frontend test config, or frontend test/spec files were found in the worktree.
-- Ignored local artifacts observed: `.DS_Store`, `client/.next/`, and generated `client/next-env.d.ts`.
-- PostgreSQL is expected in the user's local environment per the project instruction, but milestone 00 did not require database access.
-
-### Verified Repository Tree Summary
-
-```text
-.
-├── AGENTS.md
-├── PFM_PROJECT_STATE.md
-├── README.md
-├── agents/
-│   ├── 00_DISCOVERY_ARCHITECTURE.md
-│   └── 01-10 milestone agent files
-├── client/
-│   ├── app/
-│   │   ├── auth/
-│   │   └── (dashboard)/
-│   ├── assets/
-│   ├── components/
-│   │   ├── charts/
-│   │   ├── filters/
-│   │   ├── inputs/
-│   │   ├── items/
-│   │   └── ui/
-│   ├── fonts/
-│   ├── lib/
-│   ├── package.json
-│   └── package-lock.json
-└── docs/
-    └── architecture/
-        ├── SYSTEM_DESIGN.md
-        └── UI_API_MATRIX.md
-```
-
-The tracked Node server scaffold is intentionally absent from the current worktree and should be replaced in milestone 01 rather than restored.
+- Phase 00.1 verified that the local clone currently has `client/` but no `server/` directory. There is no backend scaffold or backend behavior to preserve in code.
+- The frontend source is a Next.js App Router application with placeholder finance values and local component state.
+- The client package uses Next.js 16.1.1, TypeScript, React 19, Tailwind CSS 4, Zod, Axios, date-fns, Lucide React, Recharts, and Radix-style UI dependencies.
+- `client/package.json` metadata still has stale `express` / `typescript` keywords even though the current package is frontend-only.
+- Root `README.md` currently documents the phased Codex milestone pack rather than normal application setup or runtime documentation.
+- No committed `.env.example`, Docker, Compose, Vercel, CI, Python, Alembic, or backend test configuration exists yet.
+- PostgreSQL availability in the user's terminal environment was not exercised in phase 00.1 because no backend or migration commands exist yet.
 
 ## 3. Locked architecture decisions
 
-Only change a locked decision after documenting the reason in the Architecture Decision Log.
+Only change a locked decision after recording the reason in the Architecture Decision Log.
 
-| Area                 | Locked decision                                                                              | Reason                                                                                            |
-| -------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Overall backend      | FastAPI modular monolith                                                                     | Appropriate for one product and one codebase; avoids premature distributed-system overhead.       |
-| API style            | Versioned REST API under `/api/v1`                                                           | Clear fit for CRUD, filtering, reports, generated OpenAPI docs, and frontend integration.         |
-| API contract         | FastAPI OpenAPI schema generates TypeScript client types or SDK                              | Prevents frontend/backend drift.                                                                  |
-| Database             | PostgreSQL                                                                                   | Already available locally and appropriate for transactional financial data and analytics queries. |
-| ORM                  | SQLAlchemy 2 async                                                                           | Explicit, mature, and useful for learning production Python data access.                          |
-| Migrations           | Alembic                                                                                      | Schema changes must be reproducible and reviewable.                                               |
-| Configuration        | `pydantic-settings` with environment variables and `.env.example`                            | Typed configuration without committed secrets.                                                    |
-| Money representation | PostgreSQL `NUMERIC`, Python `Decimal`, serialized decimal strings where needed              | Prevents floating-point rounding errors.                                                          |
-| Authentication       | Local email/password, Argon2 hashing, short-lived access JWT, rotated refresh sessions       | Secure default without requiring third-party identity services.                                   |
-| Backend modules      | Domain-oriented modules under `server/app/modules/`                                          | Keeps a modular monolith maintainable.                                                            |
-| Background work      | Separate worker process with PostgreSQL-backed coordination and idempotency                  | Keeps durable scheduled work out of API request handlers without requiring Redis initially.       |
-| Real-time transport  | SSE for one-way notifications or data refresh hints                                          | Browser-native server push is sufficient; WebSockets are not justified by current requirements.   |
-| Uploads              | Storage adapter with local-development implementation and cloud implementation later         | Avoids blocking local work on external credentials.                                               |
-| Email                | Email adapter with console/local implementation and production provider implementation later | Avoids blocking development on SMTP or provider credentials.                                      |
-| Frontend integration | Preserve current UI; use generated API contract and a dedicated data-fetching layer          | Replace fixture data without redesigning screens.                                                 |
+| Area | Locked decision | Reason |
+|---|---|---|
+| Backend shape | FastAPI modular monolith | Suitable for one product, one team, and incremental learning without premature distributed-system complexity. |
+| API style | Versioned REST under `/api/v1` | Appropriate for CRUD, reports, filtering, generated documentation, and frontend integration. |
+| API contract | FastAPI OpenAPI schema generates TypeScript types or SDK | Prevents frontend/backend contract drift. |
+| Database | PostgreSQL | Appropriate for transactional finance data, constraints, and analytics queries. |
+| ORM | SQLAlchemy 2 async | Explicit production-oriented Python data access. |
+| Migrations | Alembic | Reviewable and reproducible schema evolution. |
+| Configuration | `pydantic-settings`, environment variables, committed `.env.example` only | Typed configuration without committed secrets. |
+| Money | PostgreSQL `NUMERIC`, Python `Decimal` | Prevents floating-point rounding defects. |
+| Auth | Email/password, Argon2, short-lived JWT access tokens, rotated refresh sessions | Secure local default without requiring a third-party identity provider. |
+| Modules | Domain-oriented modules under `server/app/modules/` | Maintainable modular monolith. |
+| Background work | Separate worker with PostgreSQL-backed coordination and idempotency | Keeps durable scheduled work out of requests without requiring Redis initially. |
+| Real-time | SSE only for one-way notifications and refresh hints | Browser-native server push is enough for current requirements. |
+| Uploads | Storage adapter with local implementation first | Development must not block on cloud credentials. |
+| Email | Email adapter with console/local implementation first | Development must not block on SMTP credentials. |
+| Frontend | Preserve the current UI; introduce a dedicated typed API layer | Replace fixtures without redesign. |
 
-## 4. Proposed server layout
+## 4. Proposed backend layout
 
-Milestone 01 may refine file names, but preserve the separation of concerns.
+Milestone 01 may refine file names while preserving separation of concerns.
 
 ```text
 server/
@@ -91,15 +53,13 @@ server/
 ├── .env.example
 ├── app/
 │   ├── main.py
-│   ├── api/
-│   │   └── v1/
-│   │       └── router.py
+│   ├── api/v1/router.py
 │   ├── core/
 │   │   ├── config.py
 │   │   ├── database.py
+│   │   ├── errors.py
 │   │   ├── logging.py
-│   │   ├── security.py
-│   │   └── errors.py
+│   │   └── security.py
 │   ├── modules/
 │   │   ├── auth/
 │   │   ├── users/
@@ -108,260 +68,157 @@ server/
 │   │   ├── transactions/
 │   │   ├── budgets/
 │   │   ├── savings/
-│   │   ├── loans/
 │   │   ├── reports/
 │   │   ├── recurring/
 │   │   ├── notifications/
 │   │   └── receipts/
-│   ├── workers/
-│   └── shared/
-├── migrations/
-└── tests/
+│   └── workers/
+├── tests/
+└── alembic/
 ```
 
-## 5. Proposed data model
+## 5. Phase status tracker
 
-Milestone 00 must compare this list against the real UI and record any changes before implementation.
+Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 
-| Entity                  | Purpose                                                | Important constraints                                                                                     |
-| ----------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `users`                 | Login identity and ownership root                      | Unique normalized email; hashed password only.                                                            |
-| `user_profiles`         | Editable profile fields visible in the UI              | Owned by user; display name, phone, occupation, about text, and avatar metadata.                          |
-| `refresh_sessions`      | Refresh-token rotation and revocation                  | Store token hash, expiry, revocation metadata, and device/session metadata where useful.                  |
-| `password_reset_tokens` | Password reset requests and verification codes         | Store only hashed tokens/codes; short expiry; single use.                                                 |
-| `accounts`              | Cash, bank, card, wallet, or savings containers        | Owned by user; currency recorded; archived instead of destructive deletion when referenced.               |
-| `categories`            | User-owned and default income/expense categories       | Type-aware; soft delete or archive when referenced.                                                       |
-| `transactions`          | Income, expense, and transfer records                  | Decimal amount; user ownership; account references; category rules; timestamps; optional idempotency key. |
-| `budgets`               | Category and period spending limits                    | Unique active combination by user/category/period as defined by product behavior.                         |
-| `savings_goals`         | Target amount and progress                             | Decimal target; target date optional; progress computed from contributions or linked rules.               |
-| `savings_contributions` | Explicit progress movements for goals                  | Decimal amount; linked user and goal; optional transaction link.                                          |
-| `loan_accounts`         | Lent and borrowed personal debt records visible in UI  | Decimal principal/current balance; counterparty name and optional phone; due dates; user-owned.           |
-| `loan_payments`         | Repayment movements against loan/debt records          | Decimal amount; linked loan and user; optional transaction link.                                          |
-| `recurring_rules`       | Schedules for repeat transactions                      | Time zone aware; next-run metadata; active flag; safe retry behavior.                                     |
-| `outbox_events`         | Durable events for worker and synchronization delivery | Idempotent consumption; status and retry metadata.                                                        |
-| `notifications`         | User-visible notification records                      | Read state; event source; delivery status.                                                                |
-| `receipts`              | File metadata linked to a transaction                  | Storage key, media type, size, checksum where useful; never store secrets in metadata.                    |
+| Milestone | Phase | Status | Local commit | Notes |
+|---|---|---|---|---|
+| 00 | 00.1 Repository audit | PASSED | phase commit created after this state update | Verified local repository inventory, missing server directory, frontend baseline checks, and stale documentation findings. |
+| 00 | 00.2 Frontend requirements map | NOT_STARTED | — | — |
+| 00 | 00.3 Architecture baseline | NOT_STARTED | — | — |
+| 00 | 00.4 Discovery verification | NOT_STARTED | — | — |
+| 01 | 01.1 Python server scaffold | NOT_STARTED | — | — |
+| 01 | 01.2 FastAPI app configuration | NOT_STARTED | — | — |
+| 01 | 01.3 PostgreSQL persistence | NOT_STARTED | — | — |
+| 01 | 01.4 Alembic and health checks | NOT_STARTED | — | — |
+| 01 | 01.V Foundation verification | NOT_STARTED | — | — |
+| 02 | 02.1 User and session models | NOT_STARTED | — | — |
+| 02 | 02.2 Registration and hashing | NOT_STARTED | — | — |
+| 02 | 02.3 Login and access token | NOT_STARTED | — | — |
+| 02 | 02.4 Refresh rotation and logout | NOT_STARTED | — | — |
+| 02 | 02.5 Auth edge-case tests | NOT_STARTED | — | — |
+| 02 | 02.V Auth verification | NOT_STARTED | — | — |
+| 03 | 03.1 Finance domain schema | NOT_STARTED | — | — |
+| 03 | 03.2 Accounts and categories | NOT_STARTED | — | — |
+| 03 | 03.3 Income and expenses | NOT_STARTED | — | — |
+| 03 | 03.4 Transfers and atomicity | NOT_STARTED | — | — |
+| 03 | 03.5 Filters, pagination, idempotency | NOT_STARTED | — | — |
+| 03 | 03.6 Finance tests | NOT_STARTED | — | — |
+| 03 | 03.V Finance verification | NOT_STARTED | — | — |
+| 04 | 04.1 Budget schema and rules | NOT_STARTED | — | — |
+| 04 | 04.2 Budget APIs and progress | NOT_STARTED | — | — |
+| 04 | 04.3 Savings goals and contributions | NOT_STARTED | — | — |
+| 04 | 04.4 Budget and savings tests | NOT_STARTED | — | — |
+| 04 | 04.V Budget and savings verification | NOT_STARTED | — | — |
+| 05 | 05.1 Report contracts | NOT_STARTED | — | — |
+| 05 | 05.2 Dashboard summaries | NOT_STARTED | — | — |
+| 05 | 05.3 Trends and breakdowns | NOT_STARTED | — | — |
+| 05 | 05.4 Query performance | NOT_STARTED | — | — |
+| 05 | 05.5 Analytics tests | NOT_STARTED | — | — |
+| 05 | 05.V Analytics verification | NOT_STARTED | — | — |
+| 06 | 06.1 Recurring and outbox schema | NOT_STARTED | — | — |
+| 06 | 06.2 Scheduling rules | NOT_STARTED | — | — |
+| 06 | 06.3 Worker process | NOT_STARTED | — | — |
+| 06 | 06.4 Retry and idempotency | NOT_STARTED | — | — |
+| 06 | 06.5 Worker tests | NOT_STARTED | — | — |
+| 06 | 06.V Worker verification | NOT_STARTED | — | — |
+| 07 | 07.1 Adapter contracts | NOT_STARTED | — | — |
+| 07 | 07.2 Receipt upload | NOT_STARTED | — | — |
+| 07 | 07.3 Notifications and email | NOT_STARTED | — | — |
+| 07 | 07.4 SSE events | NOT_STARTED | — | — |
+| 07 | 07.5 Integration tests | NOT_STARTED | — | — |
+| 07 | 07.V Integration verification | NOT_STARTED | — | — |
+| 08 | 08.1 Generated API contract | NOT_STARTED | — | — |
+| 08 | 08.2 Frontend API and auth layer | NOT_STARTED | — | — |
+| 08 | 08.3 Dashboard integration | NOT_STARTED | — | — |
+| 08 | 08.4 CRUD screen integration | NOT_STARTED | — | — |
+| 08 | 08.5 Loading and error states | NOT_STARTED | — | — |
+| 08 | 08.6 Responsive and E2E checks | NOT_STARTED | — | — |
+| 08 | 08.V Frontend verification | NOT_STARTED | — | — |
+| 09 | 09.1 Docker and Compose | NOT_STARTED | — | — |
+| 09 | 09.2 CI checks | NOT_STARTED | — | — |
+| 09 | 09.3 Deployment configuration | NOT_STARTED | — | — |
+| 09 | 09.4 README update | NOT_STARTED | — | — |
+| 09 | 09.5 Deployment smoke test | NOT_STARTED | — | — |
+| 09 | 09.V DevOps verification | NOT_STARTED | — | — |
+| 10 | 10.1 Backend audit | NOT_STARTED | — | — |
+| 10 | 10.2 Frontend audit | NOT_STARTED | — | — |
+| 10 | 10.3 Full test execution | NOT_STARTED | — | — |
+| 10 | 10.4 Defect repair | NOT_STARTED | — | — |
+| 10 | 10.V Final readiness verification | NOT_STARTED | — | — |
 
-## 6. API boundaries
+## 6. Architecture Decision Log
 
-Expected route groups. Milestone agents may refine exact endpoints while keeping the boundaries stable.
+Append only. Do not rewrite earlier records.
 
-```text
-/api/v1/health
-/api/v1/ready
-/api/v1/auth/*
-/api/v1/users/me
-/api/v1/accounts/*
-/api/v1/categories/*
-/api/v1/transactions/*
-/api/v1/budgets/*
-/api/v1/savings-goals/*
-/api/v1/loans/*
-/api/v1/reports/*
-/api/v1/recurring-rules/*
-/api/v1/notifications/*
-/api/v1/events/stream
-```
+| Date | Decision | Reason | Phase |
+|---|---|---|---|
+| 2026-06-12 | Use milestone files containing internal gated phases | Reduces context and token usage while preserving stable milestone branch boundaries. | Pack generation |
 
-### UI-to-Endpoint Baseline
+## 7. Verified repository inventory
 
-The exhaustive screen matrix is recorded in `docs/architecture/UI_API_MATRIX.md`. Summary route groups implied by the current UI:
+### Phase 00.1 repository audit
 
-| UI area | Current routes | Required API groups |
-| ------- | -------------- | ------------------- |
-| Auth | `/auth`, `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/recover-password` | `/api/v1/auth/*` |
-| Home dashboard | `/` | `/api/v1/reports/*`, `/api/v1/transactions/*` |
-| Analytics | `/analytics` | `/api/v1/reports/*`, `/api/v1/budgets/*`, `/api/v1/savings-goals/*` |
-| Transactions | `/transaction`, `/transaction/[id]` | `/api/v1/transactions/*`, `/api/v1/categories/*`, `/api/v1/recurring-rules/*` |
-| Budgets | `/budget`, `/budget/setup` | `/api/v1/budgets/*`, `/api/v1/categories/*` |
-| Savings | `/savings`, `/savings/[id]` | `/api/v1/savings-goals/*` |
-| Loans/debts | `/loan`, `/loan/[id]` | `/api/v1/loans/*` |
-| Profile/footer sheet | `/profile` plus footer profile sheet | `/api/v1/users/me`, `/api/v1/auth/logout` |
+- Branch and remote: active branch `discovery-architecture`; remote `origin` is `https://github.com/morshedalamdev/pfm-app.git`.
+- Worktree before phase edits was already dirty with modified `AGENTS.md`, `PFM_PROJECT_STATE.md`, and `README.md`; tracked `agents/*.md` files deleted; untracked `milestones/` directory present. These pre-existing changes were preserved.
+- Tracked top-level files include `.gitattributes`, `.gitignore`, `AGENTS.md`, `PFM_PROJECT_STATE.md`, `README.md`, `client/`, `docs/architecture/`, and legacy tracked `agents/` files that are currently deleted in the worktree.
+- Current filesystem top-level project areas include `client/`, `docs/architecture/`, and `milestones/`. No `server/` directory exists.
+- `.gitignore` excludes `node_modules`, `.next/`, `out/`, `build`, `coverage`, `.env*`, `.vercel`, TypeScript build info, logs, `.DS_Store`, and PEM files.
+- `client/` has 99 source/config/asset files when excluding `node_modules` and `.next`. It also contains ignored generated/dependency directories `client/node_modules/` and `client/.next/`.
+- Client routes contain 16 `page.tsx` files: dashboard root, analytics, budget, budget setup, loan list/detail, profile, savings list/detail, transaction list/detail, and auth entry/login/register/forgot/recover pages.
+- Client components contain 42 TSX files, including 25 shadcn/Radix-style files under `client/components/ui/`.
+- Client assets include local logos/icons, Urbanist font files under `client/fonts/`, and application images under `client/assets/`.
+- No repository-owned test files were found outside dependency packages.
+- No environment templates, deployment files, Docker files, Compose files, Python manifests, Alembic files, or CI workflow files were found.
+- Existing docs `docs/architecture/SYSTEM_DESIGN.md` and `docs/architecture/UI_API_MATRIX.md` are tracked in the repository history, but phase 00.1 did not validate or update their contents because that belongs to later milestone 00 phases.
 
-## 7. Frontend integration principles
+### Server replacement evidence
 
-- Do not redesign the current UI.
-- Inventory every screen and map each visible value, chart, form, filter, and action to an API operation.
-- Generate TypeScript contract code from FastAPI OpenAPI rather than manually duplicating response models.
-- Keep server state separate from UI state. Zustand may remain for UI/session-oriented state; server-backed data should use a query/cache layer chosen in milestone 08.
-- Use loading, empty, error, and retry states for every server-backed screen.
-- Preserve responsive behavior on mobile and desktop.
+- `find server -maxdepth 4 -type f` failed with `find: server: No such file or directory`.
+- Because there is no `server/` directory, there is no Node backend scaffold, Express/Prisma behavior, migrations, routes, models, or tests to preserve directly.
+- Milestone 01 can create the FastAPI backend from a clean `server/` path rather than replacing existing files. Any prior documentation that assumes a current Node backend scaffold is stale for this clone.
 
-### Screen Inventory
+## 8. UI-to-API matrix summary
 
-- `/`: balance, income/expense totals, root chart with week/month/year and income/expense toggle, recent transaction list.
-- `/analytics`: month picker, savings and income/expense summaries, savings/budget cards, income-vs-expense chart, spending-by-category chart, top expenses, monthly trends.
-- `/transaction`: search, type/duration/date filters, grouped transaction list, transaction detail drawer with edit/delete actions.
-- `/transaction/[id]`: generic create/edit transaction form for expense and income flows, categories/sources, date, recurring options, ignore-budget flag, and note.
-- `/budget`: month picker, monthly budget summary, spent/remaining/progress/days remaining, repeated budget category cards.
-- `/budget/setup`: monthly income, default/custom budget allocation forms, category allocation inputs, add-category popover.
-- `/savings`: total savings, active/complete/all filter, savings goal cards.
-- `/savings/[id]`: generic create/edit savings goal form with target amount, name, monthly saving, note, and target date.
-- Savings goal drawer: detail view, add-money contribution form, delete action.
-- `/loan`: lent/borrowed totals, search and type filter, loan/debt cards.
-- `/loan/[id]`: generic create/edit loan form with lent/borrowed switch, counterparty, phone, dates, amount, and note.
-- Loan drawer: loan/debt detail view with edit/delete actions.
-- `/profile`: avatar upload field, name, email, phone, occupation, about text.
-- Footer sheet: profile summary, navigation links, informational/support/preference actions, reset password, logout, delete account.
-- `/auth`: email-first entry plus social buttons.
-- `/auth/login`: email/password login.
-- `/auth/register`: name, occupation, phone, email, password, confirm password.
-- `/auth/forgot-password`: email reset request and 4-digit code form.
-- `/auth/recover-password`: new password and confirmation form.
+Milestone 00 must populate this section and maintain a detailed matrix in `docs/architecture/UI_API_MATRIX.md`.
 
-## 8. Environment variable inventory
+## 9. Implemented endpoints
 
-Milestones add only variables they use. Keep `.env.example` updated.
+Append endpoints as they are implemented.
 
-```dotenv
-APP_ENV=development
-APP_NAME=pfm-api
-API_V1_PREFIX=/api/v1
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/pfm_app
-TEST_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/pfm_app_test
-JWT_SECRET_KEY=replace-me
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-REFRESH_TOKEN_EXPIRE_DAYS=30
-CORS_ALLOWED_ORIGINS=http://localhost:3000
-STORAGE_BACKEND=local
-LOCAL_UPLOAD_DIR=.local/uploads
-EMAIL_BACKEND=console
-```
+## 10. Database migrations
 
-Cloud credentials must be added only when a production adapter is selected.
+Append migrations as they are created and verified.
 
-### Confirmed Local Development Commands
+## 11. Environment variables
 
-Current valid client commands:
+Append required variables with descriptions. Never store secret values.
 
-```bash
-cd client
-npm install
-npm run dev
-npm run build
-npm run start
-npm run lint --if-present
-npm run test --if-present
-```
+## 12. Test command registry
 
-Current server commands: none. The worktree has no `server/` directory, and the tracked Node scaffold had no meaningful implementation to run. Milestone 01 must create the FastAPI server commands.
+### Phase 00.1 baseline commands
 
-### Confirmed Server Replacement Approach
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Reports active branch and dirty worktree state. |
+| `cd client && npm install` | PASS | Dependencies were already up to date. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approved network | Sandboxed run failed because Next.js could not fetch Urbanist from Google Fonts. Approved network rerun passed. `next.config.ts` skips TypeScript validation via `typescript.ignoreBuildErrors: true`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
 
-- Do not restore the deleted Node/Express/Prisma scaffold.
-- Replace `server/` with the FastAPI layout in milestone 01.
-- Preserve only conceptual dependency lessons from the scaffold: the product expected auth, PostgreSQL, validation, email, uploads, rate limiting/security middleware, logging, and recurring jobs. Implement those through the locked Python architecture as milestones require them.
-- Keep receipts and notifications in the backend plan even though no dedicated UI screen exists yet.
+No valid server scaffold checks exist yet because `server/` does not exist.
 
-### Corrected Deferred Questions
+## 13. Open blockers and deferred decisions
 
-- Base currency: no current UI selector exists; proceed with one configurable user base currency and default `USD`.
-- Multi-currency: not required for MVP. Keep currency fields on accounts/money records so later support is possible without redesigning the schema.
-- Loans/debts: now confirmed as visible UI scope and added to the proposed data model and API boundaries.
-- Social auth: visible buttons are present, but OAuth remains future scope. MVP backend uses local email/password.
-- Support/legal/settings footer items: visible but static; backend support can wait until explicitly scoped.
+Record only active blockers or intentionally deferred decisions.
 
-### Baseline Test Results
+- Confirm default base currency during milestone 00. Default proposal: `USD` until user confirms otherwise.
+- Confirm whether MVP requires multiple currencies during milestone 00. Default proposal: store one user base currency first; defer exchange-rate conversion.
+- Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
+- Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 
-| Command | Result | Notes |
-| ------- | ------ | ----- |
-| `cd client && npm install` | Pass after approval | First sandboxed run failed with `npm error Exit handler never called!` because npm could not write logs under `/Users/morshedalam/.npm/_logs`. Approved rerun completed, changed 49 packages, audited 186 packages, and reported 5 vulnerabilities: 2 moderate, 3 high. |
-| `cd client && npm run build` | Pass after approval | First sandboxed run failed fetching Google Fonts for `Urbanist`. Approved rerun compiled successfully with Next.js 16.1.1. Build output says type validation is skipped because `typescript.ignoreBuildErrors` is enabled. |
-| `cd client && npm run lint --if-present` | Pass/no-op | No `lint` script is currently present. |
-| `cd client && npm run test --if-present` | Pass/no-op | No `test` script is currently present. |
-| Existing server checks | Not available | No `server/` directory exists in the worktree; tracked scaffold had only package files and an empty `server.ts`. |
+## 14. Progress log
 
-## 9. Milestone status
+Append a dated entry after every completed phase.
 
-| Milestone | Branch                                     | Status      | Notes                                                    |
-| --------: | ------------------------------------------ | ----------- | -------------------------------------------------------- |
-|        00 | `discovery-architecture`                   | Completed   | Verified repository, UI/API inventory, and architecture baseline. |
-|        01 | `fastapi-foundation`                       | Not started | FastAPI, config, DB, Alembic, health endpoints, tooling. |
-|        02 | `auth-users`                               | Not started | Users and secure session flow.                           |
-|        03 | `core-finance-ledger`                      | Not started | Accounts, categories, transactions, transfers, balances. |
-|        04 | `budgets-savings`                          | Not started | Budgets and savings goals.                               |
-|        05 | `reports-analytics`                        | Not started | Dashboard and report queries.                            |
-|        06 | `recurring-outbox`                         | Not started | Worker, recurring rules, outbox.                         |
-|        07 | `receipts-notifications-sse`               | Not started | Uploads, notifications, email adapters, SSE.             |
-|        08 | `frontend-integration`                     | Not started | Replace fixtures with responsive API data.               |
-|        09 | `quality-ci-deployment`                    | Not started | CI, hardening, deployment, README.                       |
-|        10 | `final-audit`                              | Not started | End-to-end audit only.                                   |
-
-## 10. Deferred user decisions and integration requests
-
-Do not ask for these before the relevant milestone unless a blocker appears.
-
-| Decision or credential                         | Earliest milestone | Default when not provided                                          |
-| ---------------------------------------------- | -----------------: | ------------------------------------------------------------------ |
-| Base currency and multi-currency requirement   |                 00 | One configurable user base currency; default `USD`.                |
-| Production API hosting platform                |                 09 | Keep deployment portable through Docker and environment variables. |
-| Cloud receipt storage provider and credentials |                 07 | Use local storage adapter in development.                          |
-| Email provider credentials                     |                 07 | Use console email adapter in development.                          |
-| Production frontend/API domain relationship    |           08 or 09 | Use environment-configured API base URL and CORS origins.          |
-| OAuth social login                             |       Future scope | Do not implement; use local email/password.                        |
-| Bank account aggregation provider              |       Future scope | Do not implement.                                                  |
-
-## 11. Architecture Decision Log
-
-Add entries using this template:
-
-```text
-### ADR-XXX — Title
-- Date:
-- Status: Accepted | Superseded
-- Context:
-- Decision:
-- Consequences:
-```
-
-### ADR-001 — Use a modular monolith
-
-- Date: 2026-06-12
-- Status: Accepted
-- Context: The product is a single personal-finance application under active development by a small team. It needs clean architecture but does not need distributed deployment complexity.
-- Decision: Build one FastAPI service with domain-oriented modules and one separate worker execution path.
-- Consequences: Module boundaries remain explicit. Microservices may be extracted later only after a measured need appears.
-
-### ADR-002 — Use REST plus OpenAPI, not REST-only thinking
-
-- Date: 2026-06-12
-- Status: Accepted
-- Context: Core operations are resource-oriented, but the system also needs typed frontend contracts, analytics queries, background processing, and selective server push.
-- Decision: Use versioned REST endpoints for commands and queries, generate frontend types from OpenAPI, use a worker for durable deferred work, and add SSE for one-way update signals.
-- Consequences: The system is simple to operate while still covering non-request-response requirements.
-
-### ADR-003 — Avoid floating-point persisted money
-
-- Date: 2026-06-12
-- Status: Accepted
-- Context: Personal finance calculations require deterministic decimal behavior.
-- Decision: Use PostgreSQL `NUMERIC` and Python `Decimal` for money.
-- Consequences: API serialization and frontend parsing must be explicit.
-
-## 12. Progress log
-
-Append milestone completion entries below. Never rewrite previous entries.
-
-```text
-### YYYY-MM-DD — Milestone NN
-- Branch:
-- Commit:
-- Implemented:
-- Migrations:
-- Endpoints:
-- Tests:
-- Blockers:
-- Next allowed milestone:
-```
-
-### 2026-06-12 — Milestone 00
-
-- Branch: `discovery-architecture`
-- Commit: `milestone(00): record verified architecture baseline`
-- Implemented: Verified repository inventory, frontend screen inventory, UI-to-API matrix, server replacement approach, local command baseline, and system design documentation.
-- Migrations: None.
-- Endpoints: None implemented. Planned route groups updated to include `/api/v1/loans/*`.
-- Tests: `npm install` passed after approval; `npm run build` passed after approval; `npm run lint --if-present` passed as no-op because no script exists; `npm run test --if-present` passed as no-op because no script exists; server checks unavailable because `server/` is absent.
-- Blockers: No milestone blocker. Baseline caveats: npm audit reports 5 vulnerabilities, no lint/test scripts exist, and `next build` skips TypeScript validation.
-- Next allowed milestone: 01, `fastapi-foundation`.
+- 2026-06-12: Phase 00.1 repository audit passed. Verified the repository is frontend-only in this worktree, recorded that `server/` is absent, captured stale documentation/package metadata findings, ran baseline client checks, and confirmed the next allowed phase is 00.2.
