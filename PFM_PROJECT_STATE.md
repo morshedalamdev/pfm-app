@@ -89,7 +89,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 00 | 00.3 Architecture baseline | PASSED | `82d88b9` | Completed FastAPI system design additions for entity map, API conventions, transaction flow, SSE flow, pagination, error envelope, UTC timestamps, and OpenAPI client generation. |
 | 00 | 00.4 Discovery verification | PASSED | phase commit created after this state update | Verified milestone 00 documents, fixture mapping, server replacement boundary, baseline frontend checks, and next phase gate. |
 | 01 | 01.1 Python server scaffold | PASSED | phase commit created after this state update | Created FastAPI Python project scaffold under new `server/`; no stale server files existed to remove. |
-| 01 | 01.2 FastAPI app configuration | NOT_STARTED | — | — |
+| 01 | 01.2 FastAPI app configuration | PASSED | phase commit created after this state update | Added app factory, typed settings, `/api/v1` router, CORS, logging foundation, error envelope, liveness endpoint, and tests. |
 | 01 | 01.3 PostgreSQL persistence | NOT_STARTED | — | — |
 | 01 | 01.4 Alembic and health checks | NOT_STARTED | — | — |
 | 01 | 01.V Foundation verification | NOT_STARTED | — | — |
@@ -191,6 +191,16 @@ Append only. Do not rewrite earlier records.
 - Development and test dependencies declared: Ruff, mypy, pytest, pytest-asyncio, and httpx.
 - The `app` package is intentionally import-only in phase 01.1. No FastAPI application entrypoint, endpoints, database configuration, migrations, or domain features were added.
 
+### Phase 01.2 application core inventory
+
+- Added `server/app/main.py` with `create_app`, FastAPI metadata, OpenAPI/docs configuration, CORS middleware, exception handler registration, dependency overrides for app-local settings, and `/api/v1` router mounting.
+- Added `server/app/core/config.py` for typed `pydantic-settings` configuration loaded from environment variables and `.env`.
+- Added `server/app/core/logging.py` as the structured logging foundation using `logging.config.dictConfig`.
+- Added `server/app/core/errors.py` with a consistent JSON error envelope for HTTP, validation, and unhandled exceptions.
+- Added `server/app/api/v1/router.py` and `server/app/api/v1/health.py` for versioned route composition and DB-free liveness.
+- Added `server/tests/test_app_core.py` for app startup, OpenAPI metadata, version prefix behavior, liveness response, error-envelope behavior, and logging foundation checks.
+- No domain models, database engine/session setup, Alembic configuration, authentication, finance modules, or readiness checks were added in phase 01.2.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -257,11 +267,15 @@ Phase 00.4 verified that planned endpoints cover the existing UI surfaces in `do
 
 Phase 01.1 added no endpoints. FastAPI app configuration begins no earlier than phase 01.2.
 
+Phase 01.2 added `GET /api/v1/health/live`, a database-free liveness endpoint returning status, service, environment, and API version. No domain endpoints were added.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
 
 Phase 01.1 created no migrations and did not add database configuration.
+
+Phase 01.2 created no migrations and did not add database configuration.
 
 ## 11. Environment variables
 
@@ -276,6 +290,8 @@ Committed template: `server/.env.example`.
 | `APP_NAME` | Human-readable API name for local configuration. |
 | `APP_ENV` | Runtime environment label; defaults to local in the template. |
 | `DEBUG` | Local debug flag placeholder for later typed settings. |
+| `API_V1_PREFIX` | Versioned API mount prefix; defaults to `/api/v1`. |
+| `CORS_ORIGINS` | JSON array of allowed browser origins for CORS. |
 
 ## 12. Test command registry
 
@@ -329,6 +345,15 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Ruff lint passed. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Ruff format check passed. |
 
+### Phase 01.2 FastAPI app configuration commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged FastAPI dependency injection default syntax; repaired with `Annotated`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS after repair | Required format check. Initial run required reformatting `app/core/logging.py`; repaired with `ruff format .`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS after repair | Required type check. Initial run flagged narrowed exception handler signatures; repaired with typed casts at handler registration. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS after repair | Required test suite. Initial run showed test app settings were not used by health dependency; repaired by overriding `get_settings` in `create_app`. Final result: 8 passed, 1 Starlette/httpx deprecation warning from dependency packages. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -337,7 +362,7 @@ Record only active blockers or intentionally deferred decisions.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 - Milestone 00 is verified.
-- Phase 01.1 is complete. Next allowed phase is 01.2, FastAPI app configuration.
+- Phase 01.2 is complete. Next allowed phase is 01.3, PostgreSQL persistence.
 
 ## 14. Progress log
 
@@ -348,3 +373,4 @@ Append a dated entry after every completed phase.
 - 2026-06-12: Phase 00.3 architecture baseline passed. Preserved the existing `docs/architecture/SYSTEM_DESIGN.md` content and patched only missing phase-required sections for entity map, API groups, pagination, error envelope, decimal serialization, UTC timestamps, transaction flow, SSE flow, OpenAPI generation, and non-goals. Confirmed no backend implementation was added and the next allowed phase is 00.4.
 - 2026-06-12: Phase 00.4 discovery verification passed. Verified `PFM_PROJECT_STATE.md`, `docs/architecture/SYSTEM_DESIGN.md`, and `docs/architecture/UI_API_MATRIX.md` for milestone 00 consistency, confirmed every fixture is mapped to a planned API source or deferred feature, confirmed `server/` is absent and phase 01.1 should create it cleanly, ran baseline frontend checks, and set the next allowed phase to 01.1.
 - 2026-06-12: Phase 01.1 Python server scaffold passed. Created the new `server/` Python project with `pyproject.toml`, package placeholders, `.env.example`, ignored local Python artifacts, and a scaffold import test. Confirmed no stale Node server files existed to remove, ran required compile, pytest collection, Ruff lint, and Ruff format checks, and set the next allowed phase to 01.2.
+- 2026-06-12: Phase 01.2 FastAPI app configuration passed. Added typed settings, app factory, OpenAPI metadata, `/api/v1` router composition, CORS, logging foundation, consistent error envelopes, DB-free liveness endpoint, and focused tests. Ran required Ruff, mypy, and pytest checks successfully and set the next allowed phase to 01.3.
