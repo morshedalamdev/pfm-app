@@ -88,7 +88,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 00 | 00.2 Frontend requirements map | PASSED | `66aea05` | Mapped every implemented UI surface, fixture path, data requirement, mutation, validation need, and missing loading/empty/error state. |
 | 00 | 00.3 Architecture baseline | PASSED | `82d88b9` | Completed FastAPI system design additions for entity map, API conventions, transaction flow, SSE flow, pagination, error envelope, UTC timestamps, and OpenAPI client generation. |
 | 00 | 00.4 Discovery verification | PASSED | phase commit created after this state update | Verified milestone 00 documents, fixture mapping, server replacement boundary, baseline frontend checks, and next phase gate. |
-| 01 | 01.1 Python server scaffold | NOT_STARTED | — | — |
+| 01 | 01.1 Python server scaffold | PASSED | phase commit created after this state update | Created FastAPI Python project scaffold under new `server/`; no stale server files existed to remove. |
 | 01 | 01.2 FastAPI app configuration | NOT_STARTED | — | — |
 | 01 | 01.3 PostgreSQL persistence | NOT_STARTED | — | — |
 | 01 | 01.4 Alembic and health checks | NOT_STARTED | — | — |
@@ -182,6 +182,15 @@ Append only. Do not rewrite earlier records.
 - Because there is no `server/` directory, there is no Node backend scaffold, Express/Prisma behavior, migrations, routes, models, or tests to preserve directly.
 - Milestone 01 can create the FastAPI backend from a clean `server/` path rather than replacing existing files. Any prior documentation that assumes a current Node backend scaffold is stale for this clone.
 
+### Phase 01.1 server scaffold inventory
+
+- No stale Node server implementation files or package artifacts were removed because milestone 00 and phase 01.1 inspection confirmed `server/` did not exist.
+- New server scaffold files: `server/pyproject.toml`, `server/README.md`, `server/.env.example`, `server/.gitignore`, `server/app/__init__.py`, `server/app/api/__init__.py`, `server/app/api/v1/__init__.py`, `server/app/core/__init__.py`, `server/app/modules/__init__.py`, `server/app/workers/__init__.py`, and `server/tests/test_package_import.py`.
+- Root `.gitignore` now also excludes Python virtual environments, bytecode, and local Python tool caches.
+- Runtime dependencies declared: FastAPI, Uvicorn, SQLAlchemy async support, asyncpg, Alembic, Pydantic Settings, and python-dotenv.
+- Development and test dependencies declared: Ruff, mypy, pytest, pytest-asyncio, and httpx.
+- The `app` package is intentionally import-only in phase 01.1. No FastAPI application entrypoint, endpoints, database configuration, migrations, or domain features were added.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -246,13 +255,27 @@ Phase 00.3 documented planned API groups under `/api/v1`; no endpoints have been
 
 Phase 00.4 verified that planned endpoints cover the existing UI surfaces in `docs/architecture/UI_API_MATRIX.md`. Implementation begins no earlier than phase 01.1.
 
+Phase 01.1 added no endpoints. FastAPI app configuration begins no earlier than phase 01.2.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
 
+Phase 01.1 created no migrations and did not add database configuration.
+
 ## 11. Environment variables
 
 Append required variables with descriptions. Never store secret values.
+
+### Phase 01.1 scaffold variables
+
+Committed template: `server/.env.example`.
+
+| Variable | Description |
+|---|---|
+| `APP_NAME` | Human-readable API name for local configuration. |
+| `APP_ENV` | Runtime environment label; defaults to local in the template. |
+| `DEBUG` | Local debug flag placeholder for later typed settings. |
 
 ## 12. Test command registry
 
@@ -295,6 +318,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `test -f docs/architecture/SYSTEM_DESIGN.md` | PASS | Confirms system design document exists. |
 | `test -f docs/architecture/UI_API_MATRIX.md` | PASS | Confirms UI/API matrix exists. |
 
+### Phase 01.1 Python server scaffold commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd server && python3 -m venv .venv` | PASS | Created a local virtual environment because global `python` was not available on PATH. |
+| `cd server && .venv/bin/python -m pip install -e '.[dev,test]'` | FAIL in sandbox, PASS with approved network | Sandboxed run could not resolve PyPI hostnames while fetching `hatchling`; approved network rerun installed runtime, dev, and test dependencies. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" python -m compileall app` | PASS | Verified the minimal `app` package imports and compiles. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" python -m pytest --collect-only` | PASS | Collected 1 scaffold import test. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Ruff lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Ruff format check passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -302,7 +336,8 @@ Record only active blockers or intentionally deferred decisions.
 - Default base currency is recorded as `USD` until user confirmation. MVP multi-currency conversion is deferred; schema should keep room for later currency support.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
-- Milestone 00 is verified. Next allowed phase is 01.1, Python server scaffold.
+- Milestone 00 is verified.
+- Phase 01.1 is complete. Next allowed phase is 01.2, FastAPI app configuration.
 
 ## 14. Progress log
 
@@ -312,3 +347,4 @@ Append a dated entry after every completed phase.
 - 2026-06-12: Phase 00.2 frontend requirements map passed. Updated `docs/architecture/UI_API_MATRIX.md` to cover every implemented screen, route, data-bearing component, fixture path, implied query/mutation, validation requirement, and missing loading/empty/error state. Confirmed no backend implementation was added and the next allowed phase is 00.3.
 - 2026-06-12: Phase 00.3 architecture baseline passed. Preserved the existing `docs/architecture/SYSTEM_DESIGN.md` content and patched only missing phase-required sections for entity map, API groups, pagination, error envelope, decimal serialization, UTC timestamps, transaction flow, SSE flow, OpenAPI generation, and non-goals. Confirmed no backend implementation was added and the next allowed phase is 00.4.
 - 2026-06-12: Phase 00.4 discovery verification passed. Verified `PFM_PROJECT_STATE.md`, `docs/architecture/SYSTEM_DESIGN.md`, and `docs/architecture/UI_API_MATRIX.md` for milestone 00 consistency, confirmed every fixture is mapped to a planned API source or deferred feature, confirmed `server/` is absent and phase 01.1 should create it cleanly, ran baseline frontend checks, and set the next allowed phase to 01.1.
+- 2026-06-12: Phase 01.1 Python server scaffold passed. Created the new `server/` Python project with `pyproject.toml`, package placeholders, `.env.example`, ignored local Python artifacts, and a scaffold import test. Confirmed no stale Node server files existed to remove, ran required compile, pytest collection, Ruff lint, and Ruff format checks, and set the next allowed phase to 01.2.
