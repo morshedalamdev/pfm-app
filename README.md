@@ -24,63 +24,33 @@ A full-stack personal finance tracker that helps users monitor income, expenses,
 ## 🛠️ Tech Stack
 
 ### Frontend (Client)
-- **Framework**: Next.js 16.1.1
-- **Language**: TypeScript 5
-- **UI Library**: React 19.2.3
-- **Styling**: Tailwind CSS 4.1.18
-- **State Management**: Zustand 5.0.9
-- **Validation**:  Zod 4.3.4
-- **HTTP Client**: Axios 1.13.2
-- **Date Handling**: date-fns 4.1.0
-- **Icons**:  Lucide React 0.562.0
+- **Framework**: Next.js
+- **Language**: TypeScript
+- **UI Library**: React
+- **Styling**: Tailwind CSS
+- **State Management**: Zustand
+- **Validation**:  Zod
+- **HTTP Client**: Axios
+- **Date Handling**: date-fns
+- **Icons**:  Lucide React
 - **Utilities**: clsx, tailwind-merge, class-variance-authority
 
 ### Backend (Server)
 - **Runtime**: Node.js
-- **Framework**: Express. js 5.2.1
-- **Language**: TypeScript 5.9.3
+- **Framework**: Nest.js
+- **Language**: TypeScript
 - **Database**: PostgreSQL (Neon)
-- **ORM**: Prisma 7.2.0
-- **Authentication**: JWT (jsonwebtoken 9.0.3 + jose 6.1.3)
-- **Password Hashing**: bcrypt 6.0.0
-- **Validation**:  Zod 4.3.4 + express-validator 7.3.1
-- **Security**: Helmet 8.1.0, CORS 2.8.5, express-rate-limit 8.2.1
-- **File Upload**:  Multer 2.0.2 + Cloudinary 2.8.0
-- **Email**: Nodemailer 7.0.12
-- **Job Scheduling**: node-cron 4.2.1
-- **Logging**: Winston 3.19.0 + Morgan 1.10.1
-- **Performance**:  Compression 1.8.1
-
-## 📁 Project Structure
-
-```
-pfm-app/
-├── client/                   # Frontend (Next.js)
-│   ├── app/                 # Next.js App Router
-│   │   ├── (auth)/          # Authentication routes
-│   │   ├── (dashboard)/     # Dashboard routes
-│   │   ├── globals.css      # Global styles
-│   │   ├── layout.tsx       # Root layout
-│   │   └── favicon.ico      # App icon
-│   ├── assets/              # Static assets (images, icons)
-│   ├── fonts/               # Custom fonts
-│   ├── lib/                 # Utilities and helpers
-│   │   └── utils.ts         # Utility functions
-│   ├── components. json      # shadcn/ui configuration
-│   ├── next.config.ts       # Next.js configuration
-│   ├── postcss.config.mjs   # PostCSS configuration
-│   ├── tsconfig.json        # TypeScript configuration
-│   └── package.json         # Frontend dependencies
-│
-├── server/                   # Backend (Express)
-│   ├── server.ts            # Server entry point
-│   ├── tsconfig.json        # TypeScript configuration
-│   └── package.json         # Backend dependencies
-│
-├── . gitignore
-├── . gitattributes
-└── README.md
-```
+- **ORM**: TypeORM
+- **Authentication**: JWT
+- **Password Hashing**: bcrypt
+- **Validation**: Class validatior, class-transformer
+- **Testing**: Jest
+- **Security**: Helmet, CORS
+- **File Upload**:  Multer + Cloudinary
+- **Email**: Nodemailer
+- **Job Scheduling**: node-cron
+- **Logging**: Winston + Morgan
+- **Performance**:  Compression
 
 ## 🔧 Prerequisites
 
@@ -129,7 +99,7 @@ npm run build
 npm start
 ```
 
-Backend API runs at: **http://localhost:5000**
+Backend API runs at: **http://localhost:5000/v[]/**
 
 ---
 
@@ -266,20 +236,6 @@ This project is licensed under the ISC License.
 - Website: [morshedalam.dev](https://morshedalam.dev)
 - GitHub: [@morshedalamdev](https://github.com/morshedalamdev)
 - Project:  [pfm. morshedalam.dev](https://pfm.morshedalam.dev)
-
----
-
-## 🙏 Acknowledgments
-
-- [Next.js](https://nextjs.org/) - React Framework
-- [Express.js](https://expressjs.com/) - Backend Framework
-- [Prisma](https://www.prisma.io/) - Database ORM
-- [Neon](https://neon.tech/) - Serverless PostgreSQL
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS
-- [Zustand](https://docs.pmnd.rs/zustand) - State Management
-- [Vercel](https://vercel.com/) - Frontend Hosting
-- [Netlify](https://www.netlify.com/) - Backend Hosting
-- [Cloudinary](https://cloudinary.com/) - Media Management
 
 ---
 
