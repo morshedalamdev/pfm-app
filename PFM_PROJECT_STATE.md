@@ -6,7 +6,7 @@
 
 - Repository: `https://github.com/morshedalamdev/pfm-app`
 - Live frontend: `https://pfm.morshedalam.dev`
-- Product: personal finance tracker for income, expenses, transfers, savings, budgets, reports, recurring transactions, receipts, and notifications.
+- Product: personal finance tracker for income, expenses, transfers, savings, budgets, reports, recurring transactions, receipts, notifications, and loans/debts.
 - Goal: replace the existing Node backend scaffold with Python FastAPI, preserve the completed Next.js UI, then connect the UI to responsive PostgreSQL-backed server data.
 - Execution strategy: one milestone branch at a time; one narrowly scoped Codex execution per phase; explicit user permission before the next phase.
 
@@ -68,6 +68,7 @@ server/
 │   │   ├── transactions/
 │   │   ├── budgets/
 │   │   ├── savings/
+│   │   ├── loans/
 │   │   ├── reports/
 │   │   ├── recurring/
 │   │   ├── notifications/
@@ -85,8 +86,8 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 |---|---|---|---|---|
 | 00 | 00.1 Repository audit | PASSED | `3bc4b31` | Verified local repository inventory, missing server directory, frontend baseline checks, and stale documentation findings. |
 | 00 | 00.2 Frontend requirements map | PASSED | `66aea05` | Mapped every implemented UI surface, fixture path, data requirement, mutation, validation need, and missing loading/empty/error state. |
-| 00 | 00.3 Architecture baseline | PASSED | phase commit created after this state update | Completed FastAPI system design additions for entity map, API conventions, transaction flow, SSE flow, pagination, error envelope, UTC timestamps, and OpenAPI client generation. |
-| 00 | 00.4 Discovery verification | NOT_STARTED | — | — |
+| 00 | 00.3 Architecture baseline | PASSED | `82d88b9` | Completed FastAPI system design additions for entity map, API conventions, transaction flow, SSE flow, pagination, error envelope, UTC timestamps, and OpenAPI client generation. |
+| 00 | 00.4 Discovery verification | PASSED | phase commit created after this state update | Verified milestone 00 documents, fixture mapping, server replacement boundary, baseline frontend checks, and next phase gate. |
 | 01 | 01.1 Python server scaffold | NOT_STARTED | — | — |
 | 01 | 01.2 FastAPI app configuration | NOT_STARTED | — | — |
 | 01 | 01.3 PostgreSQL persistence | NOT_STARTED | — | — |
@@ -243,6 +244,8 @@ Append endpoints as they are implemented.
 
 Phase 00.3 documented planned API groups under `/api/v1`; no endpoints have been implemented yet.
 
+Phase 00.4 verified that planned endpoints cover the existing UI surfaces in `docs/architecture/UI_API_MATRIX.md`. Implementation begins no earlier than phase 01.1.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -282,6 +285,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `grep -q "api/v1" docs/architecture/SYSTEM_DESIGN.md` | PASS | Confirms API versioning is documented. |
 | `grep -q "FastAPI" docs/architecture/SYSTEM_DESIGN.md` | PASS | Confirms FastAPI architecture is documented. |
 
+### Phase 00.4 discovery verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npm run build` | FAIL in sandbox, PASS with approved network | Sandboxed run failed because Next.js could not fetch Urbanist from Google Fonts. Approved network rerun passed. Build still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `test -f docs/architecture/SYSTEM_DESIGN.md` | PASS | Confirms system design document exists. |
+| `test -f docs/architecture/UI_API_MATRIX.md` | PASS | Confirms UI/API matrix exists. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -289,6 +302,7 @@ Record only active blockers or intentionally deferred decisions.
 - Default base currency is recorded as `USD` until user confirmation. MVP multi-currency conversion is deferred; schema should keep room for later currency support.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
+- Milestone 00 is verified. Next allowed phase is 01.1, Python server scaffold.
 
 ## 14. Progress log
 
@@ -297,3 +311,4 @@ Append a dated entry after every completed phase.
 - 2026-06-12: Phase 00.1 repository audit passed. Verified the repository is frontend-only in this worktree, recorded that `server/` is absent, captured stale documentation/package metadata findings, ran baseline client checks, and confirmed the next allowed phase is 00.2.
 - 2026-06-12: Phase 00.2 frontend requirements map passed. Updated `docs/architecture/UI_API_MATRIX.md` to cover every implemented screen, route, data-bearing component, fixture path, implied query/mutation, validation requirement, and missing loading/empty/error state. Confirmed no backend implementation was added and the next allowed phase is 00.3.
 - 2026-06-12: Phase 00.3 architecture baseline passed. Preserved the existing `docs/architecture/SYSTEM_DESIGN.md` content and patched only missing phase-required sections for entity map, API groups, pagination, error envelope, decimal serialization, UTC timestamps, transaction flow, SSE flow, OpenAPI generation, and non-goals. Confirmed no backend implementation was added and the next allowed phase is 00.4.
+- 2026-06-12: Phase 00.4 discovery verification passed. Verified `PFM_PROJECT_STATE.md`, `docs/architecture/SYSTEM_DESIGN.md`, and `docs/architecture/UI_API_MATRIX.md` for milestone 00 consistency, confirmed every fixture is mapped to a planned API source or deferred feature, confirmed `server/` is absent and phase 01.1 should create it cleanly, ran baseline frontend checks, and set the next allowed phase to 01.1.
