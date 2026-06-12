@@ -91,7 +91,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 01 | 01.1 Python server scaffold | PASSED | phase commit created after this state update | Created FastAPI Python project scaffold under new `server/`; no stale server files existed to remove. |
 | 01 | 01.2 FastAPI app configuration | PASSED | phase commit created after this state update | Added app factory, typed settings, `/api/v1` router, CORS, logging foundation, error envelope, liveness endpoint, and tests. |
 | 01 | 01.3 PostgreSQL persistence | PASSED | phase commit created after this state update | Added async SQLAlchemy engine/session/base infrastructure, database settings, disposable PostgreSQL tests, and local setup docs. |
-| 01 | 01.4 Alembic and health checks | NOT_STARTED | — | — |
+| 01 | 01.4 Alembic and health checks | PASSED | phase commit created after this state update | Added async Alembic baseline, liveness/readiness health checks, migration smoke tests, and migration command docs. |
 | 01 | 01.V Foundation verification | NOT_STARTED | — | — |
 | 02 | 02.1 User and session models | NOT_STARTED | — | — |
 | 02 | 02.2 Registration and hashing | NOT_STARTED | — | — |
@@ -210,6 +210,17 @@ Append only. Do not rewrite earlier records.
 - Added local PostgreSQL database creation commands to `server/README.md` without embedding credentials.
 - No Alembic configuration, migrations, readiness endpoint, or domain models were added in phase 01.3.
 
+### Phase 01.4 Alembic and health inventory
+
+- Added `server/alembic.ini`, `server/alembic/env.py`, `server/alembic/script.py.mako`, and initial empty baseline revision `server/alembic/versions/202606120114_initial_empty_baseline.py`.
+- Alembic runs with async SQLAlchemy metadata from `app.core.database.Base.metadata` and reads the target PostgreSQL URL from the Alembic config or typed `DATABASE_URL` setting.
+- Extended `server/app/api/v1/health.py` with `GET /api/v1/health/ready`, which verifies database connectivity through the async connection helper before returning ready.
+- Moved the disposable PostgreSQL pytest fixture into `server/tests/conftest.py` for reuse by persistence and migration tests.
+- Added migration smoke test coverage in `server/tests/test_migrations.py`.
+- Updated `server/tests/test_app_core.py` to cover OpenAPI exposure for readiness, DB-free liveness, successful readiness, and readiness error envelope behavior.
+- Added migration command documentation to `server/README.md`.
+- No domain models, user/auth tables, finance tables, or later milestone endpoints were added in phase 01.4.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -280,6 +291,8 @@ Phase 01.2 added `GET /api/v1/health/live`, a database-free liveness endpoint re
 
 Phase 01.3 added no endpoints. Database-aware readiness begins no earlier than phase 01.4.
 
+Phase 01.4 added `GET /api/v1/health/ready`, a database-aware readiness endpoint returning `{"status": "ok", "database": "ready"}` when PostgreSQL connectivity succeeds and the standard error envelope with HTTP 503 when it does not.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -289,6 +302,8 @@ Phase 01.1 created no migrations and did not add database configuration.
 Phase 01.2 created no migrations and did not add database configuration.
 
 Phase 01.3 created no migrations.
+
+Phase 01.4 created initial empty Alembic baseline migration `202606120114_initial_empty_baseline.py`. Upgrade/downgrade/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -385,6 +400,18 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS after repair | Required type check. Initial run flagged an `Any` return from the SQLAlchemy scalar helper; repaired by returning `bool(...)`. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL (`PermissionError: Operation not permitted`). Approved rerun started a temp PostgreSQL cluster and passed: 13 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 01.4 Alembic and health commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged import ordering, one long line, and an unused import; repaired with small edits and Ruff fixes. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS after repair | Required format check. Initial run required reformatting `app/api/v1/health.py`; repaired with `ruff format .`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 17 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51228/postgres" alembic upgrade head` | FAIL in sandbox, PASS with approval | Required migration smoke check against disposable PostgreSQL. Sandboxed run could not connect to localhost; approved rerun upgraded to `202606120114`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51228/postgres" alembic downgrade base` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606120114` to base. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51228/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded to `202606120114` again. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -393,7 +420,7 @@ Record only active blockers or intentionally deferred decisions.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 - Milestone 00 is verified.
-- Phase 01.3 is complete. Next allowed phase is 01.4, Alembic and health checks.
+- Phase 01.4 is complete. Next allowed phase is 01.V, Foundation verification.
 
 ## 14. Progress log
 
@@ -406,3 +433,4 @@ Append a dated entry after every completed phase.
 - 2026-06-12: Phase 01.1 Python server scaffold passed. Created the new `server/` Python project with `pyproject.toml`, package placeholders, `.env.example`, ignored local Python artifacts, and a scaffold import test. Confirmed no stale Node server files existed to remove, ran required compile, pytest collection, Ruff lint, and Ruff format checks, and set the next allowed phase to 01.2.
 - 2026-06-12: Phase 01.2 FastAPI app configuration passed. Added typed settings, app factory, OpenAPI metadata, `/api/v1` router composition, CORS, logging foundation, consistent error envelopes, DB-free liveness endpoint, and focused tests. Ran required Ruff, mypy, and pytest checks successfully and set the next allowed phase to 01.3.
 - 2026-06-12: Phase 01.3 PostgreSQL persistence passed. Added typed async PostgreSQL configuration, SQLAlchemy async engine/session/base infrastructure, metadata naming conventions, request-scoped session dependency, connection helper, local database setup docs, and disposable PostgreSQL tests. Required Ruff and mypy checks passed; pytest passed with approval after sandboxed localhost binding blocked the disposable PostgreSQL server.
+- 2026-06-12: Phase 01.4 Alembic and health checks passed. Added async Alembic configuration, initial empty baseline migration, DB-aware readiness endpoint, migration smoke tests, shared disposable PostgreSQL test fixture, and migration command docs. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade smoke checks passed; localhost database operations required approval because sandbox networking blocks binding/connecting to the disposable PostgreSQL server.

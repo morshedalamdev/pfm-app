@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app import __version__
+from app.api.v1.health import database_is_ready
 from app.core.config import Settings
 from app.main import create_app
 
@@ -35,6 +36,7 @@ def test_openapi_metadata_and_versioned_route() -> None:
     assert schema["info"]["title"] == "PFM Test API"
     assert schema["info"]["version"] == __version__
     assert "/api/v1/health/live" in schema["paths"]
+    assert "/api/v1/health/ready" in schema["paths"]
 
 
 def test_liveness_endpoint_uses_api_version_prefix() -> None:
@@ -52,6 +54,20 @@ def test_liveness_endpoint_uses_api_version_prefix() -> None:
     }
 
 
+def test_liveness_endpoint_does_not_require_database() -> None:
+    app = build_test_app()
+
+    async def database_not_ready() -> bool:
+        return False
+
+    app.dependency_overrides[database_is_ready] = database_not_ready
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health/live")
+
+    assert response.status_code == 200
+
+
 def test_http_error_response_uses_error_envelope() -> None:
     app = build_test_app()
 
@@ -67,6 +83,41 @@ def test_http_error_response_uses_error_envelope() -> None:
         "error": {
             "code": "http_error",
             "message": "Conflict",
+        },
+    }
+
+
+def test_readiness_endpoint_returns_ok_when_database_is_ready() -> None:
+    app = build_test_app()
+
+    async def database_ready() -> bool:
+        return True
+
+    app.dependency_overrides[database_is_ready] = database_ready
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "database": "ready"}
+
+
+def test_readiness_endpoint_returns_error_envelope_when_database_is_not_ready() -> None:
+    app = build_test_app()
+
+    async def database_not_ready() -> bool:
+        return False
+
+    app.dependency_overrides[database_is_ready] = database_not_ready
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "http_error",
+            "message": "Database is not ready",
         },
     }
 

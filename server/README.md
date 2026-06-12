@@ -33,3 +33,12 @@ Then set:
 ```bash
 DATABASE_URL=postgresql+asyncpg://pfm_app@localhost:5432/pfm_app
 ```
+
+## Migrations
+
+Run Alembic from `server/` with a PostgreSQL `DATABASE_URL`:
+
+```bash
+alembic upgrade head
+alembic downgrade base
+```
