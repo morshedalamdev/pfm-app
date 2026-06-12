@@ -84,8 +84,8 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | Milestone | Phase | Status | Local commit | Notes |
 |---|---|---|---|---|
 | 00 | 00.1 Repository audit | PASSED | `3bc4b31` | Verified local repository inventory, missing server directory, frontend baseline checks, and stale documentation findings. |
-| 00 | 00.2 Frontend requirements map | PASSED | phase commit created after this state update | Mapped every implemented UI surface, fixture path, data requirement, mutation, validation need, and missing loading/empty/error state. |
-| 00 | 00.3 Architecture baseline | NOT_STARTED | — | — |
+| 00 | 00.2 Frontend requirements map | PASSED | `66aea05` | Mapped every implemented UI surface, fixture path, data requirement, mutation, validation need, and missing loading/empty/error state. |
+| 00 | 00.3 Architecture baseline | PASSED | phase commit created after this state update | Completed FastAPI system design additions for entity map, API conventions, transaction flow, SSE flow, pagination, error envelope, UTC timestamps, and OpenAPI client generation. |
 | 00 | 00.4 Discovery verification | NOT_STARTED | — | — |
 | 01 | 01.1 Python server scaffold | NOT_STARTED | — | — |
 | 01 | 01.2 FastAPI app configuration | NOT_STARTED | — | — |
@@ -154,6 +154,9 @@ Append only. Do not rewrite earlier records.
 | Date | Decision | Reason | Phase |
 |---|---|---|---|
 | 2026-06-12 | Use milestone files containing internal gated phases | Reduces context and token usage while preserving stable milestone branch boundaries. | Pack generation |
+| 2026-06-12 | Keep one user base currency for MVP, defaulting to `USD` until user confirmation | The current UI has no currency selector; one base currency keeps money behavior deterministic while leaving schema room for later currency support. | 00.3 |
+| 2026-06-12 | Use cursor pagination for growing user-owned lists | Transactions, savings goals, loans, notifications, and recurring rules can grow over time and should not rely on offset pagination as the long-term API contract. | 00.3 |
+| 2026-06-12 | Serialize API money values as decimal strings and timestamps as timezone-aware UTC ISO 8601 strings | Preserves exact money values and avoids ambiguous time handling across frontend, API, database, worker, and reports. | 00.3 |
 
 ## 7. Verified repository inventory
 
@@ -238,6 +241,8 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 
 Append endpoints as they are implemented.
 
+Phase 00.3 documented planned API groups under `/api/v1`; no endpoints have been implemented yet.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -268,12 +273,20 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
 | `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
 
+### Phase 00.3 architecture baseline commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `test -f docs/architecture/SYSTEM_DESIGN.md` | PASS | Confirms system design document exists. |
+| `test -f docs/architecture/UI_API_MATRIX.md` | PASS | Confirms UI/API matrix exists. |
+| `grep -q "api/v1" docs/architecture/SYSTEM_DESIGN.md` | PASS | Confirms API versioning is documented. |
+| `grep -q "FastAPI" docs/architecture/SYSTEM_DESIGN.md` | PASS | Confirms FastAPI architecture is documented. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
 
-- Confirm default base currency during milestone 00. Default proposal: `USD` until user confirms otherwise.
-- Confirm whether MVP requires multiple currencies during milestone 00. Default proposal: store one user base currency first; defer exchange-rate conversion.
+- Default base currency is recorded as `USD` until user confirmation. MVP multi-currency conversion is deferred; schema should keep room for later currency support.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 
@@ -283,3 +296,4 @@ Append a dated entry after every completed phase.
 
 - 2026-06-12: Phase 00.1 repository audit passed. Verified the repository is frontend-only in this worktree, recorded that `server/` is absent, captured stale documentation/package metadata findings, ran baseline client checks, and confirmed the next allowed phase is 00.2.
 - 2026-06-12: Phase 00.2 frontend requirements map passed. Updated `docs/architecture/UI_API_MATRIX.md` to cover every implemented screen, route, data-bearing component, fixture path, implied query/mutation, validation requirement, and missing loading/empty/error state. Confirmed no backend implementation was added and the next allowed phase is 00.3.
+- 2026-06-12: Phase 00.3 architecture baseline passed. Preserved the existing `docs/architecture/SYSTEM_DESIGN.md` content and patched only missing phase-required sections for entity map, API groups, pagination, error envelope, decimal serialization, UTC timestamps, transaction flow, SSE flow, OpenAPI generation, and non-goals. Confirmed no backend implementation was added and the next allowed phase is 00.4.

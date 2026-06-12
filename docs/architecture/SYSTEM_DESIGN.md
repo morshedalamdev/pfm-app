@@ -98,9 +98,12 @@ Password hashing uses Argon2 through `pwdlib`. Refresh tokens are stored only as
 - `users` owns login identity and base user record.
 - `user_profiles` owns display name, phone, occupation, about text, and avatar metadata.
 - `refresh_sessions` owns refresh token rotation, revocation, and expiry.
+- `password_reset_tokens` owns hashed reset codes or reset token hashes, expiry, and single-use state.
 - `accounts` owns cash, bank, card, wallet, or savings containers.
 - `categories` owns user and default income/expense categories.
 - `transactions` owns income, expense, transfer, recurring flags, account links, category links, and notes.
+- `transfer_links` owns the relationship between paired debit and credit transaction rows for account transfers.
+- `idempotency_records` owns retry protection for mutation requests that may create money-moving records.
 - `budgets` owns period/category limits and budget setup allocations.
 - `savings_goals` and `savings_contributions` own goal targets and progress movements.
 - `loan_accounts` and `loan_payments` own the visible lent/borrowed debt workflow.
@@ -108,8 +111,113 @@ Password hashing uses Argon2 through `pwdlib`. Refresh tokens are stored only as
 - `receipts` owns uploaded file metadata and transaction links.
 - `notifications` owns user-visible messages and read state.
 - `outbox_events` owns deferred and retryable side effects.
+- Audit metadata is owned by every persisted table through standard fields such as `created_at`, `updated_at`, and where relevant `deleted_at`, `created_by_user_id`, or domain-specific audit notes.
 
 Each user-owned record must include ownership checks at the service boundary. Hard deletes should be avoided for financial records that may affect balances, audit history, or reports.
+
+## Entity Map
+
+| Entity | Responsibility | Key relationships and constraints |
+|---|---|---|
+| `users` | Authentication identity and ownership root | Unique normalized email; stores only password hashes; owns all user-scoped records. |
+| `user_profiles` | Editable profile fields and avatar metadata | One profile per user; avatar points to storage metadata rather than raw file bytes. |
+| `refresh_sessions` | Rotated refresh sessions | Stores token hashes, expiry, revocation metadata, and user/session metadata. |
+| `password_reset_tokens` | Password reset request and verification state | Stores hashed code/token, expiry, attempt count, and used timestamp. |
+| `accounts` | User money containers | Currency recorded; balances reproducible from source records; referenced accounts are archived rather than destructively removed. |
+| `categories` | Income and expense categorization | Includes type/kind, icon key, default/user-owned flag, and archive state. |
+| `transactions` | Income, expenses, and transfer rows | Uses `NUMERIC`/`Decimal`; links user, account, optional category, optional transfer link, optional recurring rule, and optional receipt. |
+| `transfer_links` | Paired transfer grouping | Connects the two transaction rows that represent one transfer and must be written transactionally. |
+| `idempotency_records` | Retry protection | Unique by user, route/action, and idempotency key; records request hash and response summary for safe replay. |
+| `budgets` | Period/category spending limits | Unique by user, period, and category where active; progress is computed from transactions. |
+| `savings_goals` | Goal target and status | Stores target amount/date, status, monthly target, and user ownership. |
+| `savings_contributions` | Goal progress movements | Links user and goal; optionally links a transaction; supports audit-safe reversal rather than silent deletion. |
+| `loan_accounts` | Lent/borrowed personal debt records | Stores type, counterparty, principal/current amount, dates, and optional phone. |
+| `loan_payments` | Repayments against loan/debt records | Links loan and user; optional transaction link; amount uses decimal storage. |
+| `recurring_rules` | Repeat schedules | Stores cadence, timezone, next-run time, active state, and template metadata. |
+| `outbox_events` | Durable side effects | Stores event type, payload, status, attempts, next attempt, and idempotent consumer metadata. |
+| `notifications` | User-visible messages | Links optional outbox/source record; stores read state and delivery state. |
+| `receipts` | Uploaded receipt metadata | Stores storage key, content type, size, checksum, and optional transaction link. |
+| Audit metadata | Traceability across records | Standard timestamp/user/archive fields on tables that need ownership and history. |
+
+## API Groups And Conventions
+
+Route groups are versioned under `/api/v1` from the first backend milestone:
+
+```text
+/api/v1/health
+/api/v1/ready
+/api/v1/auth/*
+/api/v1/users/me
+/api/v1/accounts/*
+/api/v1/categories/*
+/api/v1/transactions/*
+/api/v1/budgets/*
+/api/v1/savings-goals/*
+/api/v1/loans/*
+/api/v1/reports/*
+/api/v1/recurring-rules/*
+/api/v1/notifications/*
+/api/v1/events/stream
+```
+
+List endpoints should use cursor pagination for user-facing lists that can grow, including transactions, savings goals, loans, notifications, and recurring rules. Responses should use a stable envelope with `items`, `next_cursor`, and `has_more`. Small bounded lookups such as category selectors can return arrays without pagination until growth requires it.
+
+Errors should use one consistent JSON envelope:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Human-readable summary",
+    "details": []
+  }
+}
+```
+
+Validation errors should include field-level details. Authentication failures must not reveal whether a user email exists. Mutation routes that create transactions, transfers, savings contributions, loan payments, or recurring side effects should accept an `Idempotency-Key` header.
+
+Money values are persisted as PostgreSQL `NUMERIC`, represented in Python as `Decimal`, and serialized in API responses as decimal strings. Timestamps are stored in UTC and serialized as ISO 8601 strings with timezone information. User-facing date grouping and recurring schedule interpretation should use explicit user timezone settings when added; until then, UTC storage remains the source of truth.
+
+FastAPI's OpenAPI schema is the contract source. Milestone 08 should generate TypeScript types or a typed client from the OpenAPI schema and add a drift check so frontend request/response types are not manually duplicated.
+
+## Transaction Flow
+
+```mermaid
+sequenceDiagram
+  participant UI as Transaction UI
+  participant API as FastAPI /api/v1 mutation
+  participant Service as Finance service
+  participant DB as PostgreSQL
+
+  UI->>API: POST/PATCH transaction with Idempotency-Key
+  API->>Service: validate command and user ownership
+  Service->>DB: check idempotency record
+  Service->>DB: write transaction rows in one DB transaction
+  Service->>DB: write transfer link or outbox event when needed
+  DB-->>Service: committed source records
+  Service-->>API: serialized Decimal amounts
+  API-->>UI: typed result or validation error envelope
+```
+
+Transfers must be atomic: both sides of the transfer and the transfer linkage commit together or roll back together. Balances and reports should be reproducible from the committed source records rather than separately trusted mutable counters.
+
+## SSE Flow
+
+```mermaid
+sequenceDiagram
+  participant UI as Next.js UI
+  participant API as /api/v1/events/stream
+  participant DB as PostgreSQL
+  participant Worker as Worker process
+
+  UI->>API: Open SSE connection with access token
+  Worker->>DB: Persist notification or refresh-hint event
+  API->>DB: Poll or listen for user-visible events
+  API-->>UI: Send one-way event hint
+  UI->>API: Refetch affected REST resource
+```
+
+SSE is for one-way notifications and refresh hints only. The client should refetch REST resources after receiving a hint. WebSockets remain out of scope until a concrete bidirectional requirement exists.
 
 ## Deployment Topology
 
@@ -147,3 +255,4 @@ Production hosting remains portable until the deployment milestone. The API base
 - Do not introduce microservices, GraphQL, Redis, or WebSockets without a proven requirement.
 - Do not request cloud storage, SMTP, OAuth, or deployment credentials before the milestone that needs them.
 - Do not implement FastAPI or database migrations in milestone 00.
+- Do not implement multi-currency conversion in the MVP. Store one user base currency first, defaulting to `USD` until the user confirms otherwise, while keeping schema room for later currency support.
