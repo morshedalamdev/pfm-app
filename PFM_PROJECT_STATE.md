@@ -83,8 +83,8 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 
 | Milestone | Phase | Status | Local commit | Notes |
 |---|---|---|---|---|
-| 00 | 00.1 Repository audit | PASSED | phase commit created after this state update | Verified local repository inventory, missing server directory, frontend baseline checks, and stale documentation findings. |
-| 00 | 00.2 Frontend requirements map | NOT_STARTED | — | — |
+| 00 | 00.1 Repository audit | PASSED | `3bc4b31` | Verified local repository inventory, missing server directory, frontend baseline checks, and stale documentation findings. |
+| 00 | 00.2 Frontend requirements map | PASSED | phase commit created after this state update | Mapped every implemented UI surface, fixture path, data requirement, mutation, validation need, and missing loading/empty/error state. |
 | 00 | 00.3 Architecture baseline | NOT_STARTED | — | — |
 | 00 | 00.4 Discovery verification | NOT_STARTED | — | — |
 | 01 | 01.1 Python server scaffold | NOT_STARTED | — | — |
@@ -180,7 +180,59 @@ Append only. Do not rewrite earlier records.
 
 ## 8. UI-to-API matrix summary
 
-Milestone 00 must populate this section and maintain a detailed matrix in `docs/architecture/UI_API_MATRIX.md`.
+Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
+
+### Phase 00.2 screen inventory
+
+- Dashboard/reporting: `/`, `/analytics`, `RootChart`, `IncomeVsExpenseChart`, and `SpendingChart`.
+- Transactions: `/transaction`, `/transaction/[id]`, `TransactionItem`, `TransactionInput`, `FilterMenu`, `DateFilter`, and category icon mapping.
+- Budgets: `/budget`, `/budget/setup`, `BudgetItem`, and `BudgetInput`.
+- Savings: `/savings`, `/savings/[id]`, and `SavingsItem` including add-money and delete drawer actions.
+- Loans/debts: `/loan`, `/loan/[id]`, `LoanItem`, and `FilterLoan`.
+- Profile/auth/session surfaces: footer profile sheet, `/profile`, `/auth`, `/auth/login`, `/auth/register`, `/auth/forgot-password`, and `/auth/recover-password`.
+- Shared layout/navigation/constants: dashboard layout, root layout, `Header`, `BackBtn`, `HeaderItem`, shadcn/Radix UI primitives, `imageConstant`, and `categoryIcons`.
+
+### Phase 00.2 API summary
+
+- Required API groups implied by the current UI: `/api/v1/auth/*`, `/api/v1/users/me`, `/api/v1/transactions/*`, `/api/v1/categories/*`, `/api/v1/budgets/*`, `/api/v1/savings-goals/*`, `/api/v1/loans/*`, and `/api/v1/reports/*`.
+- The current UI has no active API helper, generated OpenAPI client, server-state query layer, Zustand store, or repository-owned mock/fixture module.
+- All visible finance data is embedded directly in route/component files. Milestone 08 must replace those placeholders with typed API calls while preserving current layout and styling.
+- Dynamic route pages currently behave as generic create/edit forms based on broad `[id]` routes, while links use placeholder paths such as `/transaction/create`, `/transaction/edit`, `/savings/create`, `/savings/edit`, `/loan/create`, and `/loan/edit`. Later integration must introduce real create mode and record-id edit links.
+- Forms, drawers, delete confirmations, filters, and social auth buttons are visual only. Later phases must add submit handlers, mutation pending states, validation errors, retry behavior, and real record ids.
+- Loading, empty, and error states are mostly absent except existing skeleton primitives and profile/avatar skeleton placeholders.
+
+### Fixture paths recorded for milestone 08 replacement
+
+- `client/app/(dashboard)/page.tsx`
+- `client/app/(dashboard)/analytics/page.tsx`
+- `client/app/(dashboard)/transaction/page.tsx`
+- `client/app/(dashboard)/transaction/[id]/page.tsx`
+- `client/app/(dashboard)/budget/page.tsx`
+- `client/app/(dashboard)/budget/setup/page.tsx`
+- `client/app/(dashboard)/savings/page.tsx`
+- `client/app/(dashboard)/savings/[id]/page.tsx`
+- `client/app/(dashboard)/loan/page.tsx`
+- `client/app/(dashboard)/loan/[id]/page.tsx`
+- `client/app/(dashboard)/profile/page.tsx`
+- `client/app/auth/page.tsx`
+- `client/app/auth/login/page.tsx`
+- `client/app/auth/register/page.tsx`
+- `client/app/auth/forgot-password/page.tsx`
+- `client/app/auth/recover-password/page.tsx`
+- `client/components/Footer.tsx`
+- `client/components/charts/RootChart.tsx`
+- `client/components/charts/IncomeVsExpenseChart.tsx`
+- `client/components/charts/SpendingChart.tsx`
+- `client/components/inputs/BudgetInput.tsx`
+- `client/components/inputs/TransactionInput.tsx`
+- `client/components/items/BudgetItem.tsx`
+- `client/components/items/LoanItem.tsx`
+- `client/components/items/SavingsItem.tsx`
+- `client/components/items/TransactionItem.tsx`
+- `client/components/filters/DateFilter.tsx`
+- `client/components/filters/FilterLoan.tsx`
+- `client/components/filters/FilterMenu.tsx`
+- `client/lib/categoryIcons.ts`
 
 ## 9. Implemented endpoints
 
@@ -208,6 +260,14 @@ Append required variables with descriptions. Never store secret values.
 
 No valid server scaffold checks exist yet because `server/` does not exist.
 
+### Phase 00.2 frontend requirements map commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npm run build` | FAIL in sandbox, PASS with approved network | Sandboxed run failed because Next.js could not fetch Urbanist from Google Fonts. Approved network rerun passed. Build still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -222,3 +282,4 @@ Record only active blockers or intentionally deferred decisions.
 Append a dated entry after every completed phase.
 
 - 2026-06-12: Phase 00.1 repository audit passed. Verified the repository is frontend-only in this worktree, recorded that `server/` is absent, captured stale documentation/package metadata findings, ran baseline client checks, and confirmed the next allowed phase is 00.2.
+- 2026-06-12: Phase 00.2 frontend requirements map passed. Updated `docs/architecture/UI_API_MATRIX.md` to cover every implemented screen, route, data-bearing component, fixture path, implied query/mutation, validation requirement, and missing loading/empty/error state. Confirmed no backend implementation was added and the next allowed phase is 00.3.
