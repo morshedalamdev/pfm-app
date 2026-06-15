@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -158,6 +159,41 @@ def test_refresh_reuse_rejects_and_revokes_session_family(
     new_session = asyncio.run(fetch_refresh_session(refresh_context, new_refresh_token))
     assert new_session is not None
     assert new_session.revoked_reason == "reuse_detected"
+
+
+def test_refresh_validation_error_redacts_refresh_token_input(
+    refresh_context: RefreshTestContext,
+) -> None:
+    raw_token = "short-sensitive-refresh-token"
+    response = refresh_context.client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": raw_token},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"][0]["input"] == "[redacted]"
+
+
+def test_parallel_refresh_attempts_do_not_both_succeed(
+    refresh_context: RefreshTestContext,
+) -> None:
+    login_body = register_and_login(refresh_context, "parallel-refresh@example.com")
+    refresh_token = login_body["refresh_token"]
+
+    def refresh_once() -> int:
+        response = refresh_context.client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+        return response.status_code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = sorted(executor.map(lambda _index: refresh_once(), range(2)))
+
+    assert statuses == [200, 401]
+    old_session = asyncio.run(fetch_refresh_session(refresh_context, refresh_token))
+    assert old_session is not None
+    assert old_session.revoked_reason in {"rotated", "reuse_detected"}
 
 
 def test_refresh_expired_token_is_rejected(

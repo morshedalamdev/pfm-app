@@ -97,7 +97,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 02 | 02.2 Registration and hashing | PASSED | phase commit created after this state update | Added secure registration, email normalization, password policy, Argon2 hashing, response redaction, and endpoint tests. |
 | 02 | 02.3 Login and access token | PASSED | phase commit created after this state update | Added credential login, short-lived JWT access tokens, current-user authorization dependency, protected user endpoint, and token edge-case tests. |
 | 02 | 02.4 Refresh rotation and logout | PASSED | phase commit created after this state update | Added opaque refresh tokens, HMAC token hashing, refresh-session rotation, reuse family revocation, logout revocation, and security tests. |
-| 02 | 02.5 Auth edge-case tests | NOT_STARTED | — | — |
+| 02 | 02.5 Auth edge-case tests | PASSED | phase commit created after this state update | Hardened bearer-token exception handling, added auth edge-case tests, documented auth OpenAPI behavior, and recorded login/register rate-limit design notes. |
 | 02 | 02.V Auth verification | NOT_STARTED | — | — |
 | 03 | 03.1 Finance domain schema | NOT_STARTED | — | — |
 | 03 | 03.2 Accounts and categories | NOT_STARTED | — | — |
@@ -159,6 +159,7 @@ Append only. Do not rewrite earlier records.
 | 2026-06-12 | Use cursor pagination for growing user-owned lists | Transactions, savings goals, loans, notifications, and recurring rules can grow over time and should not rely on offset pagination as the long-term API contract. | 00.3 |
 | 2026-06-12 | Serialize API money values as decimal strings and timestamps as timezone-aware UTC ISO 8601 strings | Preserves exact money values and avoids ambiguous time handling across frontend, API, database, worker, and reports. | 00.3 |
 | 2026-06-15 | Transport refresh tokens in JSON request/response bodies for MVP auth | The current frontend/API deployment topology does not yet define a shared cookie domain, SameSite policy, or HTTPS-only deployment contract. JSON transport keeps phase 02.4 testable and explicit; frontend storage and deployment hardening remain for later integration phases. | 02.4 |
+| 2026-06-15 | Defer login and registration rate limiting until a shared persistent throttle foundation exists | Phase 02 has no cross-worker throttling foundation. Process-local counters would give false protection, so the intended future shape is PostgreSQL-backed throttling keyed by endpoint, normalized email when present, client network bucket, and time window with generic responses. | 02.5 |
 
 ## 7. Verified repository inventory
 
@@ -269,6 +270,13 @@ Append only. Do not rewrite earlier records.
 - Refresh-token transport is JSON body request/response for this MVP backend phase. Cookie transport is deferred until frontend integration/deployment topology defines domain, HTTPS, and SameSite requirements.
 - Added `server/tests/test_refresh.py` covering hashed refresh-token storage, refresh success, rotation, reuse rejection with family revocation, expiry rejection, logout, and revoked-token reuse rejection.
 
+### Phase 02.5 auth edge-case inventory
+
+- Narrowed the current-user bearer dependency to translate only known invalid access-token exceptions into HTTP 401, leaving unexpected decode failures visible to the global internal-error handler.
+- Extended `server/tests/test_login.py` with password validation redaction, missing bearer credentials, missing-user token rejection, and unexpected decode failure coverage.
+- Extended `server/tests/test_refresh.py` with refresh-token validation redaction and parallel same-token refresh attempts proving only one rotation can succeed.
+- Updated `docs/architecture/SYSTEM_DESIGN.md` with implemented auth endpoint contract notes, token transport notes, validation redaction expectations, and deferred PostgreSQL-backed rate-limit design notes.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -351,6 +359,8 @@ Phase 02.3 added `POST /api/v1/auth/login`, which verifies credentials and retur
 
 Phase 02.4 changed `POST /api/v1/auth/login` to also return `refresh_token`, added `POST /api/v1/auth/refresh` for refresh-token rotation and new access-token issuance, and added `POST /api/v1/auth/logout` for refresh-token revocation.
 
+Phase 02.5 added no endpoints. It documented the current auth OpenAPI contract expectations and kept the implemented auth endpoint set unchanged.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -372,6 +382,8 @@ Phase 02.2 created no migrations. It uses the existing `users` table from migrat
 Phase 02.3 created no migrations.
 
 Phase 02.4 created no migrations. It uses the existing `refresh_sessions` table from migration `202606150201`.
+
+Phase 02.5 created no migrations.
 
 ## 11. Environment variables
 
@@ -561,6 +573,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 38 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 02.5 auth edge-case commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `auth-security` before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_login.py tests/test_refresh.py` | FAIL in sandbox, PASS after repair with approval | Focused auth regression run. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL; first approved run found a TestClient 500-response harness issue; repaired and approved rerun passed: 18 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged nested context managers and import ordering in tests; repaired manually and reran successfully. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed focused run proved localhost binding is blocked for disposable PostgreSQL; approved full suite passed: 44 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -573,7 +596,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 02.1 is passed.
 - Phase 02.2 is passed.
 - Phase 02.3 is passed.
-- Phase 02.4 is passed. Next allowed phase is 02.5, Authentication edge-case tests.
+- Phase 02.4 is passed.
+- Phase 02.5 is passed. Next allowed phase is 02.V, Auth verification.
 
 ## 14. Progress log
 
@@ -592,3 +616,4 @@ Append a dated entry after every completed phase.
 - 2026-06-15: Phase 02.2 registration and password hashing passed. Added `POST /api/v1/auth/register`, normalized email validation, password policy, Argon2 hashing through `pwdlib`, deterministic duplicate-email handling, validation redaction for sensitive inputs, and registration security tests. No migrations were added, and the next allowed phase is 02.3.
 - 2026-06-15: Phase 02.3 login and access token passed. Added `POST /api/v1/auth/login`, `GET /api/v1/users/me`, PyJWT-backed short-lived access-token creation and validation, bearer current-user dependency, typed access-token settings, generic invalid-credential responses, inactive-user rejection, and token edge-case tests. No migrations were added, and the next allowed phase is 02.4.
 - 2026-06-15: Phase 02.4 refresh rotation and logout passed. Added opaque refresh-token issuance on login, HMAC-hashed refresh-token persistence, JSON-body refresh-token transport, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, rotation with old-token revocation, family revocation on reuse, expiry rejection, logout revocation, and refresh security tests. No migrations were added, and the next allowed phase is 02.5.
+- 2026-06-15: Phase 02.5 auth edge-case tests passed. Narrowed bearer-token exception handling, added validation redaction coverage for password and refresh-token inputs, added missing-bearer and missing-user authorization checks, added concurrent same-token refresh coverage, documented auth OpenAPI contract expectations, and recorded deferred PostgreSQL-backed login/register rate-limit design notes. No migrations or endpoints were added, and the next allowed phase is 02.V.

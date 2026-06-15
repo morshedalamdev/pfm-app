@@ -93,6 +93,10 @@ sequenceDiagram
 
 Password hashing uses Argon2 through `pwdlib`. Refresh tokens are stored only as hashes and rotate on use. Password reset uses short-lived hashed reset codes or tokens delivered through the email adapter. Social login buttons visible in the current UI are not part of the MVP backend unless the user explicitly expands scope.
 
+Current MVP auth endpoints are `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/users/me`. Login returns a short-lived bearer access token and an opaque refresh token in the JSON response. Protected endpoints require the access token in the `Authorization: Bearer <token>` header. Refresh and logout accept the opaque refresh token in the JSON request body until a later frontend/deployment phase defines cookie domain, SameSite, and HTTPS-only policy.
+
+Login and registration throttling should be added before public deployment, but phase 02 has no shared rate-limit foundation yet. Do not use process-local counters because they fail across workers and deployments. A future implementation should prefer a PostgreSQL-backed throttle table keyed by endpoint, normalized email when present, client network bucket, and time window; keep responses generic so throttling cannot confirm whether an account exists. Store only throttle metadata, never raw passwords or tokens, and include `Retry-After` only when it does not create user-enumeration leakage.
+
 ## Data Ownership Boundaries
 
 - `users` owns login identity and base user record.
@@ -179,6 +183,8 @@ Validation errors should include field-level details. Authentication failures mu
 Money values are persisted as PostgreSQL `NUMERIC`, represented in Python as `Decimal`, and serialized in API responses as decimal strings. Timestamps are stored in UTC and serialized as ISO 8601 strings with timezone information. User-facing date grouping and recurring schedule interpretation should use explicit user timezone settings when added; until then, UTC storage remains the source of truth.
 
 FastAPI's OpenAPI schema is the contract source. Milestone 08 should generate TypeScript types or a typed client from the OpenAPI schema and add a drift check so frontend request/response types are not manually duplicated.
+
+Auth request/response schemas in OpenAPI intentionally expose token fields only on login and refresh responses and refresh/logout request bodies. Error responses follow the shared envelope and redact validation input for password and token fields.
 
 ## Transaction Flow
 

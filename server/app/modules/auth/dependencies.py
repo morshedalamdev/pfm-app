@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.database import get_session
-from app.core.security import decode_access_token
+from app.core.security import InvalidAccessTokenError, decode_access_token
 from app.modules.users.models import User
 from app.modules.users.repositories import UserRepository
 
@@ -37,7 +37,7 @@ async def get_current_user(
 
     try:
         claims = decode_access_token(credentials.credentials, settings)
-    except Exception as exc:
+    except InvalidAccessTokenError as exc:
         raise invalid_token_error() from exc
 
     user = await UserRepository(session).get_by_id(claims.subject)

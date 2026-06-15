@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from alembic.config import Config
@@ -125,6 +127,18 @@ def test_login_invalid_credentials_are_generic(
     }
 
 
+def test_login_validation_error_redacts_password_input(
+    auth_context: AuthTestContext,
+) -> None:
+    response = auth_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": "valid@example.com", "password": ""},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"][0]["input"] == "[redacted]"
+
+
 def test_login_inactive_user_is_rejected_generically(
     auth_context: AuthTestContext,
 ) -> None:
@@ -152,6 +166,59 @@ def test_protected_user_rejects_malformed_token(
 
     assert response.status_code == 401
     assert response.json()["error"]["message"] == "Invalid authentication credentials"
+
+
+def test_protected_user_requires_bearer_credentials(
+    auth_context: AuthTestContext,
+) -> None:
+    response = auth_context.client.get("/api/v1/users/me")
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
+    assert response.json()["error"]["message"] == "Invalid authentication credentials"
+
+
+def test_protected_user_rejects_token_for_missing_user(
+    auth_context: AuthTestContext,
+) -> None:
+    token = create_access_token(
+        User(
+            id=uuid.uuid4(),
+            email="missing-token-user@example.com",
+            password_hash="unused",
+        ),
+        auth_context.settings,
+    )
+
+    response = auth_context.client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["message"] == "Invalid authentication credentials"
+
+
+def test_protected_user_does_not_mask_unexpected_decode_failures(
+    auth_context: AuthTestContext,
+) -> None:
+    with (
+        patch(
+            "app.modules.auth.dependencies.decode_access_token",
+            side_effect=RuntimeError("unexpected decode failure"),
+        ),
+        TestClient(
+            auth_context.client.app,
+            raise_server_exceptions=False,
+        ) as client,
+    ):
+        response = client.get(
+            "/api/v1/users/me",
+            headers={"Authorization": "Bearer syntactically-unimportant"},
+        )
+
+    assert response.status_code == 500
+    assert response.json()["error"]["message"] == "Internal server error"
 
 
 def test_protected_user_rejects_expired_token(
