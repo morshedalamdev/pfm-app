@@ -92,7 +92,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 01 | 01.2 FastAPI app configuration | PASSED | phase commit created after this state update | Added app factory, typed settings, `/api/v1` router, CORS, logging foundation, error envelope, liveness endpoint, and tests. |
 | 01 | 01.3 PostgreSQL persistence | PASSED | phase commit created after this state update | Added async SQLAlchemy engine/session/base infrastructure, database settings, disposable PostgreSQL tests, and local setup docs. |
 | 01 | 01.4 Alembic and health checks | PASSED | phase commit created after this state update | Added async Alembic baseline, liveness/readiness health checks, migration smoke tests, and migration command docs. |
-| 01 | 01.V Foundation verification | NOT_STARTED | — | — |
+| 01 | 01.V Foundation verification | PASSED | phase commit created after this state update | Verified milestone 01 scope, `.env` ignore behavior, server quality suite, and Alembic upgrade/downgrade/upgrade smoke checks. |
 | 02 | 02.1 User and session models | NOT_STARTED | — | — |
 | 02 | 02.2 Registration and hashing | NOT_STARTED | — | — |
 | 02 | 02.3 Login and access token | NOT_STARTED | — | — |
@@ -221,6 +221,14 @@ Append only. Do not rewrite earlier records.
 - Added migration command documentation to `server/README.md`.
 - No domain models, user/auth tables, finance tables, or later milestone endpoints were added in phase 01.4.
 
+### Phase 01.V foundation verification inventory
+
+- Verified the milestone 01 server scope contains only FastAPI foundation files, core configuration, async PostgreSQL infrastructure, Alembic baseline migration, health endpoints, and tests.
+- Confirmed `server/app/modules/` still contains only `__init__.py`; no auth, user, finance, budget, report, worker domain behavior, or other later-milestone features were implemented.
+- Confirmed `.env` and `server/.env` are ignored by `.gitignore`, while `server/.env.example` remains committed.
+- Reviewed `server/.env.example` and confirmed it contains only local placeholders/defaults, no secrets or external credentials.
+- Ran the full foundation quality suite and Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -293,6 +301,8 @@ Phase 01.3 added no endpoints. Database-aware readiness begins no earlier than p
 
 Phase 01.4 added `GET /api/v1/health/ready`, a database-aware readiness endpoint returning `{"status": "ok", "database": "ready"}` when PostgreSQL connectivity succeeds and the standard error envelope with HTTP 503 when it does not.
 
+Phase 01.V added no endpoints.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -304,6 +314,8 @@ Phase 01.2 created no migrations and did not add database configuration.
 Phase 01.3 created no migrations.
 
 Phase 01.4 created initial empty Alembic baseline migration `202606120114_initial_empty_baseline.py`. Upgrade/downgrade/upgrade smoke checks passed against a disposable PostgreSQL database.
+
+Phase 01.V created no migrations. Verification reapplied the existing `202606120114_initial_empty_baseline.py` migration with upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -412,6 +424,22 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51228/postgres" alembic downgrade base` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606120114` to base. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51228/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded to `202606120114` again. |
 
+### Phase 01.V foundation verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed clean `fastapi-foundation` worktree before verification edits. |
+| `git diff --name-status c63cb4b..HEAD` | PASS | Reviewed milestone branch scope. Server changes were limited to foundation files; no later domain modules were added. |
+| `find server/app/modules -maxdepth 4 -type f -print` | PASS | Confirmed `server/app/modules/` contains only `__init__.py` plus ignored bytecode. |
+| `git check-ignore -v server/.env .env server/.env.example` | PASS | Confirmed `.env` and `server/.env` are ignored, while `server/.env.example` is not ignored. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full foundation lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full foundation format check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Full foundation type check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 17 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49728/postgres" alembic upgrade head` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Upgraded to `202606120114`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49728/postgres" alembic downgrade base` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606120114` to base. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49728/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded to `202606120114` again. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -420,7 +448,7 @@ Record only active blockers or intentionally deferred decisions.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 - Milestone 00 is verified.
-- Phase 01.4 is complete. Next allowed phase is 01.V, Foundation verification.
+- Milestone 01 is verified. Next allowed phase is 02.1, User and session models.
 
 ## 14. Progress log
 
@@ -434,3 +462,4 @@ Append a dated entry after every completed phase.
 - 2026-06-12: Phase 01.2 FastAPI app configuration passed. Added typed settings, app factory, OpenAPI metadata, `/api/v1` router composition, CORS, logging foundation, consistent error envelopes, DB-free liveness endpoint, and focused tests. Ran required Ruff, mypy, and pytest checks successfully and set the next allowed phase to 01.3.
 - 2026-06-12: Phase 01.3 PostgreSQL persistence passed. Added typed async PostgreSQL configuration, SQLAlchemy async engine/session/base infrastructure, metadata naming conventions, request-scoped session dependency, connection helper, local database setup docs, and disposable PostgreSQL tests. Required Ruff and mypy checks passed; pytest passed with approval after sandboxed localhost binding blocked the disposable PostgreSQL server.
 - 2026-06-12: Phase 01.4 Alembic and health checks passed. Added async Alembic configuration, initial empty baseline migration, DB-aware readiness endpoint, migration smoke tests, shared disposable PostgreSQL test fixture, and migration command docs. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade smoke checks passed; localhost database operations required approval because sandbox networking blocks binding/connecting to the disposable PostgreSQL server.
+- 2026-06-15: Phase 01.V foundation verification passed. Verified milestone 01 scope contains no later domain features, confirmed `.env` is ignored and `.env.example` contains no secrets, ran the full server quality suite, ran Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database, and set the next allowed phase to 02.1.
