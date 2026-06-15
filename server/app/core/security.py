@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,6 +16,7 @@ from app.modules.users.models import User
 
 password_hash = PasswordHash.recommended()
 ACCESS_TOKEN_TYPE = "access"
+REFRESH_TOKEN_BYTES = 48
 
 
 def hash_password(password: str) -> str:
@@ -21,6 +25,18 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
+
+
+def create_refresh_token() -> str:
+    return secrets.token_urlsafe(REFRESH_TOKEN_BYTES)
+
+
+def hash_refresh_token(token: str, settings: Settings) -> str:
+    return hmac.new(
+        settings.refresh_token_secret_key.get_secret_value().encode("utf-8"),
+        token.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 @dataclass(frozen=True)

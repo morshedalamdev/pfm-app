@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     )
     access_token_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=15, gt=0, le=60)
+    refresh_token_secret_key: SecretStr = SecretStr(
+        "local-development-refresh-token-secret-change-me",
+    )
+    refresh_token_expire_days: int = Field(default=30, gt=0, le=365)
 
     model_config = SettingsConfigDict(
         env_file=".env",

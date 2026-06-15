@@ -96,7 +96,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 02 | 02.1 User and session models | PASSED | phase commit created after this state update | Added persisted user and refresh-session schema with repository/service skeletons and migration smoke coverage. |
 | 02 | 02.2 Registration and hashing | PASSED | phase commit created after this state update | Added secure registration, email normalization, password policy, Argon2 hashing, response redaction, and endpoint tests. |
 | 02 | 02.3 Login and access token | PASSED | phase commit created after this state update | Added credential login, short-lived JWT access tokens, current-user authorization dependency, protected user endpoint, and token edge-case tests. |
-| 02 | 02.4 Refresh rotation and logout | NOT_STARTED | — | — |
+| 02 | 02.4 Refresh rotation and logout | PASSED | phase commit created after this state update | Added opaque refresh tokens, HMAC token hashing, refresh-session rotation, reuse family revocation, logout revocation, and security tests. |
 | 02 | 02.5 Auth edge-case tests | NOT_STARTED | — | — |
 | 02 | 02.V Auth verification | NOT_STARTED | — | — |
 | 03 | 03.1 Finance domain schema | NOT_STARTED | — | — |
@@ -158,6 +158,7 @@ Append only. Do not rewrite earlier records.
 | 2026-06-12 | Keep one user base currency for MVP, defaulting to `USD` until user confirmation | The current UI has no currency selector; one base currency keeps money behavior deterministic while leaving schema room for later currency support. | 00.3 |
 | 2026-06-12 | Use cursor pagination for growing user-owned lists | Transactions, savings goals, loans, notifications, and recurring rules can grow over time and should not rely on offset pagination as the long-term API contract. | 00.3 |
 | 2026-06-12 | Serialize API money values as decimal strings and timestamps as timezone-aware UTC ISO 8601 strings | Preserves exact money values and avoids ambiguous time handling across frontend, API, database, worker, and reports. | 00.3 |
+| 2026-06-15 | Transport refresh tokens in JSON request/response bodies for MVP auth | The current frontend/API deployment topology does not yet define a shared cookie domain, SameSite policy, or HTTPS-only deployment contract. JSON transport keeps phase 02.4 testable and explicit; frontend storage and deployment hardening remain for later integration phases. | 02.4 |
 
 ## 7. Verified repository inventory
 
@@ -258,6 +259,16 @@ Append only. Do not rewrite earlier records.
 - Extended `server/app/modules/users/repositories.py` with user lookup by UUID.
 - Added `server/tests/test_login.py` covering valid login, protected user access, invalid credentials, inactive account, malformed token, expired token, and invalid signature.
 
+### Phase 02.4 refresh rotation and logout inventory
+
+- Extended `server/app/core/config.py` and `server/.env.example` with refresh-token HMAC secret and expiry settings.
+- Extended `server/app/core/security.py` with opaque refresh-token generation and HMAC-SHA256 refresh-token hashing; plaintext refresh tokens are never persisted.
+- Extended `server/app/modules/auth/repositories.py` with refresh-session locking, family lookup, create, commit, and rollback helpers.
+- Extended `server/app/modules/auth/schemas.py`, `server/app/modules/auth/services.py`, and `server/app/modules/auth/router.py` with refresh-token response fields, refresh request, logout request/response, refresh-session creation, rotation, expiry rejection, family revocation on reuse, and logout revocation.
+- `POST /api/v1/auth/login` now returns both a short-lived access token and an opaque refresh token.
+- Refresh-token transport is JSON body request/response for this MVP backend phase. Cookie transport is deferred until frontend integration/deployment topology defines domain, HTTPS, and SameSite requirements.
+- Added `server/tests/test_refresh.py` covering hashed refresh-token storage, refresh success, rotation, reuse rejection with family revocation, expiry rejection, logout, and revoked-token reuse rejection.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -338,6 +349,8 @@ Phase 02.2 added `POST /api/v1/auth/register`, which creates an active user with
 
 Phase 02.3 added `POST /api/v1/auth/login`, which verifies credentials and returns a short-lived bearer access token, and `GET /api/v1/users/me`, which returns the current authenticated user from a valid access token.
 
+Phase 02.4 changed `POST /api/v1/auth/login` to also return `refresh_token`, added `POST /api/v1/auth/refresh` for refresh-token rotation and new access-token issuance, and added `POST /api/v1/auth/logout` for refresh-token revocation.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -357,6 +370,8 @@ Phase 02.1 created Alembic migration `202606150201_add_user_refresh_session_sche
 Phase 02.2 created no migrations. It uses the existing `users` table from migration `202606150201`.
 
 Phase 02.3 created no migrations.
+
+Phase 02.4 created no migrations. It uses the existing `refresh_sessions` table from migration `202606150201`.
 
 ## 11. Environment variables
 
@@ -389,6 +404,13 @@ Committed template: `server/.env.example`.
 | `ACCESS_TOKEN_SECRET_KEY` | Secret key used to sign and verify access JWTs. `.env.example` contains only a placeholder and real deployments must override it. |
 | `ACCESS_TOKEN_ALGORITHM` | JWT signing algorithm; defaults to `HS256`. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Short-lived access-token expiry in minutes; defaults to `15`. |
+
+### Phase 02.4 refresh-token variables
+
+| Variable | Description |
+|---|---|
+| `REFRESH_TOKEN_SECRET_KEY` | Secret key used to HMAC-hash opaque refresh tokens before persistence. `.env.example` contains only a placeholder and real deployments must override it. |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh-token lifetime in days; defaults to `30`. |
 
 ## 12. Test command registry
 
@@ -529,6 +551,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 32 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 02.4 refresh rotation and logout commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `auth-security` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged import ordering and test line wrapping; repaired with `ruff format .` and `ruff check . --fix`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS after repair | Required format check. Initial run required formatting `tests/test_refresh.py`; repaired with `ruff format .`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 38 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -540,7 +572,8 @@ Record only active blockers or intentionally deferred decisions.
 - Milestone 01 is verified.
 - Phase 02.1 is passed.
 - Phase 02.2 is passed.
-- Phase 02.3 is passed. Next allowed phase is 02.4, Refresh rotation and logout.
+- Phase 02.3 is passed.
+- Phase 02.4 is passed. Next allowed phase is 02.5, Authentication edge-case tests.
 
 ## 14. Progress log
 
@@ -558,3 +591,4 @@ Append a dated entry after every completed phase.
 - 2026-06-15: Phase 02.1 user and session models passed. Added persisted `users` and `refresh_sessions` schema, auth/user repository and service skeletons, Alembic migration `202606150201`, schema tests, and migration upgrade/downgrade/upgrade checks against a disposable PostgreSQL database. No endpoints were added, and the next allowed phase is 02.2.
 - 2026-06-15: Phase 02.2 registration and password hashing passed. Added `POST /api/v1/auth/register`, normalized email validation, password policy, Argon2 hashing through `pwdlib`, deterministic duplicate-email handling, validation redaction for sensitive inputs, and registration security tests. No migrations were added, and the next allowed phase is 02.3.
 - 2026-06-15: Phase 02.3 login and access token passed. Added `POST /api/v1/auth/login`, `GET /api/v1/users/me`, PyJWT-backed short-lived access-token creation and validation, bearer current-user dependency, typed access-token settings, generic invalid-credential responses, inactive-user rejection, and token edge-case tests. No migrations were added, and the next allowed phase is 02.4.
+- 2026-06-15: Phase 02.4 refresh rotation and logout passed. Added opaque refresh-token issuance on login, HMAC-hashed refresh-token persistence, JSON-body refresh-token transport, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, rotation with old-token revocation, family revocation on reuse, expiry rejection, logout revocation, and refresh security tests. No migrations were added, and the next allowed phase is 02.5.

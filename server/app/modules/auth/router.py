@@ -9,6 +9,9 @@ from app.modules.auth.repositories import RefreshSessionRepository
 from app.modules.auth.schemas import (
     AccessTokenResponse,
     LoginRequest,
+    LogoutRequest,
+    LogoutResponse,
+    RefreshTokenRequest,
     RegisteredUserResponse,
     RegisterUserRequest,
 )
@@ -16,6 +19,7 @@ from app.modules.auth.services import (
     AuthService,
     DuplicateRegistrationError,
     InvalidCredentialsError,
+    InvalidRefreshTokenError,
 )
 from app.modules.users.repositories import UserRepository
 
@@ -67,3 +71,37 @@ async def login_user(
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
+
+@router.post("/refresh", response_model=AccessTokenResponse)
+async def refresh_tokens(
+    request: RefreshTokenRequest,
+    session: SessionDependency,
+    settings: SettingsDependency,
+) -> AccessTokenResponse:
+    service = build_auth_service(session)
+    try:
+        return await service.refresh_tokens(request, settings)
+    except InvalidRefreshTokenError as exc:
+        raise invalid_refresh_token_http_error() from exc
+
+
+@router.post("/logout", response_model=LogoutResponse)
+async def logout_user(
+    request: LogoutRequest,
+    session: SessionDependency,
+    settings: SettingsDependency,
+) -> LogoutResponse:
+    service = build_auth_service(session)
+    await service.logout_user(
+        RefreshTokenRequest(refresh_token=request.refresh_token),
+        settings,
+    )
+    return LogoutResponse(status="ok")
+
+
+def invalid_refresh_token_http_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid refresh token",
+    )

@@ -39,8 +39,21 @@ class LoginRequest(BaseModel):
 
 class AccessTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: Literal["bearer"] = "bearer"
     expires_in: int
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(min_length=32, max_length=512)
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str = Field(min_length=32, max_length=512)
+
+
+class LogoutResponse(BaseModel):
+    status: Literal["ok"]
 
 
 class RegisteredUserResponse(BaseModel):
