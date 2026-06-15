@@ -98,7 +98,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 02 | 02.3 Login and access token | PASSED | phase commit created after this state update | Added credential login, short-lived JWT access tokens, current-user authorization dependency, protected user endpoint, and token edge-case tests. |
 | 02 | 02.4 Refresh rotation and logout | PASSED | phase commit created after this state update | Added opaque refresh tokens, HMAC token hashing, refresh-session rotation, reuse family revocation, logout revocation, and security tests. |
 | 02 | 02.5 Auth edge-case tests | PASSED | phase commit created after this state update | Hardened bearer-token exception handling, added auth edge-case tests, documented auth OpenAPI behavior, and recorded login/register rate-limit design notes. |
-| 02 | 02.V Auth verification | NOT_STARTED | — | — |
+| 02 | 02.V Auth verification | PASSED | verification commit created after this state update | Verified auth milestone quality suite, migration smoke checks, OpenAPI auth routes, protected dependency behavior, and committed-secret posture. |
 | 03 | 03.1 Finance domain schema | NOT_STARTED | — | — |
 | 03 | 03.2 Accounts and categories | NOT_STARTED | — | — |
 | 03 | 03.3 Income and expenses | NOT_STARTED | — | — |
@@ -277,6 +277,14 @@ Append only. Do not rewrite earlier records.
 - Extended `server/tests/test_refresh.py` with refresh-token validation redaction and parallel same-token refresh attempts proving only one rotation can succeed.
 - Updated `docs/architecture/SYSTEM_DESIGN.md` with implemented auth endpoint contract notes, token transport notes, validation redaction expectations, and deferred PostgreSQL-backed rate-limit design notes.
 
+### Phase 02.V auth verification inventory
+
+- Verified the milestone 02 auth surface remains limited to users, registration, login, access tokens, refresh rotation, logout, and current-user authorization.
+- Verified generated OpenAPI includes `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/users/me`.
+- Verified `GET /api/v1/users/me` uses the bearer-token current-user dependency and OpenAPI marks it with `HTTPBearer` security.
+- Verified `.env` and `server/.env` are ignored, `server/.env.example` remains tracked as a placeholder template, and tracked-file scans found no known private-key, cloud-key, GitHub-token, OpenAI-key, Google-key, or Slack-token patterns.
+- Ran the full server quality suite and Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -361,6 +369,8 @@ Phase 02.4 changed `POST /api/v1/auth/login` to also return `refresh_token`, add
 
 Phase 02.5 added no endpoints. It documented the current auth OpenAPI contract expectations and kept the implemented auth endpoint set unchanged.
 
+Phase 02.V added no endpoints. Verification confirmed the milestone 02 implemented endpoint set remains `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/users/me`.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -384,6 +394,8 @@ Phase 02.3 created no migrations.
 Phase 02.4 created no migrations. It uses the existing `refresh_sessions` table from migration `202606150201`.
 
 Phase 02.5 created no migrations.
+
+Phase 02.V created no migrations. Verification reapplied the existing auth schema migration path with `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head` against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -584,6 +596,26 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed focused run proved localhost binding is blocked for disposable PostgreSQL; approved full suite passed: 44 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 02.V authentication verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `auth-security` and clean worktree before verification edits. |
+| `sed -n '1,220p' server/app/modules/auth/dependencies.py` | PASS | Inspected protected-route dependency behavior. |
+| `sed -n '1,260p' server/app/modules/auth/router.py` | PASS | Inspected auth route surface and response schemas. |
+| `sed -n '1,200p' server/app/modules/users/router.py` | PASS | Confirmed `/users/me` uses `CurrentUserDependency`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full test suite. Approved run was needed because the disposable PostgreSQL test fixture binds localhost. Result: 44 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51007/postgres" alembic upgrade head` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Upgraded through `202606120114` and `202606150201`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51007/postgres" alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606150201` to `202606120114`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:51007/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded from `202606120114` to `202606150201`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" python - <<'PY' ... create_app().openapi() ... PY` | PASS | Verified OpenAPI exposes the milestone auth routes and marks `/api/v1/users/me` with `HTTPBearer` security. |
+| `git check-ignore -v .env server/.env server/.env.example` | PASS | Confirmed `.env` and `server/.env` are ignored and `server/.env.example` is not ignored. |
+| `git grep -n -I -E 'BEGIN (RSA\|OPENSSH\|PRIVATE) KEY\|AKIA[0-9A-Z]{16}\|ghp_[A-Za-z0-9_]{20,}\|sk-[A-Za-z0-9]{20,}\|xox[baprs]-\|AIza[0-9A-Za-z_-]{20,}' -- . ':!client/package-lock.json' ':!server/uv.lock'` | PASS | No known private-key, cloud-key, GitHub-token, OpenAI-key, Google-key, or Slack-token patterns found in tracked files. |
+| `git grep -n -I -E 'SECRET_KEY=\|TOKEN=.*[A-Za-z0-9]\|PASSWORD=.*[A-Za-z0-9]' -- server/.env.example server/tests server/app` | PASS | Found only `server/.env.example` placeholder secret-key values. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -597,7 +629,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 02.2 is passed.
 - Phase 02.3 is passed.
 - Phase 02.4 is passed.
-- Phase 02.5 is passed. Next allowed phase is 02.V, Auth verification.
+- Phase 02.5 is passed.
+- Milestone 02 is verified. Next allowed phase is 03.1, Finance domain schema, after user approval to push the branch and begin milestone 03.
 
 ## 14. Progress log
 
@@ -617,3 +650,4 @@ Append a dated entry after every completed phase.
 - 2026-06-15: Phase 02.3 login and access token passed. Added `POST /api/v1/auth/login`, `GET /api/v1/users/me`, PyJWT-backed short-lived access-token creation and validation, bearer current-user dependency, typed access-token settings, generic invalid-credential responses, inactive-user rejection, and token edge-case tests. No migrations were added, and the next allowed phase is 02.4.
 - 2026-06-15: Phase 02.4 refresh rotation and logout passed. Added opaque refresh-token issuance on login, HMAC-hashed refresh-token persistence, JSON-body refresh-token transport, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, rotation with old-token revocation, family revocation on reuse, expiry rejection, logout revocation, and refresh security tests. No migrations were added, and the next allowed phase is 02.5.
 - 2026-06-15: Phase 02.5 auth edge-case tests passed. Narrowed bearer-token exception handling, added validation redaction coverage for password and refresh-token inputs, added missing-bearer and missing-user authorization checks, added concurrent same-token refresh coverage, documented auth OpenAPI contract expectations, and recorded deferred PostgreSQL-backed login/register rate-limit design notes. No migrations or endpoints were added, and the next allowed phase is 02.V.
+- 2026-06-15: Phase 02.V authentication verification passed. Verified milestone 02 auth scope, generated OpenAPI auth routes, protected `/api/v1/users/me` bearer dependency behavior, ignored environment files, tracked-file secret posture, full server quality suite, and Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database. No migrations or endpoints were added, and the next allowed phase is 03.1 after user approval to push the branch and begin milestone 03.
