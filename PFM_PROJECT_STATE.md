@@ -93,7 +93,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 01 | 01.3 PostgreSQL persistence | PASSED | phase commit created after this state update | Added async SQLAlchemy engine/session/base infrastructure, database settings, disposable PostgreSQL tests, and local setup docs. |
 | 01 | 01.4 Alembic and health checks | PASSED | phase commit created after this state update | Added async Alembic baseline, liveness/readiness health checks, migration smoke tests, and migration command docs. |
 | 01 | 01.V Foundation verification | PASSED | phase commit created after this state update | Verified milestone 01 scope, `.env` ignore behavior, server quality suite, and Alembic upgrade/downgrade/upgrade smoke checks. |
-| 02 | 02.1 User and session models | NOT_STARTED | — | — |
+| 02 | 02.1 User and session models | PASSED | phase commit created after this state update | Added persisted user and refresh-session schema with repository/service skeletons and migration smoke coverage. |
 | 02 | 02.2 Registration and hashing | NOT_STARTED | — | — |
 | 02 | 02.3 Login and access token | NOT_STARTED | — | — |
 | 02 | 02.4 Refresh rotation and logout | NOT_STARTED | — | — |
@@ -229,6 +229,14 @@ Append only. Do not rewrite earlier records.
 - Reviewed `server/.env.example` and confirmed it contains only local placeholders/defaults, no secrets or external credentials.
 - Ran the full foundation quality suite and Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database.
 
+### Phase 02.1 user and session schema inventory
+
+- Added `server/app/modules/users/models.py` with a `users` SQLAlchemy model using UUID primary keys, normalized email storage, unique email constraint, password hash, active flag, and timezone-aware created/updated timestamps.
+- Added `server/app/modules/auth/models.py` with a `refresh_sessions` SQLAlchemy model using UUID primary keys, hashed refresh token storage, expiry, revocation metadata, parent/replacement session links, and session family metadata for later rotation.
+- Added repository/service skeletons in `server/app/modules/users/repositories.py`, `server/app/modules/auth/repositories.py`, and `server/app/modules/auth/services.py`; no auth endpoint behavior was added.
+- Updated `server/alembic/env.py` to import user and auth models so Alembic metadata includes the new tables.
+- Added `server/tests/test_auth_schema.py` covering model shape, repository/service skeleton composition, and auth migration upgrade/downgrade/upgrade table behavior.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -303,6 +311,8 @@ Phase 01.4 added `GET /api/v1/health/ready`, a database-aware readiness endpoint
 
 Phase 01.V added no endpoints.
 
+Phase 02.1 added no endpoints. Registration and login endpoints begin no earlier than phase 02.2.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -316,6 +326,8 @@ Phase 01.3 created no migrations.
 Phase 01.4 created initial empty Alembic baseline migration `202606120114_initial_empty_baseline.py`. Upgrade/downgrade/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 Phase 01.V created no migrations. Verification reapplied the existing `202606120114_initial_empty_baseline.py` migration with upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database.
+
+Phase 02.1 created Alembic migration `202606150201_add_user_refresh_session_schema.py` for `users` and `refresh_sessions`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -440,6 +452,20 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49728/postgres" alembic downgrade base` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606120114` to base. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49728/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded to `202606120114` again. |
 
+### Phase 02.1 user and session schema commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed clean `fastapi-foundation` worktree before creating milestone branch; later observed unrelated `RUN_COMMANDS.md` formatting changes and did not stage them. |
+| `git switch -c auth-security` | PASS with approval | Created the required milestone 02 branch from verified milestone 01. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged import ordering in the new migration; repaired with `ruff check . --fix`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 21 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49963/postgres" alembic upgrade head` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Upgraded to `202606150201`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49963/postgres" alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606150201` to `202606120114`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49963/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded to `202606150201` again. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -448,7 +474,8 @@ Record only active blockers or intentionally deferred decisions.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 - Milestone 00 is verified.
-- Milestone 01 is verified. Next allowed phase is 02.1, User and session models.
+- Milestone 01 is verified.
+- Phase 02.1 is passed. Next allowed phase is 02.2, Registration and password hashing.
 
 ## 14. Progress log
 
@@ -463,3 +490,4 @@ Append a dated entry after every completed phase.
 - 2026-06-12: Phase 01.3 PostgreSQL persistence passed. Added typed async PostgreSQL configuration, SQLAlchemy async engine/session/base infrastructure, metadata naming conventions, request-scoped session dependency, connection helper, local database setup docs, and disposable PostgreSQL tests. Required Ruff and mypy checks passed; pytest passed with approval after sandboxed localhost binding blocked the disposable PostgreSQL server.
 - 2026-06-12: Phase 01.4 Alembic and health checks passed. Added async Alembic configuration, initial empty baseline migration, DB-aware readiness endpoint, migration smoke tests, shared disposable PostgreSQL test fixture, and migration command docs. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade smoke checks passed; localhost database operations required approval because sandbox networking blocks binding/connecting to the disposable PostgreSQL server.
 - 2026-06-15: Phase 01.V foundation verification passed. Verified milestone 01 scope contains no later domain features, confirmed `.env` is ignored and `.env.example` contains no secrets, ran the full server quality suite, ran Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database, and set the next allowed phase to 02.1.
+- 2026-06-15: Phase 02.1 user and session models passed. Added persisted `users` and `refresh_sessions` schema, auth/user repository and service skeletons, Alembic migration `202606150201`, schema tests, and migration upgrade/downgrade/upgrade checks against a disposable PostgreSQL database. No endpoints were added, and the next allowed phase is 02.2.
