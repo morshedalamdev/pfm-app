@@ -3,14 +3,25 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings, get_settings
 from app.core.database import get_session
 from app.modules.auth.repositories import RefreshSessionRepository
-from app.modules.auth.schemas import RegisteredUserResponse, RegisterUserRequest
-from app.modules.auth.services import AuthService, DuplicateRegistrationError
+from app.modules.auth.schemas import (
+    AccessTokenResponse,
+    LoginRequest,
+    RegisteredUserResponse,
+    RegisterUserRequest,
+)
+from app.modules.auth.services import (
+    AuthService,
+    DuplicateRegistrationError,
+    InvalidCredentialsError,
+)
 from app.modules.users.repositories import UserRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
+SettingsDependency = Annotated[Settings, Depends(get_settings)]
 
 
 def build_auth_service(session: AsyncSession) -> AuthService:
@@ -39,3 +50,20 @@ async def register_user(
         ) from exc
 
     return RegisteredUserResponse.model_validate(user)
+
+
+@router.post("/login", response_model=AccessTokenResponse)
+async def login_user(
+    request: LoginRequest,
+    session: SessionDependency,
+    settings: SettingsDependency,
+) -> AccessTokenResponse:
+    service = build_auth_service(session)
+    try:
+        return await service.login_user(request, settings)
+    except InvalidCredentialsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc

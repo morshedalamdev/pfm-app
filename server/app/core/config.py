@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     database_echo: bool = False
     database_pool_size: int = 5
     database_max_overflow: int = 10
+    access_token_secret_key: SecretStr = SecretStr(
+        "local-development-access-token-secret-change-me",
+    )
+    access_token_algorithm: str = "HS256"
+    access_token_expire_minutes: int = Field(default=15, gt=0, le=60)
 
     model_config = SettingsConfigDict(
         env_file=".env",

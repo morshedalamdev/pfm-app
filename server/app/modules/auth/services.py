@@ -2,14 +2,23 @@ from __future__ import annotations
 
 from sqlalchemy.exc import IntegrityError
 
-from app.core.security import hash_password
+from app.core.config import Settings
+from app.core.security import create_access_token, hash_password, verify_password
 from app.modules.auth.repositories import RefreshSessionRepository
-from app.modules.auth.schemas import RegisterUserRequest
+from app.modules.auth.schemas import (
+    AccessTokenResponse,
+    LoginRequest,
+    RegisterUserRequest,
+)
 from app.modules.users.models import User
 from app.modules.users.repositories import UserRepository
 
 
 class DuplicateRegistrationError(Exception):
+    pass
+
+
+class InvalidCredentialsError(Exception):
     pass
 
 
@@ -40,3 +49,22 @@ class AuthService:
             raise DuplicateRegistrationError from exc
 
         return user
+
+    async def login_user(
+        self,
+        request: LoginRequest,
+        settings: Settings,
+    ) -> AccessTokenResponse:
+        user = await self.users.get_by_email(request.email)
+        if user is None:
+            raise InvalidCredentialsError
+        if not verify_password(request.password, user.password_hash):
+            raise InvalidCredentialsError
+        if not user.is_active:
+            raise InvalidCredentialsError
+
+        access_token = create_access_token(user, settings)
+        return AccessTokenResponse(
+            access_token=access_token,
+            expires_in=settings.access_token_expire_minutes * 60,
+        )
