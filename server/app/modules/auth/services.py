@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+from sqlalchemy.exc import IntegrityError
+
+from app.core.security import hash_password
 from app.modules.auth.repositories import RefreshSessionRepository
+from app.modules.auth.schemas import RegisterUserRequest
+from app.modules.users.models import User
 from app.modules.users.repositories import UserRepository
+
+
+class DuplicateRegistrationError(Exception):
+    pass
 
 
 class AuthService:
@@ -12,3 +21,22 @@ class AuthService:
     ) -> None:
         self.users = users
         self.refresh_sessions = refresh_sessions
+
+    async def register_user(self, request: RegisterUserRequest) -> User:
+        existing_user = await self.users.get_by_email(request.email)
+        if existing_user is not None:
+            raise DuplicateRegistrationError
+
+        user = User(
+            email=request.email,
+            password_hash=hash_password(request.password),
+        )
+
+        try:
+            await self.users.create(user)
+            await self.users.commit()
+        except IntegrityError as exc:
+            await self.users.rollback()
+            raise DuplicateRegistrationError from exc
+
+        return user

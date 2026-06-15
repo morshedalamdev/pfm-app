@@ -16,3 +16,14 @@ class UserRepository:
 
     def add(self, user: User) -> None:
         self._session.add(user)
+
+    async def create(self, user: User) -> User:
+        self.add(user)
+        await self._session.flush()
+        return user
+
+    async def commit(self) -> None:
+        await self._session.commit()
+
+    async def rollback(self) -> None:
+        await self._session.rollback()

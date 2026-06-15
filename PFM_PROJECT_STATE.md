@@ -94,7 +94,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 01 | 01.4 Alembic and health checks | PASSED | phase commit created after this state update | Added async Alembic baseline, liveness/readiness health checks, migration smoke tests, and migration command docs. |
 | 01 | 01.V Foundation verification | PASSED | phase commit created after this state update | Verified milestone 01 scope, `.env` ignore behavior, server quality suite, and Alembic upgrade/downgrade/upgrade smoke checks. |
 | 02 | 02.1 User and session models | PASSED | phase commit created after this state update | Added persisted user and refresh-session schema with repository/service skeletons and migration smoke coverage. |
-| 02 | 02.2 Registration and hashing | NOT_STARTED | — | — |
+| 02 | 02.2 Registration and hashing | PASSED | phase commit created after this state update | Added secure registration, email normalization, password policy, Argon2 hashing, response redaction, and endpoint tests. |
 | 02 | 02.3 Login and access token | NOT_STARTED | — | — |
 | 02 | 02.4 Refresh rotation and logout | NOT_STARTED | — | — |
 | 02 | 02.5 Auth edge-case tests | NOT_STARTED | — | — |
@@ -237,6 +237,16 @@ Append only. Do not rewrite earlier records.
 - Updated `server/alembic/env.py` to import user and auth models so Alembic metadata includes the new tables.
 - Added `server/tests/test_auth_schema.py` covering model shape, repository/service skeleton composition, and auth migration upgrade/downgrade/upgrade table behavior.
 
+### Phase 02.2 registration and password hashing inventory
+
+- Added `pwdlib[argon2]` as a backend runtime dependency for Argon2 password hashing.
+- Added `server/app/core/security.py` with password hashing and verification helpers backed by `pwdlib.PasswordHash.recommended()`.
+- Added `server/app/modules/auth/validation.py` and `server/app/modules/auth/schemas.py` for email normalization, password policy validation, registration request schema, and safe user response schema.
+- Extended `server/app/modules/auth/services.py` and `server/app/modules/users/repositories.py` to create users with normalized email and hashed passwords while handling duplicate email conflicts deterministically.
+- Added `server/app/modules/auth/router.py` and mounted it from `server/app/api/v1/router.py` for registration only.
+- Updated validation error handling in `server/app/core/errors.py` to redact sensitive submitted inputs such as `password` from API validation error responses.
+- Added `server/tests/test_registration.py` covering successful registration, duplicate email, invalid email, weak password redaction, normalization, Argon2 storage, and serialization safety.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -313,6 +323,8 @@ Phase 01.V added no endpoints.
 
 Phase 02.1 added no endpoints. Registration and login endpoints begin no earlier than phase 02.2.
 
+Phase 02.2 added `POST /api/v1/auth/register`, which creates an active user with normalized email and an Argon2 password hash, returning only safe user fields.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -328,6 +340,8 @@ Phase 01.4 created initial empty Alembic baseline migration `202606120114_initia
 Phase 01.V created no migrations. Verification reapplied the existing `202606120114_initial_empty_baseline.py` migration with upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database.
 
 Phase 02.1 created Alembic migration `202606150201_add_user_refresh_session_schema.py` for `users` and `refresh_sessions`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
+
+Phase 02.2 created no migrations. It uses the existing `users` table from migration `202606150201`.
 
 ## 11. Environment variables
 
@@ -348,6 +362,10 @@ Committed template: `server/.env.example`.
 | `DATABASE_ECHO` | Enables SQLAlchemy SQL echo logging for local diagnostics. |
 | `DATABASE_POOL_SIZE` | Base SQLAlchemy connection pool size. |
 | `DATABASE_MAX_OVERFLOW` | Maximum SQLAlchemy overflow connections beyond the base pool. |
+
+### Phase 02.2 auth dependencies
+
+- No new environment variables were added. `pwdlib[argon2]` is now a runtime Python dependency for local and deployed password hashing.
 
 ## 12. Test command registry
 
@@ -466,6 +484,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49963/postgres" alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606150201` to `202606120114`. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:49963/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded to `202606150201` again. |
 
+### Phase 02.2 registration and password hashing commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `auth-security` before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" python -m pip install -e '.[dev,test]'` | FAIL in sandbox, PASS with approval | Required after adding `pwdlib[argon2]`. Sandboxed run could not resolve PyPI; approved rerun installed `pwdlib 0.3.0` and Argon2 dependencies. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged import ordering; repaired with `ruff check . --fix`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS after repair | Required type check. Initial run flagged validation error sanitizer input typing; repaired with a `Sequence[Any]` signature. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 26 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -475,7 +504,8 @@ Record only active blockers or intentionally deferred decisions.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 - Milestone 00 is verified.
 - Milestone 01 is verified.
-- Phase 02.1 is passed. Next allowed phase is 02.2, Registration and password hashing.
+- Phase 02.1 is passed.
+- Phase 02.2 is passed. Next allowed phase is 02.3, Login and access token.
 
 ## 14. Progress log
 
@@ -491,3 +521,4 @@ Append a dated entry after every completed phase.
 - 2026-06-12: Phase 01.4 Alembic and health checks passed. Added async Alembic configuration, initial empty baseline migration, DB-aware readiness endpoint, migration smoke tests, shared disposable PostgreSQL test fixture, and migration command docs. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade smoke checks passed; localhost database operations required approval because sandbox networking blocks binding/connecting to the disposable PostgreSQL server.
 - 2026-06-15: Phase 01.V foundation verification passed. Verified milestone 01 scope contains no later domain features, confirmed `.env` is ignored and `.env.example` contains no secrets, ran the full server quality suite, ran Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database, and set the next allowed phase to 02.1.
 - 2026-06-15: Phase 02.1 user and session models passed. Added persisted `users` and `refresh_sessions` schema, auth/user repository and service skeletons, Alembic migration `202606150201`, schema tests, and migration upgrade/downgrade/upgrade checks against a disposable PostgreSQL database. No endpoints were added, and the next allowed phase is 02.2.
+- 2026-06-15: Phase 02.2 registration and password hashing passed. Added `POST /api/v1/auth/register`, normalized email validation, password policy, Argon2 hashing through `pwdlib`, deterministic duplicate-email handling, validation redaction for sensitive inputs, and registration security tests. No migrations were added, and the next allowed phase is 02.3.

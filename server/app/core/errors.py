@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, cast
 
 from fastapi import FastAPI, Request
@@ -9,6 +9,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse, Response
 
 ExceptionHandler = Callable[[Request, Exception], Response | Awaitable[Response]]
+SENSITIVE_VALIDATION_FIELDS = frozenset(
+    {
+        "password",
+        "password_hash",
+        "token",
+        "access_token",
+        "refresh_token",
+    }
+)
 
 
 class ErrorDetail(BaseModel):
@@ -30,6 +39,20 @@ def build_error_payload(
         error=ErrorDetail(code=code, message=message, details=details),
     )
     return envelope.model_dump(exclude_none=True)
+
+
+def sanitize_validation_errors(errors: Sequence[Any]) -> list[dict[str, Any]]:
+    sanitized_errors: list[dict[str, Any]] = []
+
+    for error in errors:
+        sanitized_error = dict(error)
+        loc = sanitized_error.get("loc", ())
+        loc_parts = {str(part).lower() for part in loc}
+        if loc_parts & SENSITIVE_VALIDATION_FIELDS and "input" in sanitized_error:
+            sanitized_error["input"] = "[redacted]"
+        sanitized_errors.append(sanitized_error)
+
+    return sanitized_errors
 
 
 async def http_exception_handler(
@@ -54,7 +77,7 @@ async def validation_exception_handler(
         content=build_error_payload(
             code="validation_error",
             message="Request validation failed",
-            details=jsonable_encoder(exc.errors()),
+            details=jsonable_encoder(sanitize_validation_errors(exc.errors())),
         ),
     )
 
