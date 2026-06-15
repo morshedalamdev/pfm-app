@@ -2,19 +2,19 @@
 
 ## Codex model setup by milestone
 
-| Milestone | Recommended model | Reasoning | Speed |
-|---|---|---|---|
-| 00 Discovery and architecture | GPT-5.5 | Extra High for 00.3; High otherwise | Standard |
-| 01 FastAPI foundation | GPT-5.5 | High | Standard |
-| 02 Authentication and security | GPT-5.5 | Extra High | Standard |
-| 03 Finance core | GPT-5.5 | Extra High | Standard |
-| 04 Budgets and savings | GPT-5.5 | High | Standard |
-| 05 Reports and analytics | GPT-5.5 | Extra High | Standard |
-| 06 Recurring worker | GPT-5.5 | Extra High | Standard |
-| 07 Integrations and notifications | GPT-5.5 | High | Standard |
-| 08 Frontend integration | GPT-5.5 | High | Standard |
-| 09 CI, Docker, deployment | GPT-5.5 | High | Standard |
-| 10 Final audit | GPT-5.5 | Extra High | Standard |
+| Milestone                         | Recommended model | Reasoning                           | Speed    |
+| --------------------------------- | ----------------- | ----------------------------------- | -------- |
+| 00 Discovery and architecture     | GPT-5.5           | Extra High for 00.3; High otherwise | Standard |
+| 01 FastAPI foundation             | GPT-5.5           | High                                | Standard |
+| 02 Authentication and security    | GPT-5.5           | Extra High                          | Standard |
+| 03 Finance core                   | GPT-5.5           | Extra High                          | Standard |
+| 04 Budgets and savings            | GPT-5.5           | High                                | Standard |
+| 05 Reports and analytics          | GPT-5.5           | Extra High                          | Standard |
+| 06 Recurring worker               | GPT-5.5           | Extra High                          | Standard |
+| 07 Integrations and notifications | GPT-5.5           | High                                | Standard |
+| 08 Frontend integration           | GPT-5.5           | High                                | Standard |
+| 09 CI, Docker, deployment         | GPT-5.5           | High                                | Standard |
+| 10 Final audit                    | GPT-5.5           | Extra High                          | Standard |
 
 Use Standard speed for all phases. Do not use Fast speed for schema design, money mutations, security, or deployment work.
 
