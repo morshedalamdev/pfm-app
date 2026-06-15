@@ -101,7 +101,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 02 | 02.V Auth verification | PASSED | verification commit created after this state update | Verified auth milestone quality suite, migration smoke checks, OpenAPI auth routes, protected dependency behavior, and committed-secret posture. |
 | 03 | 03.1 Finance domain schema | PASSED | phase commit created after this state update | Added finance source-of-truth models, ownership constraints, indexes, Alembic migration, and schema/migration tests. |
 | 03 | 03.2 Accounts and categories | PASSED | phase commit created after this state update | Added owned account/category CRUD APIs, safe archive behavior, pagination, kind filtering, ownership tests, and OpenAPI coverage. |
-| 03 | 03.3 Income and expenses | NOT_STARTED | — | — |
+| 03 | 03.3 Income and expenses | PASSED | phase commit created after this state update | Added authenticated income/expense transaction CRUD, validation, soft void behavior, ownership checks, source-record reproducibility tests, and OpenAPI coverage. |
 | 03 | 03.4 Transfers and atomicity | NOT_STARTED | — | — |
 | 03 | 03.5 Filters, pagination, idempotency | NOT_STARTED | — | — |
 | 03 | 03.6 Finance tests | NOT_STARTED | — | — |
@@ -314,6 +314,18 @@ Append only. Do not rewrite earlier records.
 - Added `server/tests/test_accounts_categories.py` covering CRUD, validation, cross-user access rejection, archive behavior, pagination, filters, duplicate categories, and OpenAPI schemas.
 - Updated the existing auth migration test to downgrade to base before exercising revision `202606150201`, keeping it independent of shared disposable database state.
 
+### Phase 03.3 income and expenses inventory
+
+- Added transaction API schemas, repository, service, and router under `server/app/modules/transactions/`.
+- Mounted the transaction router from `server/app/api/v1/router.py`.
+- Implemented authenticated `POST /api/v1/transactions`, `GET /api/v1/transactions`, `GET /api/v1/transactions/{transaction_id}`, `PATCH /api/v1/transactions/{transaction_id}`, and `DELETE /api/v1/transactions/{transaction_id}` for income and expense records.
+- Transaction create/update validates positive Decimal amounts, rejects JSON float amounts, requires UTC-aware transaction timestamps, trims optional descriptions, and normalizes timestamps to UTC.
+- Transaction create/update validates owned, active accounts and owned, active categories whose kind matches the requested income or expense transaction type.
+- Transaction queries and mutations are scoped by current `user_id`; cross-user access returns not found.
+- Transaction delete uses a void strategy by setting `voided_at`; voided transactions remain retrievable by id for audit behavior but are excluded from list results and cannot be updated.
+- Transaction list returns the current user's non-voided income/expense rows sorted newest first. Pagination, filtering, and idempotency remain assigned to phase 03.5.
+- Added `server/tests/test_transactions.py` covering CRUD, precise Decimal source-record totals, void behavior, ownership rejection, archived reference rejection, category kind validation, unsupported transaction types, float rejection, and naive timestamp rejection.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -406,6 +418,8 @@ Phase 03.2 added account management endpoints: `POST /api/v1/accounts`, `GET /ap
 
 Phase 03.2 added category management endpoints: `POST /api/v1/categories`, `GET /api/v1/categories`, `PATCH /api/v1/categories/{category_id}`, and `DELETE /api/v1/categories/{category_id}`. Category list supports `kind=income|expense`, returns `items`, `next_cursor`, and `has_more`; delete performs safe archive instead of hard delete.
 
+Phase 03.3 added income/expense transaction endpoints: `POST /api/v1/transactions`, `GET /api/v1/transactions`, `GET /api/v1/transactions/{transaction_id}`, `PATCH /api/v1/transactions/{transaction_id}`, and `DELETE /api/v1/transactions/{transaction_id}`. Transaction create/update validates owned active account/category references, positive Decimal amounts, category kind matching, and timezone-aware timestamps. Delete voids the transaction instead of hard deleting. List returns the current user's non-voided income/expense rows.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -435,6 +449,8 @@ Phase 02.V created no migrations. Verification reapplied the existing auth schem
 Phase 03.1 created Alembic migration `202606150301_add_finance_domain_schema.py` for `accounts`, `categories`, `transactions`, `transfer_links`, and `idempotency_records`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 Phase 03.2 created no migrations. It uses the existing finance schema from migration `202606150301`.
+
+Phase 03.3 created no migrations. It uses the existing finance schema from migration `202606150301`.
 
 ## 11. Environment variables
 
@@ -476,6 +492,10 @@ Committed template: `server/.env.example`.
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh-token lifetime in days; defaults to `30`. |
 
 ### Phase 03.2 finance API variables
+
+- No new environment variables were added.
+
+### Phase 03.3 transaction API variables
 
 - No new environment variables were added.
 
@@ -683,6 +703,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS after repair with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved runs found and repaired money scale expectation, server-managed timestamp refresh after commit, auth migration test isolation, and pre-validation currency normalization. Final approved run passed: 55 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 03.3 income and expenses commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `finance-core` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged formatting in new transaction files; repaired with Ruff formatting. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved run passed: 58 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -699,7 +729,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 02.5 is passed.
 - Milestone 02 is verified.
 - Phase 03.1 is passed.
-- Phase 03.2 is passed. Next allowed phase is 03.3, Income and expenses, after user permission.
+- Phase 03.2 is passed.
+- Phase 03.3 is passed. Next allowed phase is 03.4, Transfers and atomicity, after user permission.
 
 ## 14. Progress log
 
@@ -722,3 +753,4 @@ Append a dated entry after every completed phase.
 - 2026-06-15: Phase 02.V authentication verification passed. Verified milestone 02 auth scope, generated OpenAPI auth routes, protected `/api/v1/users/me` bearer dependency behavior, ignored environment files, tracked-file secret posture, full server quality suite, and Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database. No migrations or endpoints were added, and the next allowed phase is 03.1 after user approval to push the branch and begin milestone 03.
 - 2026-06-15: Phase 03.1 finance domain schema passed. Added finance source-of-truth models for accounts, categories, transactions, transfer links, and idempotency records; enforced user ownership with composite foreign keys; added migration `202606150301`; updated system design; ran required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade checks. No endpoints were added, and the next allowed phase is 03.2.
 - 2026-06-15: Phase 03.2 accounts and categories passed. Added authenticated account and category management endpoints, ownership-scoped repositories/services, safe archive behavior, cursor list envelopes, category kind filtering, validation and duplicate handling, OpenAPI coverage, and integration tests. No migrations were added, and the next allowed phase is 03.3.
+- 2026-06-15: Phase 03.3 income and expenses passed. Added authenticated income/expense transaction endpoints, owned active account/category validation, precise Decimal amount handling, UTC-aware transaction timestamps, source-record reproducibility tests, safe void behavior, ownership and invalid-state tests, and OpenAPI coverage. No migrations were added, and the next allowed phase is 03.4.
