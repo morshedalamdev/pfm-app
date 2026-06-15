@@ -102,7 +102,7 @@ def test_auth_migration_up_down_up_tables(
 ) -> None:
     config = build_alembic_config(disposable_postgres_url)
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "202606150201")
     assert asyncio.run(table_exists(disposable_postgres_url, "users")) is True
     assert (
         asyncio.run(table_exists(disposable_postgres_url, "refresh_sessions")) is True
@@ -114,7 +114,7 @@ def test_auth_migration_up_down_up_tables(
         asyncio.run(table_exists(disposable_postgres_url, "refresh_sessions")) is False
     )
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "202606150201")
     assert asyncio.run(table_exists(disposable_postgres_url, "users")) is True
     assert (
         asyncio.run(table_exists(disposable_postgres_url, "refresh_sessions")) is True

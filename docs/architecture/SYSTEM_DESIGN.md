@@ -143,6 +143,18 @@ Each user-owned record must include ownership checks at the service boundary. Ha
 | `receipts` | Uploaded receipt metadata | Stores storage key, content type, size, checksum, and optional transaction link. |
 | Audit metadata | Traceability across records | Standard timestamp/user/archive fields on tables that need ownership and history. |
 
+## Finance Core Schema
+
+Milestone 03.1 implements the source-of-truth finance tables without exposing CRUD endpoints yet.
+
+- `accounts` stores user-owned money containers with a three-letter currency code, non-negative `NUMERIC(18,4)` opening balance, archive fields, and user/name/archive indexes.
+- `categories` stores user-owned income and expense categories with compatible icon keys, archive fields, unique names per user/kind, and user/kind indexes.
+- `transactions` stores positive `NUMERIC(18,4)` source rows with explicit types: `income`, `expense`, `transfer_debit`, and `transfer_credit`. Amounts are always positive; the type determines balance direction. Rows link to the owning user, one account, an optional category, UTC-aware transaction time, optional description, and optional void timestamp.
+- `transfer_links` stores one auditable linkage row for each transfer and references exactly one debit transaction row and one credit transaction row. Both sides are unique so a transaction cannot belong to multiple transfers.
+- `idempotency_records` stores retry protection by user, operation, idempotency key, request hash, optional response status/body, lock expiry, and record expiry.
+
+Finance ownership is enforced in the database as well as at future service boundaries. Account, category, transaction, and transfer references use composite foreign keys containing `user_id` where cross-user links would otherwise be possible.
+
 ## API Groups And Conventions
 
 Route groups are versioned under `/api/v1` from the first backend milestone:

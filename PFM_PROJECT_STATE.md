@@ -99,7 +99,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 02 | 02.4 Refresh rotation and logout | PASSED | phase commit created after this state update | Added opaque refresh tokens, HMAC token hashing, refresh-session rotation, reuse family revocation, logout revocation, and security tests. |
 | 02 | 02.5 Auth edge-case tests | PASSED | phase commit created after this state update | Hardened bearer-token exception handling, added auth edge-case tests, documented auth OpenAPI behavior, and recorded login/register rate-limit design notes. |
 | 02 | 02.V Auth verification | PASSED | verification commit created after this state update | Verified auth milestone quality suite, migration smoke checks, OpenAPI auth routes, protected dependency behavior, and committed-secret posture. |
-| 03 | 03.1 Finance domain schema | NOT_STARTED | — | — |
+| 03 | 03.1 Finance domain schema | PASSED | phase commit created after this state update | Added finance source-of-truth models, ownership constraints, indexes, Alembic migration, and schema/migration tests. |
 | 03 | 03.2 Accounts and categories | NOT_STARTED | — | — |
 | 03 | 03.3 Income and expenses | NOT_STARTED | — | — |
 | 03 | 03.4 Transfers and atomicity | NOT_STARTED | — | — |
@@ -160,6 +160,7 @@ Append only. Do not rewrite earlier records.
 | 2026-06-12 | Serialize API money values as decimal strings and timestamps as timezone-aware UTC ISO 8601 strings | Preserves exact money values and avoids ambiguous time handling across frontend, API, database, worker, and reports. | 00.3 |
 | 2026-06-15 | Transport refresh tokens in JSON request/response bodies for MVP auth | The current frontend/API deployment topology does not yet define a shared cookie domain, SameSite policy, or HTTPS-only deployment contract. JSON transport keeps phase 02.4 testable and explicit; frontend storage and deployment hardening remain for later integration phases. | 02.4 |
 | 2026-06-15 | Defer login and registration rate limiting until a shared persistent throttle foundation exists | Phase 02 has no cross-worker throttling foundation. Process-local counters would give false protection, so the intended future shape is PostgreSQL-backed throttling keyed by endpoint, normalized email when present, client network bucket, and time window with generic responses. | 02.5 |
+| 2026-06-15 | Store finance source amounts as `NUMERIC(18,4)` with positive rows and type-directed balance effects | Four decimal places preserve exact `Decimal` math beyond cents while the UI can still format to cents; positive rows plus explicit transaction types keep income, expense, and transfer direction auditable. | 03.1 |
 
 ## 7. Verified repository inventory
 
@@ -285,6 +286,19 @@ Append only. Do not rewrite earlier records.
 - Verified `.env` and `server/.env` are ignored, `server/.env.example` remains tracked as a placeholder template, and tracked-file scans found no known private-key, cloud-key, GitHub-token, OpenAI-key, Google-key, or Slack-token patterns.
 - Ran the full server quality suite and Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database.
 
+### Phase 03.1 finance domain schema inventory
+
+- Added `server/app/modules/accounts/` with an `Account` SQLAlchemy model using UUID primary keys, user ownership, currency, non-negative `NUMERIC(18,4)` opening balance, archive fields, timestamps, and user/name/archive indexes.
+- Added `server/app/modules/categories/` with a `Category` SQLAlchemy model using UUID primary keys, user ownership, income/expense kind constraint, icon key, default/archive flags, per-user/kind name uniqueness, and user/kind/archive indexes.
+- Added `server/app/modules/transactions/` with a `Transaction` model for positive income, expense, transfer debit, and transfer credit rows. Transactions use `NUMERIC(18,4)`, timezone-aware transaction timestamps, optional category and void fields, and indexes for user/date/account/category/type access patterns.
+- Added `server/app/modules/transactions/` `TransferLink` model to connect one debit transaction row and one credit transaction row with unique side constraints, positive amount, currency, and user ownership.
+- Added `server/app/modules/idempotency/` with an `IdempotencyRecord` model keyed uniquely by user, operation, and idempotency key, storing request hash, optional response metadata, lock expiry, and expiry.
+- Finance cross-record ownership is enforced with composite foreign keys containing `user_id` for transaction account/category references and transfer debit/credit references.
+- Updated Alembic metadata imports and created finance migration `202606150301_add_finance_domain_schema.py`.
+- Added `server/tests/test_finance_schema.py` for model metadata, indexes, money precision, migration up/down/up, and migrated composite ownership constraints.
+- Narrowed the existing auth migration test to revision `202606150201` so it continues testing the auth migration now that the milestone 03 finance migration is the new head.
+- Updated `docs/architecture/SYSTEM_DESIGN.md` with the implemented finance core schema. No finance API endpoints or CRUD behavior were added in phase 03.1.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -371,6 +385,8 @@ Phase 02.5 added no endpoints. It documented the current auth OpenAPI contract e
 
 Phase 02.V added no endpoints. Verification confirmed the milestone 02 implemented endpoint set remains `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/users/me`.
 
+Phase 03.1 added no endpoints. It added only finance domain models, database constraints, migration, and schema tests. Accounts, categories, transactions, transfers, filters, pagination, and idempotency API behavior begin no earlier than later phase 03 executions.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -396,6 +412,8 @@ Phase 02.4 created no migrations. It uses the existing `refresh_sessions` table 
 Phase 02.5 created no migrations.
 
 Phase 02.V created no migrations. Verification reapplied the existing auth schema migration path with `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head` against a disposable PostgreSQL database.
+
+Phase 03.1 created Alembic migration `202606150301_add_finance_domain_schema.py` for `accounts`, `categories`, `transactions`, `transfer_links`, and `idempotency_records`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -616,6 +634,20 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `git grep -n -I -E 'BEGIN (RSA\|OPENSSH\|PRIVATE) KEY\|AKIA[0-9A-Z]{16}\|ghp_[A-Za-z0-9_]{20,}\|sk-[A-Za-z0-9]{20,}\|xox[baprs]-\|AIza[0-9A-Za-z_-]{20,}' -- . ':!client/package-lock.json' ':!server/uv.lock'` | PASS | No known private-key, cloud-key, GitHub-token, OpenAI-key, Google-key, or Slack-token patterns found in tracked files. |
 | `git grep -n -I -E 'SECRET_KEY=\|TOKEN=.*[A-Za-z0-9]\|PASSWORD=.*[A-Za-z0-9]' -- server/.env.example server/tests server/app` | PASS | Found only `server/.env.example` placeholder secret-key values. |
 
+### Phase 03.1 finance domain schema commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed clean `auth-security` worktree before creating milestone branch, then active `finance-core` branch before edits. |
+| `git switch -c finance-core` | FAIL in sandbox, PASS with approval | Required milestone branch creation. Sandboxed run could not create `.git/refs/heads/finance-core.lock`; approved rerun created and switched to `finance-core`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged line wrapping/import formatting in new finance files; repaired with `ruff format .`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS after repair | Required format check. Initial run reported five new files needed formatting; repaired with `ruff format .`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS after repair with approval | Required test suite. Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. First approved run found an auth migration test still assuming the auth migration was the latest head; repaired the test to upgrade to revision `202606150201`. Final approved run passed: 51 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:56230/postgres" alembic upgrade head` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Upgraded through `202606120114`, `202606150201`, and `202606150301`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:56230/postgres" alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606150301` to `202606150201`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:56230/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded from `202606150201` to `202606150301`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -630,7 +662,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 02.3 is passed.
 - Phase 02.4 is passed.
 - Phase 02.5 is passed.
-- Milestone 02 is verified. Next allowed phase is 03.1, Finance domain schema, after user approval to push the branch and begin milestone 03.
+- Milestone 02 is verified.
+- Phase 03.1 is passed. Next allowed phase is 03.2, Accounts and categories, after user permission.
 
 ## 14. Progress log
 
@@ -651,3 +684,4 @@ Append a dated entry after every completed phase.
 - 2026-06-15: Phase 02.4 refresh rotation and logout passed. Added opaque refresh-token issuance on login, HMAC-hashed refresh-token persistence, JSON-body refresh-token transport, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, rotation with old-token revocation, family revocation on reuse, expiry rejection, logout revocation, and refresh security tests. No migrations were added, and the next allowed phase is 02.5.
 - 2026-06-15: Phase 02.5 auth edge-case tests passed. Narrowed bearer-token exception handling, added validation redaction coverage for password and refresh-token inputs, added missing-bearer and missing-user authorization checks, added concurrent same-token refresh coverage, documented auth OpenAPI contract expectations, and recorded deferred PostgreSQL-backed login/register rate-limit design notes. No migrations or endpoints were added, and the next allowed phase is 02.V.
 - 2026-06-15: Phase 02.V authentication verification passed. Verified milestone 02 auth scope, generated OpenAPI auth routes, protected `/api/v1/users/me` bearer dependency behavior, ignored environment files, tracked-file secret posture, full server quality suite, and Alembic upgrade/downgrade/upgrade smoke checks against a disposable PostgreSQL database. No migrations or endpoints were added, and the next allowed phase is 03.1 after user approval to push the branch and begin milestone 03.
+- 2026-06-15: Phase 03.1 finance domain schema passed. Added finance source-of-truth models for accounts, categories, transactions, transfer links, and idempotency records; enforced user ownership with composite foreign keys; added migration `202606150301`; updated system design; ran required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade checks. No endpoints were added, and the next allowed phase is 03.2.
