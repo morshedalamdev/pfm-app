@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.money import NonNegativeMoney
+
 AccountType = Literal["cash", "bank", "card", "wallet", "savings"]
 
 
@@ -14,12 +16,7 @@ class AccountCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     type: AccountType
     currency: str = Field(default="USD", min_length=3, max_length=3)
-    opening_balance: Decimal = Field(
-        default=Decimal("0"),
-        ge=Decimal("0"),
-        max_digits=18,
-        decimal_places=4,
-    )
+    opening_balance: NonNegativeMoney = Decimal("0")
 
     @field_validator("name")
     @classmethod
@@ -51,12 +48,7 @@ class AccountUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     type: AccountType | None = None
     currency: str | None = Field(default=None, min_length=3, max_length=3)
-    opening_balance: Decimal | None = Field(
-        default=None,
-        ge=Decimal("0"),
-        max_digits=18,
-        decimal_places=4,
-    )
+    opening_balance: NonNegativeMoney | None = None
 
     @field_validator("name")
     @classmethod

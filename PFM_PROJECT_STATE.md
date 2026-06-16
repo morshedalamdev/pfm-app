@@ -104,7 +104,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 03 | 03.3 Income and expenses | PASSED | phase commit created after this state update | Added authenticated income/expense transaction CRUD, validation, soft void behavior, ownership checks, source-record reproducibility tests, and OpenAPI coverage. |
 | 03 | 03.4 Transfers and atomicity | PASSED | phase commit created after this state update | Added auditable transfer create/retrieve APIs, atomic debit/credit/link writes, validation, rollback tests, and transfer invariant documentation. |
 | 03 | 03.5 Filters, pagination, idempotency | PASSED | phase commit created after this state update | Added transaction cursor pagination, filters, deterministic ordering, idempotent transaction/transfer creates, conflict handling, and regression tests. |
-| 03 | 03.6 Finance tests | NOT_STARTED | — | — |
+| 03 | 03.6 Finance tests | PASSED | phase commit created after this state update | Hardened money OpenAPI contracts, idempotent replay ordering, finance API matrix notes, and contract/integration coverage. |
 | 03 | 03.V Finance verification | NOT_STARTED | — | — |
 | 04 | 04.1 Budget schema and rules | NOT_STARTED | — | — |
 | 04 | 04.2 Budget APIs and progress | NOT_STARTED | — | — |
@@ -351,6 +351,17 @@ Append only. Do not rewrite earlier records.
 - Updated `docs/architecture/SYSTEM_DESIGN.md` with transaction cursor and idempotency behavior.
 - Extended `server/tests/test_transactions.py` with filter, pagination boundary, ordering, invalid filter, repeated idempotency key, and mismatched request reuse coverage.
 
+### Phase 03.6 finance tests and contract review inventory
+
+- Added `server/app/core/money.py` with shared Pydantic Decimal aliases that preserve `Decimal` validation while documenting money fields in OpenAPI as decimal strings.
+- Updated account and transaction request schemas so `opening_balance` and `amount` fields no longer advertise JSON numbers in the OpenAPI contract.
+- Reordered transaction and transfer create idempotency checks so repeated matching `Idempotency-Key` requests return the stored original response before revalidating mutable account/category archive state.
+- Added integration tests proving idempotent transaction and transfer replays still return the original response after referenced accounts/categories are archived.
+- Added `server/tests/test_finance_contracts.py` covering finance money field schemas, transaction list pagination/filter parameters, and `Idempotency-Key` header contracts for retryable create endpoints.
+- Updated `docs/architecture/UI_API_MATRIX.md` with implemented account/category/transaction/transfer contract status, transaction filter mapping, decimal string contract, and category icon API notes.
+- Updated `docs/architecture/SYSTEM_DESIGN.md` to record decimal string request/response contracts and idempotent replay ordering.
+- Reviewed current finance money mutations for Decimal validation, user ownership checks, transaction boundaries, auditability, and idempotency scope. No new durable worker, budget, reporting, or frontend integration work was added.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -373,6 +384,13 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 - Dynamic route pages currently behave as generic create/edit forms based on broad `[id]` routes, while links use placeholder paths such as `/transaction/create`, `/transaction/edit`, `/savings/create`, `/savings/edit`, `/loan/create`, and `/loan/edit`. Later integration must introduce real create mode and record-id edit links.
 - Forms, drawers, delete confirmations, filters, and social auth buttons are visual only. Later phases must add submit handlers, mutation pending states, validation errors, retry behavior, and real record ids.
 - Loading, empty, and error states are mostly absent except existing skeleton primitives and profile/avatar skeleton placeholders.
+
+### Phase 03.6 finance contract matrix update
+
+- `docs/architecture/UI_API_MATRIX.md` now records the implemented finance API contract status for accounts, categories, transactions, transfers, decimal string money fields, and idempotent create headers.
+- The transaction list matrix now maps UI duration/date filters to backend `date_from`/`date_to` range parameters and records the implemented transaction type enum values.
+- The transaction create matrix now records that `POST /api/v1/transactions` should use `Idempotency-Key` and decimal string money values.
+- The category icon matrix now records that `GET /api/v1/categories` returns `icon_key` and server-side category CRUD exists, while frontend category management remains later integration work.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -451,6 +469,8 @@ Phase 03.5 changed `GET /api/v1/transactions` to support cursor pagination and f
 
 Phase 03.5 changed `POST /api/v1/transactions` and `POST /api/v1/transactions/transfers` to accept an optional `Idempotency-Key` header. Repeated matching requests return the stored original response; mismatched reuse returns HTTP 409.
 
+Phase 03.6 added no endpoints. It changed the OpenAPI contract for finance money request fields to decimal strings, verified transaction list pagination/filter shape, and hardened idempotent transaction/transfer replay behavior so stored successful responses are returned before archived account/category state is rechecked.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -486,6 +506,8 @@ Phase 03.3 created no migrations. It uses the existing finance schema from migra
 Phase 03.4 created no migrations. It uses the existing finance schema from migration `202606150301`.
 
 Phase 03.5 created no migrations. It uses the existing `idempotency_records` table and finance schema from migration `202606150301`.
+
+Phase 03.6 created no migrations. It uses the existing `idempotency_records` table and finance schema from migration `202606150301`.
 
 ## 11. Environment variables
 
@@ -539,6 +561,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 03.5 transaction API variables
+
+- No new environment variables were added.
+
+### Phase 03.6 finance contract variables
 
 - No new environment variables were added.
 
@@ -776,6 +802,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | PASS with approval | Required test suite. Approved disposable PostgreSQL run was needed for localhost binding. Final result: 65 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 03.6 finance tests and contract review commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `finance-core` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_finance_contracts.py` | PASS | Focused OpenAPI finance contract check passed: 3 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | PASS with approval | Required test suite. Approved disposable PostgreSQL run was needed for localhost binding. Final result: 70 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -795,7 +832,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 03.2 is passed.
 - Phase 03.3 is passed.
 - Phase 03.4 is passed.
-- Phase 03.5 is passed. Next allowed phase is 03.6, Finance core tests and contract review, after user permission.
+- Phase 03.5 is passed.
+- Phase 03.6 is passed. Next allowed phase is 03.V, Finance verification, after user permission.
 
 ## 14. Progress log
 
@@ -821,3 +859,4 @@ Append a dated entry after every completed phase.
 - 2026-06-15: Phase 03.3 income and expenses passed. Added authenticated income/expense transaction endpoints, owned active account/category validation, precise Decimal amount handling, UTC-aware transaction timestamps, source-record reproducibility tests, safe void behavior, ownership and invalid-state tests, and OpenAPI coverage. No migrations were added, and the next allowed phase is 03.4.
 - 2026-06-16: Phase 03.4 transfers and atomicity passed. Added authenticated transfer create/retrieve endpoints, linked debit and credit source rows, transfer-link representations, same-account/cross-user/archived/currency validation, explicit rollback behavior for failed multi-record writes, transfer invariant documentation, and integration tests. No migrations were added, and the next allowed phase is 03.5.
 - 2026-06-16: Phase 03.5 filters, pagination, and idempotency passed. Added cursor-paginated and filtered transaction listing, deterministic ordering, broad source-row list behavior, idempotent transaction and transfer create mutations backed by `idempotency_records`, conflict handling for mismatched key reuse, design notes, and integration tests. No migrations were added, and the next allowed phase is 03.6.
+- 2026-06-16: Phase 03.6 finance tests and contract review passed. Hardened money OpenAPI schemas to decimal strings, moved idempotent transaction/transfer replay checks before mutable reference validation, added replay-after-archive integration coverage, added finance contract tests for decimal fields, pagination/filter shape, and idempotency headers, updated finance UI/API matrix notes, and confirmed the next allowed phase is 03.V.

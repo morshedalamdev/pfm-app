@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.money import PositiveMoney
+
 TransactionType = Literal["income", "expense"]
 TransactionFilterType = Literal[
     "income",
@@ -20,11 +22,7 @@ class TransactionCreateRequest(BaseModel):
     account_id: uuid.UUID
     category_id: uuid.UUID
     type: TransactionType
-    amount: Decimal = Field(
-        gt=Decimal("0"),
-        max_digits=18,
-        decimal_places=4,
-    )
+    amount: PositiveMoney
     transaction_at: datetime
     description: str | None = Field(default=None, max_length=500)
 
@@ -54,12 +52,7 @@ class TransactionCreateRequest(BaseModel):
 class TransactionUpdateRequest(BaseModel):
     account_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
-    amount: Decimal | None = Field(
-        default=None,
-        gt=Decimal("0"),
-        max_digits=18,
-        decimal_places=4,
-    )
+    amount: PositiveMoney | None = None
     transaction_at: datetime | None = None
     description: str | None = Field(default=None, max_length=500)
 
@@ -115,11 +108,7 @@ class TransactionListResponse(BaseModel):
 class TransferCreateRequest(BaseModel):
     from_account_id: uuid.UUID
     to_account_id: uuid.UUID
-    amount: Decimal = Field(
-        gt=Decimal("0"),
-        max_digits=18,
-        decimal_places=4,
-    )
+    amount: PositiveMoney
     transaction_at: datetime
     description: str | None = Field(default=None, max_length=500)
 

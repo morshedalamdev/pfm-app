@@ -192,9 +192,9 @@ Errors should use one consistent JSON envelope:
 }
 ```
 
-Validation errors should include field-level details. Authentication failures must not reveal whether a user email exists. Mutation routes that create transactions, transfers, savings contributions, loan payments, or recurring side effects should accept an `Idempotency-Key` header. Phase 03.5 stores successful transaction and transfer create responses in `idempotency_records`; repeating a matching key returns the original response, while reusing a key with a different request returns a conflict.
+Validation errors should include field-level details. Authentication failures must not reveal whether a user email exists. Mutation routes that create transactions, transfers, savings contributions, loan payments, or recurring side effects should accept an `Idempotency-Key` header. Phase 03.5 stores successful transaction and transfer create responses in `idempotency_records`; repeating a matching key returns the original response, while reusing a key with a different request returns a conflict. Phase 03.6 verifies idempotent transaction and transfer replays before revalidating mutable account/category archive state so retries can safely return the original committed response.
 
-Money values are persisted as PostgreSQL `NUMERIC`, represented in Python as `Decimal`, and serialized in API responses as decimal strings. Timestamps are stored in UTC and serialized as ISO 8601 strings with timezone information. User-facing date grouping and recurring schedule interpretation should use explicit user timezone settings when added; until then, UTC storage remains the source of truth.
+Money values are persisted as PostgreSQL `NUMERIC`, represented in Python as `Decimal`, documented in OpenAPI request/response schemas as decimal strings, and serialized in API responses as decimal strings. Timestamps are stored in UTC and serialized as ISO 8601 strings with timezone information. User-facing date grouping and recurring schedule interpretation should use explicit user timezone settings when added; until then, UTC storage remains the source of truth.
 
 FastAPI's OpenAPI schema is the contract source. Milestone 08 should generate TypeScript types or a typed client from the OpenAPI schema and add a drift check so frontend request/response types are not manually duplicated.
 
@@ -210,8 +210,8 @@ sequenceDiagram
   participant DB as PostgreSQL
 
   UI->>API: POST/PATCH transaction with Idempotency-Key
-  API->>Service: validate command and user ownership
   Service->>DB: check idempotency record
+  API->>Service: validate command and user ownership when not replaying
   Service->>DB: write transaction rows in one DB transaction
   Service->>DB: write transfer link or outbox event when needed
   DB-->>Service: committed source records

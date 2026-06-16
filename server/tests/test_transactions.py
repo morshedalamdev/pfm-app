@@ -799,6 +799,55 @@ def test_transaction_create_idempotency(
     assert conflict_response.status_code == 409
 
 
+def test_transaction_idempotency_replay_survives_archived_references(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transaction-replay-archived@example.com")
+    account = create_account(context, headers, "Replay Checking", "bank", "0")
+    category = create_category(context, headers, "Replay Income", "income", "up")
+
+    first = create_transaction(
+        context,
+        headers,
+        account["id"],
+        category["id"],
+        "income",
+        "23.4500",
+        "2026-05-06T00:00:00+00:00",
+        "Replay archived transaction",
+        idempotency_key="transaction-replay-archived-key",
+    )
+
+    assert (
+        context.client.delete(
+            f"/api/v1/categories/{category['id']}",
+            headers=headers,
+        ).status_code
+        == 200
+    )
+    assert (
+        context.client.delete(
+            f"/api/v1/accounts/{account['id']}",
+            headers=headers,
+        ).status_code
+        == 200
+    )
+
+    second = create_transaction(
+        context,
+        headers,
+        account["id"],
+        category["id"],
+        "income",
+        "23.4500",
+        "2026-05-06T00:00:00+00:00",
+        "Replay archived transaction",
+        idempotency_key="transaction-replay-archived-key",
+    )
+    assert second == first
+
+
 def test_transfer_create_idempotency(
     transaction_context: TransactionApiContext,
 ) -> None:
@@ -851,6 +900,59 @@ def test_transfer_create_idempotency(
         },
     )
     assert conflict_response.status_code == 409
+
+
+def test_transfer_idempotency_replay_survives_archived_references(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transfer-replay-archived@example.com")
+    checking = create_account(context, headers, "Replay Transfer Checking", "bank", "0")
+    savings = create_account(
+        context,
+        headers,
+        "Replay Transfer Savings",
+        "savings",
+        "0",
+    )
+
+    first = create_transfer(
+        context,
+        headers,
+        checking["id"],
+        savings["id"],
+        "45.6700",
+        "2026-05-07T00:00:00+00:00",
+        "Replay archived transfer",
+        idempotency_key="transfer-replay-archived-key",
+    )
+
+    assert (
+        context.client.delete(
+            f"/api/v1/accounts/{checking['id']}",
+            headers=headers,
+        ).status_code
+        == 200
+    )
+    assert (
+        context.client.delete(
+            f"/api/v1/accounts/{savings['id']}",
+            headers=headers,
+        ).status_code
+        == 200
+    )
+
+    second = create_transfer(
+        context,
+        headers,
+        checking["id"],
+        savings["id"],
+        "45.6700",
+        "2026-05-07T00:00:00+00:00",
+        "Replay archived transfer",
+        idempotency_key="transfer-replay-archived-key",
+    )
+    assert second == first
 
 
 def auth_headers(context: TransactionApiContext, email: str) -> dict[str, str]:

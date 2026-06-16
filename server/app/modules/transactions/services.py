@@ -90,12 +90,6 @@ class TransactionService:
         current_user: User,
         idempotency_key: str | None = None,
     ) -> TransactionResponse:
-        account = await self.get_active_account(request.account_id, current_user)
-        category = await self.get_active_category(
-            request.category_id,
-            current_user,
-            request.type,
-        )
         if idempotency_key is not None:
             existing_response = await self.get_idempotent_response(
                 operation="transactions.create",
@@ -106,6 +100,13 @@ class TransactionService:
             )
             if existing_response is not None:
                 return cast(TransactionResponse, existing_response)
+
+        account = await self.get_active_account(request.account_id, current_user)
+        category = await self.get_active_category(
+            request.category_id,
+            current_user,
+            request.type,
+        )
 
         transaction = Transaction(
             user_id=current_user.id,
@@ -260,6 +261,17 @@ class TransactionService:
         current_user: User,
         idempotency_key: str | None = None,
     ) -> TransferResponse:
+        if idempotency_key is not None:
+            existing_response = await self.get_idempotent_response(
+                operation="transfers.create",
+                idempotency_key=idempotency_key,
+                request_payload=request.model_dump(mode="json"),
+                current_user=current_user,
+                response_model=TransferResponse,
+            )
+            if existing_response is not None:
+                return cast(TransferResponse, existing_response)
+
         from_account = await self.get_active_account(
             request.from_account_id,
             current_user,
@@ -272,17 +284,6 @@ class TransactionService:
             raise InvalidTransferRequestError
         if from_account.currency != to_account.currency:
             raise InvalidTransferRequestError
-
-        if idempotency_key is not None:
-            existing_response = await self.get_idempotent_response(
-                operation="transfers.create",
-                idempotency_key=idempotency_key,
-                request_payload=request.model_dump(mode="json"),
-                current_user=current_user,
-                response_model=TransferResponse,
-            )
-            if existing_response is not None:
-                return cast(TransferResponse, existing_response)
 
         debit_transaction = Transaction(
             user_id=current_user.id,
