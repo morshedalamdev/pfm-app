@@ -178,7 +178,7 @@ Route groups are versioned under `/api/v1` from the first backend milestone:
 /api/v1/events/stream
 ```
 
-List endpoints should use cursor pagination for user-facing lists that can grow, including transactions, savings goals, loans, notifications, and recurring rules. Responses should use a stable envelope with `items`, `next_cursor`, and `has_more`. Small bounded lookups such as category selectors can return arrays without pagination until growth requires it.
+List endpoints should use cursor pagination for user-facing lists that can grow, including transactions, savings goals, loans, notifications, and recurring rules. Responses should use a stable envelope with `items`, `next_cursor`, and `has_more`. Small bounded lookups such as category selectors can return arrays without pagination until growth requires it. Phase 03.5 implements the transaction list cursor over `transaction_at`, `created_at`, and `id` with deterministic descending ordering and filters for date range, account, category, transaction type, and description search.
 
 Errors should use one consistent JSON envelope:
 
@@ -192,7 +192,7 @@ Errors should use one consistent JSON envelope:
 }
 ```
 
-Validation errors should include field-level details. Authentication failures must not reveal whether a user email exists. Mutation routes that create transactions, transfers, savings contributions, loan payments, or recurring side effects should accept an `Idempotency-Key` header.
+Validation errors should include field-level details. Authentication failures must not reveal whether a user email exists. Mutation routes that create transactions, transfers, savings contributions, loan payments, or recurring side effects should accept an `Idempotency-Key` header. Phase 03.5 stores successful transaction and transfer create responses in `idempotency_records`; repeating a matching key returns the original response, while reusing a key with a different request returns a conflict.
 
 Money values are persisted as PostgreSQL `NUMERIC`, represented in Python as `Decimal`, and serialized in API responses as decimal strings. Timestamps are stored in UTC and serialized as ISO 8601 strings with timezone information. User-facing date grouping and recurring schedule interpretation should use explicit user timezone settings when added; until then, UTC storage remains the source of truth.
 

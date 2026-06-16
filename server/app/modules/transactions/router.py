@@ -1,16 +1,19 @@
 import uuid
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.modules.accounts.repositories import AccountRepository
 from app.modules.auth.dependencies import CurrentUserDependency
 from app.modules.categories.repositories import CategoryRepository
+from app.modules.idempotency.repositories import IdempotencyRepository
 from app.modules.transactions.repositories import TransactionRepository
 from app.modules.transactions.schemas import (
     TransactionCreateRequest,
+    TransactionFilterType,
     TransactionListResponse,
     TransactionResponse,
     TransactionUpdateRequest,
@@ -18,6 +21,10 @@ from app.modules.transactions.schemas import (
     TransferResponse,
 )
 from app.modules.transactions.services import (
+    IdempotencyConflictError,
+    IdempotencyInProgressError,
+    InvalidTransactionCursorError,
+    InvalidTransactionFilterError,
     InvalidTransactionReferenceError,
     InvalidTransactionStateError,
     InvalidTransferRequestError,
@@ -35,6 +42,7 @@ def build_transaction_service(session: AsyncSession) -> TransactionService:
         transactions=TransactionRepository(session),
         accounts=AccountRepository(session),
         categories=CategoryRepository(session),
+        idempotency=IdempotencyRepository(session),
     )
 
 
@@ -47,23 +55,57 @@ async def create_transaction(
     request: TransactionCreateRequest,
     current_user: CurrentUserDependency,
     session: SessionDependency,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key", min_length=1, max_length=255),
+    ] = None,
 ) -> TransactionResponse:
     try:
-        transaction = await build_transaction_service(session).create_transaction(
+        return await build_transaction_service(session).create_transaction(
             request,
             current_user,
+            idempotency_key,
         )
     except InvalidTransactionReferenceError as exc:
         raise invalid_reference_error() from exc
-    return TransactionResponse.model_validate(transaction)
+    except IdempotencyConflictError as exc:
+        raise idempotency_conflict_error() from exc
+    except IdempotencyInProgressError as exc:
+        raise idempotency_in_progress_error() from exc
 
 
 @router.get("", response_model=TransactionListResponse)
 async def list_transactions(
     current_user: CurrentUserDependency,
     session: SessionDependency,
+    cursor: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    date_from: Annotated[datetime | None, Query()] = None,
+    date_to: Annotated[datetime | None, Query()] = None,
+    account_id: Annotated[uuid.UUID | None, Query()] = None,
+    category_id: Annotated[uuid.UUID | None, Query()] = None,
+    transaction_type: Annotated[
+        TransactionFilterType | None,
+        Query(alias="type"),
+    ] = None,
+    search: Annotated[str | None, Query(max_length=200)] = None,
 ) -> TransactionListResponse:
-    return await build_transaction_service(session).list_transactions(current_user)
+    try:
+        return await build_transaction_service(session).list_transactions(
+            current_user,
+            cursor=cursor,
+            limit=limit,
+            date_from=date_from,
+            date_to=date_to,
+            account_id=account_id,
+            category_id=category_id,
+            transaction_type=transaction_type,
+            search=search,
+        )
+    except InvalidTransactionCursorError as exc:
+        raise invalid_cursor_error() from exc
+    except InvalidTransactionFilterError as exc:
+        raise invalid_filter_error() from exc
 
 
 @router.post(
@@ -75,16 +117,25 @@ async def create_transfer(
     request: TransferCreateRequest,
     current_user: CurrentUserDependency,
     session: SessionDependency,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key", min_length=1, max_length=255),
+    ] = None,
 ) -> TransferResponse:
     try:
         return await build_transaction_service(session).create_transfer(
             request,
             current_user,
+            idempotency_key,
         )
     except InvalidTransactionReferenceError as exc:
         raise invalid_transfer_error() from exc
     except InvalidTransferRequestError as exc:
         raise invalid_transfer_error() from exc
+    except IdempotencyConflictError as exc:
+        raise idempotency_conflict_error() from exc
+    except IdempotencyInProgressError as exc:
+        raise idempotency_in_progress_error() from exc
 
 
 @router.get("/transfers/{transfer_id}", response_model=TransferResponse)
@@ -177,6 +228,20 @@ def invalid_reference_error() -> HTTPException:
     )
 
 
+def invalid_cursor_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Transaction cursor is invalid",
+    )
+
+
+def invalid_filter_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Transaction filters are invalid",
+    )
+
+
 def transfer_not_found_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -188,6 +253,20 @@ def invalid_transfer_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="Transfer accounts or amount are invalid",
+    )
+
+
+def idempotency_conflict_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Idempotency key was already used with a different request",
+    )
+
+
+def idempotency_in_progress_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Idempotency key is already in progress",
     )
 
 

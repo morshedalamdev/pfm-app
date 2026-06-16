@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import desc, select
+from sqlalchemy import Select, and_, desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.transactions.models import Transaction, TransferLink
+from app.modules.transactions.pagination import TransactionPageCursor
 
 
 class TransactionRepository:
@@ -42,15 +44,43 @@ class TransactionRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_owned_income_expense(self, user_id: uuid.UUID) -> list[Transaction]:
+    async def list_owned_transactions(
+        self,
+        user_id: uuid.UUID,
+        *,
+        cursor: TransactionPageCursor | None,
+        limit: int,
+        date_from: datetime | None,
+        date_to: datetime | None,
+        account_id: uuid.UUID | None,
+        category_id: uuid.UUID | None,
+        transaction_type: str | None,
+        search: str | None,
+    ) -> list[Transaction]:
+        query = select(Transaction).where(
+            Transaction.user_id == user_id,
+            Transaction.voided_at.is_(None),
+        )
+        if date_from is not None:
+            query = query.where(Transaction.transaction_at >= date_from)
+        if date_to is not None:
+            query = query.where(Transaction.transaction_at <= date_to)
+        if account_id is not None:
+            query = query.where(Transaction.account_id == account_id)
+        if category_id is not None:
+            query = query.where(Transaction.category_id == category_id)
+        if transaction_type is not None:
+            query = query.where(Transaction.type == transaction_type)
+        if search is not None:
+            query = query.where(Transaction.description.ilike(f"%{search}%"))
+
+        query = apply_transaction_cursor(query, cursor)
         result = await self._session.execute(
-            select(Transaction)
-            .where(
-                Transaction.user_id == user_id,
-                Transaction.type.in_(("income", "expense")),
-                Transaction.voided_at.is_(None),
-            )
-            .order_by(desc(Transaction.transaction_at), desc(Transaction.created_at))
+            query.order_by(
+                desc(Transaction.transaction_at),
+                desc(Transaction.created_at),
+                desc(Transaction.id),
+            ).limit(limit)
         )
         return list(result.scalars().all())
 
@@ -94,3 +124,26 @@ class TransactionRepository:
 
     async def rollback(self) -> None:
         await self._session.rollback()
+
+
+def apply_transaction_cursor(
+    query: Select[tuple[Transaction]],
+    cursor: TransactionPageCursor | None,
+) -> Select[tuple[Transaction]]:
+    if cursor is None:
+        return query
+
+    return query.where(
+        or_(
+            Transaction.transaction_at < cursor.transaction_at,
+            and_(
+                Transaction.transaction_at == cursor.transaction_at,
+                Transaction.created_at < cursor.created_at,
+            ),
+            and_(
+                Transaction.transaction_at == cursor.transaction_at,
+                Transaction.created_at == cursor.created_at,
+                Transaction.id < cursor.id,
+            ),
+        )
+    )

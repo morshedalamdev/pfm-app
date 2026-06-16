@@ -402,7 +402,11 @@ def test_transfer_create_retrieve_and_source_records(
     assert detail_response.status_code == 200
     assert detail_response.json() == transfer
 
-    list_response = context.client.get("/api/v1/transactions", headers=headers)
+    list_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"type": "income"},
+    )
     assert list_response.status_code == 200
     assert list_response.json()["items"] == []
 
@@ -566,6 +570,289 @@ def test_transfer_rolls_back_when_link_write_fails(
     )
 
 
+def test_transaction_filters_pagination_and_ordering(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transaction-filters@example.com")
+    checking = create_account(context, headers, "Filter Checking", "bank", "0")
+    wallet = create_account(context, headers, "Filter Wallet", "wallet", "0")
+    income_category = create_category(context, headers, "Filter Income", "income", "up")
+    food_category = create_category(context, headers, "Food", "expense", "utensils")
+    rent_category = create_category(context, headers, "Rent", "expense", "home")
+
+    income = create_transaction(
+        context,
+        headers,
+        checking["id"],
+        income_category["id"],
+        "income",
+        "100.0000",
+        "2026-05-03T00:00:00+00:00",
+        "Salary alpha",
+    )
+    newer_food = create_transaction(
+        context,
+        headers,
+        checking["id"],
+        food_category["id"],
+        "expense",
+        "5.0000",
+        "2026-05-02T00:00:00+00:00",
+        "Coffee food",
+    )
+    older_food = create_transaction(
+        context,
+        headers,
+        wallet["id"],
+        food_category["id"],
+        "expense",
+        "7.0000",
+        "2026-05-01T00:00:00+00:00",
+        "Groceries food",
+    )
+    rent = create_transaction(
+        context,
+        headers,
+        wallet["id"],
+        rent_category["id"],
+        "expense",
+        "9.0000",
+        "2026-04-30T00:00:00+00:00",
+        "Rent",
+    )
+
+    default_response = context.client.get("/api/v1/transactions", headers=headers)
+    assert default_response.status_code == 200
+    assert [item["id"] for item in default_response.json()["items"]] == [
+        income["id"],
+        newer_food["id"],
+        older_food["id"],
+        rent["id"],
+    ]
+    assert default_response.json()["has_more"] is False
+    assert default_response.json()["next_cursor"] is None
+
+    type_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"type": "expense"},
+    )
+    assert type_response.status_code == 200
+    assert [item["id"] for item in type_response.json()["items"]] == [
+        newer_food["id"],
+        older_food["id"],
+        rent["id"],
+    ]
+
+    account_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"account_id": wallet["id"]},
+    )
+    assert account_response.status_code == 200
+    assert [item["id"] for item in account_response.json()["items"]] == [
+        older_food["id"],
+        rent["id"],
+    ]
+
+    category_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"category_id": food_category["id"]},
+    )
+    assert category_response.status_code == 200
+    assert [item["id"] for item in category_response.json()["items"]] == [
+        newer_food["id"],
+        older_food["id"],
+    ]
+
+    date_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={
+            "date_from": "2026-05-01T00:00:00+00:00",
+            "date_to": "2026-05-02T00:00:00+00:00",
+        },
+    )
+    assert date_response.status_code == 200
+    assert [item["id"] for item in date_response.json()["items"]] == [
+        newer_food["id"],
+        older_food["id"],
+    ]
+
+    first_page_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"search": "food", "limit": 1},
+    )
+    assert first_page_response.status_code == 200
+    first_page = first_page_response.json()
+    assert [item["id"] for item in first_page["items"]] == [newer_food["id"]]
+    assert first_page["has_more"] is True
+    assert first_page["next_cursor"] is not None
+
+    second_page_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"search": "food", "limit": 1, "cursor": first_page["next_cursor"]},
+    )
+    assert second_page_response.status_code == 200
+    second_page = second_page_response.json()
+    assert [item["id"] for item in second_page["items"]] == [older_food["id"]]
+    assert second_page["has_more"] is False
+    assert second_page["next_cursor"] is None
+
+
+def test_transaction_filter_validation(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    owner_headers = auth_headers(context, "transaction-filter-owner@example.com")
+    other_headers = auth_headers(context, "transaction-filter-other@example.com")
+    other_account = create_account(context, other_headers, "Other Filter", "bank", "0")
+
+    invalid_cursor_response = context.client.get(
+        "/api/v1/transactions",
+        headers=owner_headers,
+        params={"cursor": "not-a-valid-cursor"},
+    )
+    assert invalid_cursor_response.status_code == 422
+
+    naive_date_response = context.client.get(
+        "/api/v1/transactions",
+        headers=owner_headers,
+        params={"date_from": "2026-05-01T00:00:00"},
+    )
+    assert naive_date_response.status_code == 422
+
+    reversed_date_response = context.client.get(
+        "/api/v1/transactions",
+        headers=owner_headers,
+        params={
+            "date_from": "2026-05-02T00:00:00+00:00",
+            "date_to": "2026-05-01T00:00:00+00:00",
+        },
+    )
+    assert reversed_date_response.status_code == 422
+
+    cross_user_filter_response = context.client.get(
+        "/api/v1/transactions",
+        headers=owner_headers,
+        params={"account_id": other_account["id"]},
+    )
+    assert cross_user_filter_response.status_code == 422
+
+
+def test_transaction_create_idempotency(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transaction-idempotency@example.com")
+    account = create_account(context, headers, "Idempotency Checking", "bank", "0")
+    category = create_category(context, headers, "Idempotency Income", "income", "up")
+
+    first = create_transaction(
+        context,
+        headers,
+        account["id"],
+        category["id"],
+        "income",
+        "12.3400",
+        "2026-05-04T00:00:00+00:00",
+        "Idempotent salary",
+        idempotency_key="transaction-create-key",
+    )
+    second = create_transaction(
+        context,
+        headers,
+        account["id"],
+        category["id"],
+        "income",
+        "12.3400",
+        "2026-05-04T00:00:00+00:00",
+        "Idempotent salary",
+        idempotency_key="transaction-create-key",
+    )
+    assert second == first
+
+    list_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"type": "income", "search": "idempotent"},
+    )
+    assert list_response.status_code == 200
+    assert [item["id"] for item in list_response.json()["items"]] == [first["id"]]
+
+    conflict_response = context.client.post(
+        "/api/v1/transactions",
+        headers={**headers, "Idempotency-Key": "transaction-create-key"},
+        json={
+            "account_id": account["id"],
+            "category_id": category["id"],
+            "type": "income",
+            "amount": "99.0000",
+            "transaction_at": "2026-05-04T00:00:00+00:00",
+            "description": "Idempotent salary",
+        },
+    )
+    assert conflict_response.status_code == 409
+
+
+def test_transfer_create_idempotency(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transfer-idempotency@example.com")
+    checking = create_account(context, headers, "Idempotent Checking", "bank", "0")
+    savings = create_account(context, headers, "Idempotent Savings", "savings", "0")
+
+    first = create_transfer(
+        context,
+        headers,
+        checking["id"],
+        savings["id"],
+        "15.0000",
+        "2026-05-05T00:00:00+00:00",
+        "Idempotent transfer",
+        idempotency_key="transfer-create-key",
+    )
+    second = create_transfer(
+        context,
+        headers,
+        checking["id"],
+        savings["id"],
+        "15.0000",
+        "2026-05-05T00:00:00+00:00",
+        "Idempotent transfer",
+        idempotency_key="transfer-create-key",
+    )
+    assert second == first
+
+    debit_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"type": "transfer_debit", "search": "idempotent"},
+    )
+    assert debit_response.status_code == 200
+    assert [item["id"] for item in debit_response.json()["items"]] == [
+        first["debit_transaction_id"]
+    ]
+
+    conflict_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers={**headers, "Idempotency-Key": "transfer-create-key"},
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": savings["id"],
+            "amount": "16.0000",
+            "transaction_at": "2026-05-05T00:00:00+00:00",
+            "description": "Idempotent transfer",
+        },
+    )
+    assert conflict_response.status_code == 409
+
+
 def auth_headers(context: TransactionApiContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",
@@ -631,6 +918,7 @@ def create_transaction(
     amount: str,
     transaction_at: str,
     description: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "account_id": account_id,
@@ -642,9 +930,13 @@ def create_transaction(
     if description is not None:
         payload["description"] = description
 
+    request_headers = dict(headers)
+    if idempotency_key is not None:
+        request_headers["Idempotency-Key"] = idempotency_key
+
     response = context.client.post(
         "/api/v1/transactions",
-        headers=headers,
+        headers=request_headers,
         json=payload,
     )
     assert response.status_code == 201
@@ -659,6 +951,7 @@ def create_transfer(
     amount: str,
     transaction_at: str,
     description: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "from_account_id": from_account_id,
@@ -669,9 +962,13 @@ def create_transfer(
     if description is not None:
         payload["description"] = description
 
+    request_headers = dict(headers)
+    if idempotency_key is not None:
+        request_headers["Idempotency-Key"] = idempotency_key
+
     response = context.client.post(
         "/api/v1/transactions/transfers",
-        headers=headers,
+        headers=request_headers,
         json=payload,
     )
     assert response.status_code == 201

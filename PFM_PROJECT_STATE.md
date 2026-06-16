@@ -103,7 +103,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 03 | 03.2 Accounts and categories | PASSED | phase commit created after this state update | Added owned account/category CRUD APIs, safe archive behavior, pagination, kind filtering, ownership tests, and OpenAPI coverage. |
 | 03 | 03.3 Income and expenses | PASSED | phase commit created after this state update | Added authenticated income/expense transaction CRUD, validation, soft void behavior, ownership checks, source-record reproducibility tests, and OpenAPI coverage. |
 | 03 | 03.4 Transfers and atomicity | PASSED | phase commit created after this state update | Added auditable transfer create/retrieve APIs, atomic debit/credit/link writes, validation, rollback tests, and transfer invariant documentation. |
-| 03 | 03.5 Filters, pagination, idempotency | NOT_STARTED | — | — |
+| 03 | 03.5 Filters, pagination, idempotency | PASSED | phase commit created after this state update | Added transaction cursor pagination, filters, deterministic ordering, idempotent transaction/transfer creates, conflict handling, and regression tests. |
 | 03 | 03.6 Finance tests | NOT_STARTED | — | — |
 | 03 | 03.V Finance verification | NOT_STARTED | — | — |
 | 04 | 04.1 Budget schema and rules | NOT_STARTED | — | — |
@@ -338,6 +338,19 @@ Append only. Do not rewrite earlier records.
 - Added transfer tests in `server/tests/test_transactions.py` covering create/retrieve representation, source-record/link invariants, validation, cross-user access rejection, archived account rejection, and rollback after a forced transfer-link write failure.
 - Updated `docs/architecture/SYSTEM_DESIGN.md` with phase 03.4 transfer invariants.
 
+### Phase 03.5 filters, pagination, and idempotency inventory
+
+- Added `server/app/modules/transactions/pagination.py` for transaction list cursor encoding and decoding using `transaction_at`, `created_at`, and `id`.
+- Added `server/app/modules/idempotency/repositories.py` for the existing `idempotency_records` table.
+- Extended `GET /api/v1/transactions` with `limit`, `cursor`, `date_from`, `date_to`, `account_id`, `category_id`, `type`, and `search` query parameters.
+- Transaction list now returns all current-user non-voided source rows, including income, expense, transfer debit, and transfer credit rows, with deterministic descending ordering by transaction time, creation time, and id.
+- Transaction list responses now include `items`, `next_cursor`, and `has_more`.
+- Transaction list filter validation rejects malformed cursors, timezone-naive date filters, reversed date ranges, and cross-user account/category filter ids.
+- Added optional `Idempotency-Key` header support to `POST /api/v1/transactions` and `POST /api/v1/transactions/transfers`.
+- Idempotent transaction and transfer creates store the original successful 201 response in `idempotency_records`; repeating the same key with the same request returns the original response, while reusing the key with a different request returns HTTP 409.
+- Updated `docs/architecture/SYSTEM_DESIGN.md` with transaction cursor and idempotency behavior.
+- Extended `server/tests/test_transactions.py` with filter, pagination boundary, ordering, invalid filter, repeated idempotency key, and mismatched request reuse coverage.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -434,6 +447,10 @@ Phase 03.3 added income/expense transaction endpoints: `POST /api/v1/transaction
 
 Phase 03.4 added transfer endpoints: `POST /api/v1/transactions/transfers` and `GET /api/v1/transactions/transfers/{transfer_id}`. Transfer create writes linked debit and credit source rows plus a transfer link atomically, validates owned active accounts, rejects same-account and cross-currency transfers, and returns an auditable transfer representation.
 
+Phase 03.5 changed `GET /api/v1/transactions` to support cursor pagination and filters: `limit`, `cursor`, `date_from`, `date_to`, `account_id`, `category_id`, `type`, and `search`. The endpoint now returns `items`, `next_cursor`, and `has_more` and includes all non-voided transaction source rows, including transfer debit and transfer credit rows.
+
+Phase 03.5 changed `POST /api/v1/transactions` and `POST /api/v1/transactions/transfers` to accept an optional `Idempotency-Key` header. Repeated matching requests return the stored original response; mismatched reuse returns HTTP 409.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -467,6 +484,8 @@ Phase 03.2 created no migrations. It uses the existing finance schema from migra
 Phase 03.3 created no migrations. It uses the existing finance schema from migration `202606150301`.
 
 Phase 03.4 created no migrations. It uses the existing finance schema from migration `202606150301`.
+
+Phase 03.5 created no migrations. It uses the existing `idempotency_records` table and finance schema from migration `202606150301`.
 
 ## 11. Environment variables
 
@@ -516,6 +535,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 03.4 transfer API variables
+
+- No new environment variables were added.
+
+### Phase 03.5 transaction API variables
 
 - No new environment variables were added.
 
@@ -743,6 +766,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | PASS after repair with approval | Required test suite. Approved disposable PostgreSQL run was needed for localhost binding. Initial approved runs found rollback-test issues in the new test code; final approved run passed: 61 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 03.5 filters, pagination, and idempotency commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `finance-core` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged import ordering in transaction repository, router, and service files; repaired with `ruff check . --fix`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | PASS with approval | Required test suite. Approved disposable PostgreSQL run was needed for localhost binding. Final result: 65 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -761,7 +794,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 03.1 is passed.
 - Phase 03.2 is passed.
 - Phase 03.3 is passed.
-- Phase 03.4 is passed. Next allowed phase is 03.5, Filters, pagination, and idempotency, after user permission.
+- Phase 03.4 is passed.
+- Phase 03.5 is passed. Next allowed phase is 03.6, Finance core tests and contract review, after user permission.
 
 ## 14. Progress log
 
@@ -786,3 +820,4 @@ Append a dated entry after every completed phase.
 - 2026-06-15: Phase 03.2 accounts and categories passed. Added authenticated account and category management endpoints, ownership-scoped repositories/services, safe archive behavior, cursor list envelopes, category kind filtering, validation and duplicate handling, OpenAPI coverage, and integration tests. No migrations were added, and the next allowed phase is 03.3.
 - 2026-06-15: Phase 03.3 income and expenses passed. Added authenticated income/expense transaction endpoints, owned active account/category validation, precise Decimal amount handling, UTC-aware transaction timestamps, source-record reproducibility tests, safe void behavior, ownership and invalid-state tests, and OpenAPI coverage. No migrations were added, and the next allowed phase is 03.4.
 - 2026-06-16: Phase 03.4 transfers and atomicity passed. Added authenticated transfer create/retrieve endpoints, linked debit and credit source rows, transfer-link representations, same-account/cross-user/archived/currency validation, explicit rollback behavior for failed multi-record writes, transfer invariant documentation, and integration tests. No migrations were added, and the next allowed phase is 03.5.
+- 2026-06-16: Phase 03.5 filters, pagination, and idempotency passed. Added cursor-paginated and filtered transaction listing, deterministic ordering, broad source-row list behavior, idempotent transaction and transfer create mutations backed by `idempotency_records`, conflict handling for mismatched key reuse, design notes, and integration tests. No migrations were added, and the next allowed phase is 03.6.

@@ -8,6 +8,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 TransactionType = Literal["income", "expense"]
+TransactionFilterType = Literal[
+    "income",
+    "expense",
+    "transfer_debit",
+    "transfer_credit",
+]
 
 
 class TransactionCreateRequest(BaseModel):
@@ -102,6 +108,8 @@ class TransactionResponse(BaseModel):
 
 class TransactionListResponse(BaseModel):
     items: list[TransactionResponse]
+    next_cursor: str | None = None
+    has_more: bool = False
 
 
 class TransferCreateRequest(BaseModel):
