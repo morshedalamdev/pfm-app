@@ -7,13 +7,15 @@ from app.modules.accounts.models import Account
 from app.modules.accounts.repositories import AccountRepository
 from app.modules.categories.models import Category
 from app.modules.categories.repositories import CategoryRepository
-from app.modules.transactions.models import Transaction
+from app.modules.transactions.models import Transaction, TransferLink
 from app.modules.transactions.repositories import TransactionRepository
 from app.modules.transactions.schemas import (
     TransactionCreateRequest,
     TransactionListResponse,
     TransactionResponse,
     TransactionUpdateRequest,
+    TransferCreateRequest,
+    TransferResponse,
 )
 from app.modules.users.models import User
 
@@ -22,11 +24,19 @@ class TransactionNotFoundError(Exception):
     pass
 
 
+class TransferNotFoundError(Exception):
+    pass
+
+
 class InvalidTransactionStateError(Exception):
     pass
 
 
 class InvalidTransactionReferenceError(Exception):
+    pass
+
+
+class InvalidTransferRequestError(Exception):
     pass
 
 
@@ -132,6 +142,88 @@ class TransactionService:
             await self.transactions.refresh(transaction)
         return transaction
 
+    async def create_transfer(
+        self,
+        request: TransferCreateRequest,
+        current_user: User,
+    ) -> TransferResponse:
+        from_account = await self.get_active_account(
+            request.from_account_id,
+            current_user,
+        )
+        to_account = await self.get_active_account(
+            request.to_account_id,
+            current_user,
+        )
+        if from_account.id == to_account.id:
+            raise InvalidTransferRequestError
+        if from_account.currency != to_account.currency:
+            raise InvalidTransferRequestError
+
+        debit_transaction = Transaction(
+            user_id=current_user.id,
+            account_id=from_account.id,
+            category_id=None,
+            type="transfer_debit",
+            amount=request.amount,
+            currency=from_account.currency,
+            transaction_at=request.transaction_at,
+            description=request.description,
+        )
+        credit_transaction = Transaction(
+            user_id=current_user.id,
+            account_id=to_account.id,
+            category_id=None,
+            type="transfer_credit",
+            amount=request.amount,
+            currency=to_account.currency,
+            transaction_at=request.transaction_at,
+            description=request.description,
+        )
+
+        try:
+            await self.transactions.create(debit_transaction)
+            await self.transactions.create(credit_transaction)
+            transfer_link = TransferLink(
+                user_id=current_user.id,
+                debit_transaction_id=debit_transaction.id,
+                credit_transaction_id=credit_transaction.id,
+                amount=request.amount,
+                currency=from_account.currency,
+            )
+            await self.transactions.create_transfer_link(transfer_link)
+            await self.transactions.commit()
+        except Exception:
+            await self.transactions.rollback()
+            raise
+
+        await self.transactions.refresh(debit_transaction)
+        await self.transactions.refresh(credit_transaction)
+        await self.transactions.refresh_transfer_link(transfer_link)
+        return self.build_transfer_response(
+            transfer_link,
+            debit_transaction,
+            credit_transaction,
+        )
+
+    async def get_transfer(
+        self,
+        transfer_id: uuid.UUID,
+        current_user: User,
+    ) -> TransferResponse:
+        transfer = await self.transactions.get_owned_transfer(
+            transfer_id,
+            current_user.id,
+        )
+        if transfer is None:
+            raise TransferNotFoundError
+        transfer_link, debit_transaction, credit_transaction = transfer
+        return self.build_transfer_response(
+            transfer_link,
+            debit_transaction,
+            credit_transaction,
+        )
+
     async def get_active_account(
         self,
         account_id: uuid.UUID,
@@ -154,3 +246,22 @@ class TransactionService:
         if category.kind != transaction_type:
             raise InvalidTransactionReferenceError
         return category
+
+    @staticmethod
+    def build_transfer_response(
+        transfer_link: TransferLink,
+        debit_transaction: Transaction,
+        credit_transaction: Transaction,
+    ) -> TransferResponse:
+        return TransferResponse(
+            id=transfer_link.id,
+            from_account_id=debit_transaction.account_id,
+            to_account_id=credit_transaction.account_id,
+            debit_transaction_id=debit_transaction.id,
+            credit_transaction_id=credit_transaction.id,
+            amount=transfer_link.amount,
+            currency=transfer_link.currency,
+            transaction_at=debit_transaction.transaction_at,
+            description=debit_transaction.description,
+            created_at=transfer_link.created_at,
+        )

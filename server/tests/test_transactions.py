@@ -11,7 +11,7 @@ import pytest
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from alembic import command
 from app.core.config import Settings
@@ -22,7 +22,13 @@ from app.core.database import (
     get_session_from_factory,
 )
 from app.main import create_app
-from app.modules.transactions.models import Transaction
+from app.modules.accounts.repositories import AccountRepository
+from app.modules.categories.repositories import CategoryRepository
+from app.modules.transactions.models import Transaction, TransferLink
+from app.modules.transactions.repositories import TransactionRepository
+from app.modules.transactions.schemas import TransferCreateRequest
+from app.modules.transactions.services import TransactionService
+from app.modules.users.models import User
 
 
 @dataclass(frozen=True)
@@ -364,6 +370,202 @@ def test_transaction_ownership_and_archived_reference_rejection(
     assert archived_category_response.status_code == 422
 
 
+def test_transfer_create_retrieve_and_source_records(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transfer-owner@example.com")
+    checking = create_account(context, headers, "Checking Transfer", "bank", "0")
+    savings = create_account(context, headers, "Savings Transfer", "savings", "0")
+
+    transfer = create_transfer(
+        context,
+        headers,
+        checking["id"],
+        savings["id"],
+        "25.1250",
+        "2026-04-01T09:15:00+06:00",
+        "  Move to savings  ",
+    )
+
+    assert transfer["from_account_id"] == checking["id"]
+    assert transfer["to_account_id"] == savings["id"]
+    assert transfer["amount"] == "25.1250"
+    assert transfer["currency"] == "USD"
+    assert transfer["description"] == "Move to savings"
+    assert transfer["debit_transaction_id"] != transfer["credit_transaction_id"]
+
+    detail_response = context.client.get(
+        f"/api/v1/transactions/transfers/{transfer['id']}",
+        headers=headers,
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json() == transfer
+
+    list_response = context.client.get("/api/v1/transactions", headers=headers)
+    assert list_response.status_code == 200
+    assert list_response.json()["items"] == []
+
+    source_records = asyncio.run(
+        fetch_transfer_source_records(
+            context.database_url,
+            uuid.UUID(str(transfer["id"])),
+            uuid.UUID(str(transfer["debit_transaction_id"])),
+            uuid.UUID(str(transfer["credit_transaction_id"])),
+        )
+    )
+    assert source_records == {
+        "link_amount": Decimal("25.1250"),
+        "link_currency": "USD",
+        "debit_type": "transfer_debit",
+        "credit_type": "transfer_credit",
+        "debit_amount": Decimal("25.1250"),
+        "credit_amount": Decimal("25.1250"),
+        "debit_account_id": uuid.UUID(str(checking["id"])),
+        "credit_account_id": uuid.UUID(str(savings["id"])),
+        "debit_category_id": None,
+        "credit_category_id": None,
+    }
+
+
+def test_transfer_validation_and_ownership_rules(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    owner_headers = auth_headers(context, "transfer-rules-owner@example.com")
+    other_headers = auth_headers(context, "transfer-rules-other@example.com")
+    checking = create_account(context, owner_headers, "Rules Checking", "bank", "0")
+    savings = create_account(context, owner_headers, "Rules Savings", "savings", "0")
+    eur_wallet = create_account(
+        context,
+        owner_headers,
+        "EUR Wallet",
+        "wallet",
+        "0",
+        currency="EUR",
+    )
+    other_account = create_account(
+        context,
+        other_headers,
+        "Other Wallet",
+        "wallet",
+        "0",
+    )
+
+    same_account_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": checking["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-02T00:00:00+00:00",
+        },
+    )
+    assert same_account_response.status_code == 422
+
+    cross_user_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": other_account["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-02T00:00:00+00:00",
+        },
+    )
+    assert cross_user_response.status_code == 422
+
+    currency_mismatch_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": eur_wallet["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-02T00:00:00+00:00",
+        },
+    )
+    assert currency_mismatch_response.status_code == 422
+
+    float_amount_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": savings["id"],
+            "amount": 1.2,
+            "transaction_at": "2026-04-02T00:00:00+00:00",
+        },
+    )
+    assert float_amount_response.status_code == 422
+    assert "1.2" in float_amount_response.text
+
+    naive_date_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": savings["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-02T00:00:00",
+        },
+    )
+    assert naive_date_response.status_code == 422
+
+    archived = create_account(context, owner_headers, "Archived Transfer", "cash", "0")
+    archive_response = context.client.delete(
+        f"/api/v1/accounts/{archived['id']}",
+        headers=owner_headers,
+    )
+    assert archive_response.status_code == 200
+
+    archived_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": archived["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-02T00:00:00+00:00",
+        },
+    )
+    assert archived_response.status_code == 422
+
+    transfer = create_transfer(
+        context,
+        owner_headers,
+        checking["id"],
+        savings["id"],
+        "2.0000",
+        "2026-04-03T00:00:00+00:00",
+    )
+    cross_user_detail_response = context.client.get(
+        f"/api/v1/transactions/transfers/{transfer['id']}",
+        headers=other_headers,
+    )
+    assert cross_user_detail_response.status_code == 404
+
+
+def test_transfer_rolls_back_when_link_write_fails(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    email = "transfer-rollback@example.com"
+    headers = auth_headers(context, email)
+    checking = create_account(context, headers, "Rollback Checking", "bank", "0")
+    savings = create_account(context, headers, "Rollback Savings", "savings", "0")
+
+    asyncio.run(
+        assert_failing_transfer_rolls_back(
+            context.database_url,
+            email,
+            uuid.UUID(str(checking["id"])),
+            uuid.UUID(str(savings["id"])),
+        )
+    )
+
+
 def auth_headers(context: TransactionApiContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",
@@ -385,15 +587,20 @@ def create_account(
     name: str,
     account_type: str,
     opening_balance: str,
+    currency: str | None = None,
 ) -> dict[str, object]:
+    payload = {
+        "name": name,
+        "type": account_type,
+        "opening_balance": opening_balance,
+    }
+    if currency is not None:
+        payload["currency"] = currency
+
     response = context.client.post(
         "/api/v1/accounts",
         headers=headers,
-        json={
-            "name": name,
-            "type": account_type,
-            "opening_balance": opening_balance,
-        },
+        json=payload,
     )
     assert response.status_code == 201
     return dict(response.json())
@@ -444,6 +651,33 @@ def create_transaction(
     return dict(response.json())
 
 
+def create_transfer(
+    context: TransactionApiContext,
+    headers: dict[str, str],
+    from_account_id: object,
+    to_account_id: object,
+    amount: str,
+    transaction_at: str,
+    description: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "from_account_id": from_account_id,
+        "to_account_id": to_account_id,
+        "amount": amount,
+        "transaction_at": transaction_at,
+    }
+    if description is not None:
+        payload["description"] = description
+
+    response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=headers,
+        json=payload,
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
 async def fetch_signed_transaction_total(
     database_url: str,
     transaction_ids: set[uuid.UUID],
@@ -466,5 +700,93 @@ async def fetch_signed_transaction_total(
                 elif transaction.type == "expense":
                     total -= transaction.amount
             return total
+    finally:
+        await engine.dispose()
+
+
+async def fetch_transfer_source_records(
+    database_url: str,
+    transfer_id: uuid.UUID,
+    debit_transaction_id: uuid.UUID,
+    credit_transaction_id: uuid.UUID,
+) -> dict[str, object]:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+
+    try:
+        async with session_factory() as session:
+            transfer_link = await session.get(TransferLink, transfer_id)
+            debit_transaction = await session.get(Transaction, debit_transaction_id)
+            credit_transaction = await session.get(Transaction, credit_transaction_id)
+            assert transfer_link is not None
+            assert debit_transaction is not None
+            assert credit_transaction is not None
+            return {
+                "link_amount": transfer_link.amount,
+                "link_currency": transfer_link.currency,
+                "debit_type": debit_transaction.type,
+                "credit_type": credit_transaction.type,
+                "debit_amount": debit_transaction.amount,
+                "credit_amount": credit_transaction.amount,
+                "debit_account_id": debit_transaction.account_id,
+                "credit_account_id": credit_transaction.account_id,
+                "debit_category_id": debit_transaction.category_id,
+                "credit_category_id": credit_transaction.category_id,
+            }
+    finally:
+        await engine.dispose()
+
+
+class FailingTransferRepository(TransactionRepository):
+    async def create_transfer_link(self, transfer_link: TransferLink) -> TransferLink:
+        raise RuntimeError("forced transfer link failure")
+
+
+async def assert_failing_transfer_rolls_back(
+    database_url: str,
+    email: str,
+    from_account_id: uuid.UUID,
+    to_account_id: uuid.UUID,
+) -> None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+
+    try:
+        async with session_factory() as session:
+            user_result = await session.execute(select(User).where(User.email == email))
+            user = user_result.scalar_one()
+            user_id = user.id
+            service = TransactionService(
+                transactions=FailingTransferRepository(session),
+                accounts=AccountRepository(session),
+                categories=CategoryRepository(session),
+            )
+
+            with pytest.raises(RuntimeError, match="forced transfer link failure"):
+                await service.create_transfer(
+                    TransferCreateRequest(
+                        from_account_id=from_account_id,
+                        to_account_id=to_account_id,
+                        amount=Decimal("12.5000"),
+                        transaction_at="2026-04-04T00:00:00+00:00",
+                    ),
+                    user,
+                )
+
+            transaction_count_result = await session.execute(
+                select(func.count())
+                .select_from(Transaction)
+                .where(
+                    Transaction.user_id == user_id,
+                    Transaction.type.in_(("transfer_debit", "transfer_credit")),
+                )
+            )
+            transfer_link_count_result = await session.execute(
+                select(func.count())
+                .select_from(TransferLink)
+                .where(TransferLink.user_id == user_id)
+            )
+            assert transaction_count_result.scalar_one() == 0
+            assert transfer_link_count_result.scalar_one() == 0
     finally:
         await engine.dispose()

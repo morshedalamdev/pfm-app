@@ -14,12 +14,16 @@ from app.modules.transactions.schemas import (
     TransactionListResponse,
     TransactionResponse,
     TransactionUpdateRequest,
+    TransferCreateRequest,
+    TransferResponse,
 )
 from app.modules.transactions.services import (
     InvalidTransactionReferenceError,
     InvalidTransactionStateError,
+    InvalidTransferRequestError,
     TransactionNotFoundError,
     TransactionService,
+    TransferNotFoundError,
 )
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -60,6 +64,42 @@ async def list_transactions(
     session: SessionDependency,
 ) -> TransactionListResponse:
     return await build_transaction_service(session).list_transactions(current_user)
+
+
+@router.post(
+    "/transfers",
+    response_model=TransferResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_transfer(
+    request: TransferCreateRequest,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> TransferResponse:
+    try:
+        return await build_transaction_service(session).create_transfer(
+            request,
+            current_user,
+        )
+    except InvalidTransactionReferenceError as exc:
+        raise invalid_transfer_error() from exc
+    except InvalidTransferRequestError as exc:
+        raise invalid_transfer_error() from exc
+
+
+@router.get("/transfers/{transfer_id}", response_model=TransferResponse)
+async def get_transfer(
+    transfer_id: str,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> TransferResponse:
+    try:
+        return await build_transaction_service(session).get_transfer(
+            parse_uuid_or_404(transfer_id),
+            current_user,
+        )
+    except TransferNotFoundError as exc:
+        raise transfer_not_found_error() from exc
 
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
@@ -134,6 +174,20 @@ def invalid_reference_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="Transaction account or category is invalid",
+    )
+
+
+def transfer_not_found_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Transfer not found",
+    )
+
+
+def invalid_transfer_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Transfer accounts or amount are invalid",
     )
 
 

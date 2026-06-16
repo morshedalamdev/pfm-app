@@ -155,6 +155,8 @@ Milestone 03.1 implements the source-of-truth finance tables without exposing CR
 
 Finance ownership is enforced in the database as well as at future service boundaries. Account, category, transaction, and transfer references use composite foreign keys containing `user_id` where cross-user links would otherwise be possible.
 
+Phase 03.4 exposes transfers as an auditable API representation over paired source records. A transfer creates one positive `transfer_debit` row against the source account, one positive `transfer_credit` row against the destination account, and one `transfer_links` row connecting both sides. The service rejects same-account transfers, inactive or cross-user accounts, invalid amounts, timezone-naive dates, and currency mismatches because MVP balance math does not perform currency conversion.
+
 ## API Groups And Conventions
 
 Route groups are versioned under `/api/v1` from the first backend milestone:
@@ -217,7 +219,7 @@ sequenceDiagram
   API-->>UI: typed result or validation error envelope
 ```
 
-Transfers must be atomic: both sides of the transfer and the transfer linkage commit together or roll back together. Balances and reports should be reproducible from the committed source records rather than separately trusted mutable counters.
+Transfers must be atomic: both sides of the transfer and the transfer linkage commit together or roll back together. A failed link write after transaction rows are flushed must leave no half-transfer rows behind. Balances and reports should be reproducible from the committed source records rather than separately trusted mutable counters.
 
 ## SSE Flow
 
