@@ -109,7 +109,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 04 | 04.1 Budget schema and rules | PASSED | phase commit created after this state update | Added budget persistence, period semantics, active same-scope overlap protection, migration, and schema tests. |
 | 04 | 04.2 Budget APIs and progress | PASSED | phase commit created after this state update | Added authenticated budget CRUD/archive APIs, budget list filters, and computed progress from expense source records. |
 | 04 | 04.3 Savings goals and contributions | PASSED | phase commit created after this state update | Added authenticated savings goal CRUD/archive APIs, auditable contributions, computed progress, completion rules, migration, and tests. |
-| 04 | 04.4 Budget and savings tests | NOT_STARTED | — | — |
+| 04 | 04.4 Budget and savings tests | PASSED | phase commit created after this state update | Hardened budget/savings edge-case tests, OpenAPI contract tests, and UI/API matrix status. |
 | 04 | 04.V Budget and savings verification | NOT_STARTED | — | — |
 | 05 | 05.1 Report contracts | NOT_STARTED | — | — |
 | 05 | 05.2 Dashboard summaries | NOT_STARTED | — | — |
@@ -411,6 +411,15 @@ Append only. Do not rewrite earlier records.
 - Added `server/tests/test_savings.py` covering CRUD, contribution listing, progress calculations, over-target completion, completed/archived contribution rejection, target-date validation, invalid amounts, ownership, and OpenAPI exposure.
 - No budget test expansion phase, reporting behavior, loans, recurring behavior, worker behavior, or frontend integration was added in phase 04.3.
 
+### Phase 04.4 budget and savings hardening inventory
+
+- Reviewed budget and savings Decimal request/response handling, progress serialization, cursor pagination contracts, UTC budget period boundaries, archived record visibility, and authenticated mutation contracts.
+- Added budget integration coverage for UTC half-open period boundaries using non-UTC transaction offsets, budget list pagination, invalid budget cursors, and invalid month filters.
+- Added savings integration coverage for savings goal pagination, contribution pagination, invalid goal/contribution cursors, and explicit `status=archived` list behavior.
+- Added `server/tests/test_budget_savings_contracts.py` covering budget/savings OpenAPI money fields as decimal strings, list envelope shapes, query parameters, progress enum/boolean fields, and bearer security on budget/savings mutations.
+- Updated `docs/architecture/UI_API_MATRIX.md` with the implemented budget CRUD/progress and savings goal/contribution contract status, including deferred summary/setup endpoints that remain later work.
+- No endpoint behavior, migrations, environment variables, frontend integration, report summaries, budget setup templates, or later milestone modules were added in phase 04.4.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -440,6 +449,12 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 - The transaction list matrix now maps UI duration/date filters to backend `date_from`/`date_to` range parameters and records the implemented transaction type enum values.
 - The transaction create matrix now records that `POST /api/v1/transactions` should use `Idempotency-Key` and decimal string money values.
 - The category icon matrix now records that `GET /api/v1/categories` returns `icon_key` and server-side category CRUD exists, while frontend category management remains later integration work.
+
+### Phase 04.4 budget and savings contract matrix update
+
+- `docs/architecture/UI_API_MATRIX.md` now records implemented budget CRUD/progress endpoints, filters, archive visibility, UTC half-open period behavior, and decimal string progress fields.
+- `docs/architecture/UI_API_MATRIX.md` now records implemented savings goal CRUD/archive endpoints, contribution create/list endpoints, status filters, over-target completion behavior, completed/archived contribution rejection, and decimal string progress fields.
+- Budget summary/setup endpoints and savings summary endpoints remain explicitly deferred for later report or frontend integration work.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -528,6 +543,8 @@ Phase 04.3 added savings goal endpoints: `POST /api/v1/savings-goals`, `GET /api
 
 Phase 04.3 added savings contribution endpoints: `POST /api/v1/savings-goals/{goal_id}/contributions` and `GET /api/v1/savings-goals/{goal_id}/contributions`. Contribution creates append auditable source records for active goals and return HTTP 409 when the goal is already completed or archived.
 
+Phase 04.4 added no endpoints. It hardened budget/savings edge-case and OpenAPI contract coverage and updated the UI/API matrix endpoint status.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -571,6 +588,8 @@ Phase 04.1 created Alembic migration `202606190401_add_budget_schema.py` for `bu
 Phase 04.2 created no migrations. It uses the existing budget schema from migration `202606190401`.
 
 Phase 04.3 created Alembic migration `202606190403_add_savings_goals_schema.py` for `savings_goals` and `savings_contributions`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
+
+Phase 04.4 created no migrations. It uses the existing budget schema from migration `202606190401` and savings schema from migration `202606190403`.
 
 ## 11. Environment variables
 
@@ -640,6 +659,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 04.3 savings API variables
+
+- No new environment variables were added.
+
+### Phase 04.4 budget and savings hardening variables
 
 - No new environment variables were added.
 
@@ -926,6 +949,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:53738/postgres" alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606190403` to `202606190401`. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:53738/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded from `202606190401` to `202606190403`. |
 
+### Phase 04.4 budget and savings hardening commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `budgets-savings`, one prior local phase commit ahead of origin, and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS after repair | Required format check. Initial run required formatting `tests/test_budget_savings_contracts.py`; final check reported 89 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Final result: no issues in 65 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL. Approved run passed: 85 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -949,7 +982,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 03.6 is passed.
 - Phase 04.1 is passed.
 - Phase 04.2 is passed.
-- Phase 04.3 is passed. Next allowed phase is 04.4, Budget and savings tests, after user permission. Milestone 03.V remains not started in this state file because milestone 04 phases were explicitly requested by the user.
+- Phase 04.3 is passed.
+- Phase 04.4 is passed. Next allowed phase is 04.V, Budget and savings verification, after user permission. Milestone 03.V remains not started in this state file because milestone 04 phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -979,3 +1013,4 @@ Append a dated entry after every completed phase.
 - 2026-06-19: Phase 04.1 budget schema and rules passed. Added budget persistence with monthly/custom period semantics, soft archive fields, optional category scope, active same-scope overlap protection, migration `202606190401`, schema tests, and documented that global/category budgets may overlap across different scopes. No endpoints were added, and the next allowed phase is 04.2.
 - 2026-06-19: Phase 04.2 budget APIs and progress passed. Added authenticated budget CRUD/archive endpoints, month/category/list filters, computed progress from non-voided expense source records, category/global overlap behavior, archived budget behavior, and integration tests. No migrations were added, and the next allowed phase is 04.3.
 - 2026-06-19: Phase 04.3 savings goals and contributions passed. Added authenticated savings goal CRUD/archive endpoints, auditable contribution create/list endpoints, progress computed from contribution source records, over-target completion behavior, completed/archived contribution rejection, migration `202606190403`, schema tests, and integration tests. No frontend integration or later reporting behavior was added, and the next allowed phase is 04.4.
+- 2026-06-19: Phase 04.4 budget and savings hardening passed. Added edge-case tests for budget UTC boundaries, budget cursors, savings goal/contribution cursors, archived savings filters, and budget/savings OpenAPI decimal/list/security contracts; updated the UI/API matrix with implemented budget and savings contract status and deferred summary/setup endpoints. No migrations or endpoints were added, and the next allowed phase is 04.V.

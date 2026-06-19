@@ -434,6 +434,112 @@ def test_budget_validation_ownership_and_openapi(
     )
 
 
+def test_budget_utc_boundaries_and_cursor_errors(
+    budget_context: BudgetApiContext,
+) -> None:
+    context = budget_context
+    headers = auth_headers(context, "budget-boundaries@example.com")
+    account = create_account(context, headers, "Boundary Checking", "bank", "0")
+    category = create_category(context, headers, "Boundary Food", "expense", "food")
+
+    january_budget = create_budget(
+        context,
+        headers,
+        category_id=None,
+        period_type="monthly",
+        period_start="2026-01-01",
+        period_end="2026-02-01",
+        limit_amount="100.0000",
+    )
+    february_budget = create_budget(
+        context,
+        headers,
+        category_id=None,
+        period_type="monthly",
+        period_start="2026-02-01",
+        period_end="2026-03-01",
+        limit_amount="100.0000",
+    )
+    create_budget(
+        context,
+        headers,
+        category_id=None,
+        period_type="monthly",
+        period_start="2026-03-01",
+        period_end="2026-04-01",
+        limit_amount="100.0000",
+    )
+
+    create_transaction(
+        context,
+        headers,
+        account["id"],
+        category["id"],
+        "expense",
+        "25.0000",
+        "2026-01-01T00:30:00+02:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        account["id"],
+        category["id"],
+        "expense",
+        "30.0000",
+        "2026-02-01T01:30:00+02:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        account["id"],
+        category["id"],
+        "expense",
+        "40.0000",
+        "2025-12-31T23:30:00-02:00",
+    )
+
+    detail_response = context.client.get(
+        f"/api/v1/budgets/{january_budget['id']}",
+        headers=headers,
+    )
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert Decimal(detail["progress"]["spent_amount"]) == Decimal("70.0000")
+    assert Decimal(detail["progress"]["remaining_amount"]) == Decimal("30.0000")
+
+    first_page_response = context.client.get(
+        "/api/v1/budgets",
+        headers=headers,
+        params={"limit": 1},
+    )
+    assert first_page_response.status_code == 200
+    first_page = first_page_response.json()
+    assert first_page["has_more"] is True
+    assert first_page["next_cursor"] is not None
+
+    second_page_response = context.client.get(
+        "/api/v1/budgets",
+        headers=headers,
+        params={"limit": 1, "cursor": first_page["next_cursor"]},
+    )
+    assert second_page_response.status_code == 200
+    assert second_page_response.json()["items"][0]["id"] == february_budget["id"]
+
+    invalid_cursor_response = context.client.get(
+        "/api/v1/budgets",
+        headers=headers,
+        params={"cursor": "not-a-valid-cursor"},
+    )
+    assert invalid_cursor_response.status_code == 422
+
+    invalid_month_response = context.client.get(
+        "/api/v1/budgets",
+        headers=headers,
+        params={"month": "2026-13"},
+    )
+    assert invalid_month_response.status_code == 422
+
+
 def auth_headers(context: BudgetApiContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",

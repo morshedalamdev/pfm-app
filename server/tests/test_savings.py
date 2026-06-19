@@ -310,6 +310,106 @@ def test_savings_validation_ownership_and_openapi(
     ]
 
 
+def test_savings_pagination_archived_filter_and_cursor_errors(
+    savings_context: SavingsApiContext,
+) -> None:
+    context = savings_context
+    headers = auth_headers(context, "savings-cursors@example.com")
+    first_goal = create_savings_goal(
+        context,
+        headers,
+        name="First goal",
+        target_amount="100.0000",
+    )
+    second_goal = create_savings_goal(
+        context,
+        headers,
+        name="Second goal",
+        target_amount="200.0000",
+    )
+    third_goal = create_savings_goal(
+        context,
+        headers,
+        name="Third goal",
+        target_amount="300.0000",
+    )
+    assert {first_goal["id"], second_goal["id"], third_goal["id"]}
+
+    first_page_response = context.client.get(
+        "/api/v1/savings-goals",
+        headers=headers,
+        params={"limit": 1},
+    )
+    assert first_page_response.status_code == 200
+    first_page = first_page_response.json()
+    assert first_page["has_more"] is True
+    assert first_page["next_cursor"] is not None
+    assert first_page["items"][0]["id"] == third_goal["id"]
+
+    second_page_response = context.client.get(
+        "/api/v1/savings-goals",
+        headers=headers,
+        params={"limit": 1, "cursor": first_page["next_cursor"]},
+    )
+    assert second_page_response.status_code == 200
+    assert second_page_response.json()["items"][0]["id"] == second_goal["id"]
+
+    invalid_goal_cursor_response = context.client.get(
+        "/api/v1/savings-goals",
+        headers=headers,
+        params={"cursor": "not-a-valid-cursor"},
+    )
+    assert invalid_goal_cursor_response.status_code == 422
+
+    create_contribution(
+        context,
+        headers,
+        first_goal["id"],
+        amount="10.0000",
+        contributed_at="2026-08-01T10:00:00+00:00",
+    )
+    create_contribution(
+        context,
+        headers,
+        first_goal["id"],
+        amount="20.0000",
+        contributed_at="2026-08-02T10:00:00+00:00",
+    )
+    contribution_page_response = context.client.get(
+        f"/api/v1/savings-goals/{first_goal['id']}/contributions",
+        headers=headers,
+        params={"limit": 1},
+    )
+    assert contribution_page_response.status_code == 200
+    contribution_page = contribution_page_response.json()
+    assert contribution_page["has_more"] is True
+    assert contribution_page["next_cursor"] is not None
+    assert Decimal(contribution_page["items"][0]["amount"]) == Decimal("20.0000")
+
+    invalid_contribution_cursor_response = context.client.get(
+        f"/api/v1/savings-goals/{first_goal['id']}/contributions",
+        headers=headers,
+        params={"cursor": "not-a-valid-cursor"},
+    )
+    assert invalid_contribution_cursor_response.status_code == 422
+
+    archive_response = context.client.delete(
+        f"/api/v1/savings-goals/{first_goal['id']}",
+        headers=headers,
+    )
+    assert archive_response.status_code == 200
+
+    archived_response = context.client.get(
+        "/api/v1/savings-goals",
+        headers=headers,
+        params={"status": "archived"},
+    )
+    assert archived_response.status_code == 200
+    assert [item["id"] for item in archived_response.json()["items"]] == [
+        first_goal["id"]
+    ]
+
+
 def auth_headers(context: SavingsApiContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",
