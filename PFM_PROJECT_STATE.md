@@ -107,7 +107,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 03 | 03.6 Finance tests | PASSED | phase commit created after this state update | Hardened money OpenAPI contracts, idempotent replay ordering, finance API matrix notes, and contract/integration coverage. |
 | 03 | 03.V Finance verification | NOT_STARTED | — | — |
 | 04 | 04.1 Budget schema and rules | PASSED | phase commit created after this state update | Added budget persistence, period semantics, active same-scope overlap protection, migration, and schema tests. |
-| 04 | 04.2 Budget APIs and progress | NOT_STARTED | — | — |
+| 04 | 04.2 Budget APIs and progress | PASSED | phase commit created after this state update | Added authenticated budget CRUD/archive APIs, budget list filters, and computed progress from expense source records. |
 | 04 | 04.3 Savings goals and contributions | NOT_STARTED | — | — |
 | 04 | 04.4 Budget and savings tests | NOT_STARTED | — | — |
 | 04 | 04.V Budget and savings verification | NOT_STARTED | — | — |
@@ -376,6 +376,21 @@ Append only. Do not rewrite earlier records.
 - Updated `server/tests/test_finance_schema.py` so finance migration tests reset to base and target revision `202606150301`, preserving their original scope now that the budget migration is the Alembic head.
 - No budget endpoints, progress calculations, savings schema, savings endpoints, report behavior, or frontend integration were added in phase 04.1.
 
+### Phase 04.2 budget API and progress inventory
+
+- Added budget API schemas, cursor pagination, repository, service, and router under `server/app/modules/budgets/`.
+- Mounted the budget router from `server/app/api/v1/router.py`.
+- Implemented authenticated `POST /api/v1/budgets`, `GET /api/v1/budgets`, `GET /api/v1/budgets/{budget_id}`, `PATCH /api/v1/budgets/{budget_id}`, and `DELETE /api/v1/budgets/{budget_id}`.
+- Budget create/update validates positive Decimal limit amounts, rejects JSON float money values, normalizes currency, validates monthly period boundaries, and validates optional category scope against an owned, active expense category.
+- Budget queries and mutations are scoped by current `user_id`; cross-user access returns not found and cross-user category filters/references are rejected.
+- Budget list supports `limit`, optional opaque `cursor`, `include_archived`, `category_id`, and `month=YYYY-MM`. Month filtering returns budgets whose half-open period intersects the selected calendar month.
+- Budget responses include `category_name` when category-scoped and a computed `progress` object with `spent_amount`, `remaining_amount`, `percent_used`, and `status`.
+- Progress is computed at read time from non-voided `expense` transaction source rows in the budget's half-open `[period_start, period_end)` range. Global budgets include all expense categories; category budgets include only matching category expense rows. Income, transfers, voided expenses, and transactions exactly at `period_end` are excluded.
+- Active same-scope overlap conflicts from the PostgreSQL exclusion constraint return HTTP 409. Global and category budgets can still coexist for the same dates because they are different scopes.
+- Budget delete is a safe archive operation that sets `is_archived=true` and `archived_at`; archived budgets are excluded from default list results and included only with `include_archived=true`.
+- Added `server/tests/test_budgets.py` covering CRUD, progress calculations, category filters, period boundaries, overlap rules, archive behavior, ownership, invalid references, and OpenAPI exposure.
+- No migrations, savings schema, savings endpoints, report behavior, or frontend integration were added in phase 04.2.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -487,6 +502,8 @@ Phase 03.6 added no endpoints. It changed the OpenAPI contract for finance money
 
 Phase 04.1 added no endpoints. It added only budget domain persistence, database constraints, migration, and schema tests. Budget CRUD and progress calculations begin no earlier than phase 04.2.
 
+Phase 04.2 added budget management endpoints: `POST /api/v1/budgets`, `GET /api/v1/budgets`, `GET /api/v1/budgets/{budget_id}`, `PATCH /api/v1/budgets/{budget_id}`, and `DELETE /api/v1/budgets/{budget_id}`. Budget list supports `limit`, `cursor`, `include_archived`, `category_id`, and `month=YYYY-MM`. Responses include computed progress from expense source records; delete performs safe archive instead of hard delete.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -526,6 +543,8 @@ Phase 03.5 created no migrations. It uses the existing `idempotency_records` tab
 Phase 03.6 created no migrations. It uses the existing `idempotency_records` table and finance schema from migration `202606150301`.
 
 Phase 04.1 created Alembic migration `202606190401_add_budget_schema.py` for `budgets` and the PostgreSQL `btree_gist` extension needed by the active same-scope no-overlap exclusion constraint. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
+
+Phase 04.2 created no migrations. It uses the existing budget schema from migration `202606190401`.
 
 ## 11. Environment variables
 
@@ -587,6 +606,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 04.1 budget schema variables
+
+- No new environment variables were added.
+
+### Phase 04.2 budget API variables
 
 - No new environment variables were added.
 
@@ -850,6 +873,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:52888/postgres" alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606190401` to `202606150301`. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:52888/postgres" alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded from `202606150301` to `202606190401`. |
 
+### Phase 04.2 budget APIs and progress commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `budgets-savings` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged one long line in the new budget service; repaired manually. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Final result: no issues in 58 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL. Approved run passed: 75 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -871,7 +904,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 03.4 is passed.
 - Phase 03.5 is passed.
 - Phase 03.6 is passed.
-- Phase 04.1 is passed. Next allowed phase is 04.2, Budget APIs and progress, after user permission. Milestone 03.V remains not started in this state file because phase 04.1 was explicitly requested by the user.
+- Phase 04.1 is passed.
+- Phase 04.2 is passed. Next allowed phase is 04.3, Savings goals and contributions, after user permission. Milestone 03.V remains not started in this state file because milestone 04 phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -899,3 +933,4 @@ Append a dated entry after every completed phase.
 - 2026-06-16: Phase 03.5 filters, pagination, and idempotency passed. Added cursor-paginated and filtered transaction listing, deterministic ordering, broad source-row list behavior, idempotent transaction and transfer create mutations backed by `idempotency_records`, conflict handling for mismatched key reuse, design notes, and integration tests. No migrations were added, and the next allowed phase is 03.6.
 - 2026-06-16: Phase 03.6 finance tests and contract review passed. Hardened money OpenAPI schemas to decimal strings, moved idempotent transaction/transfer replay checks before mutable reference validation, added replay-after-archive integration coverage, added finance contract tests for decimal fields, pagination/filter shape, and idempotency headers, updated finance UI/API matrix notes, and confirmed the next allowed phase is 03.V.
 - 2026-06-19: Phase 04.1 budget schema and rules passed. Added budget persistence with monthly/custom period semantics, soft archive fields, optional category scope, active same-scope overlap protection, migration `202606190401`, schema tests, and documented that global/category budgets may overlap across different scopes. No endpoints were added, and the next allowed phase is 04.2.
+- 2026-06-19: Phase 04.2 budget APIs and progress passed. Added authenticated budget CRUD/archive endpoints, month/category/list filters, computed progress from non-voided expense source records, category/global overlap behavior, archived budget behavior, and integration tests. No migrations were added, and the next allowed phase is 04.3.
