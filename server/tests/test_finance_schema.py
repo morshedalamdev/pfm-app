@@ -283,7 +283,8 @@ def test_finance_migration_up_down_up_tables(
 ) -> None:
     config = build_alembic_config(disposable_postgres_url)
 
-    command.upgrade(config, "head")
+    command.downgrade(config, "base")
+    command.upgrade(config, "202606150301")
     for table_name in {
         "accounts",
         "categories",
@@ -303,7 +304,7 @@ def test_finance_migration_up_down_up_tables(
     }:
         assert asyncio.run(table_exists(disposable_postgres_url, table_name)) is False
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "202606150301")
     for table_name in {
         "accounts",
         "categories",
@@ -319,7 +320,8 @@ def test_finance_migration_persists_ownership_constraints(
 ) -> None:
     config = build_alembic_config(disposable_postgres_url)
 
-    command.upgrade(config, "head")
+    command.downgrade(config, "base")
+    command.upgrade(config, "202606150301")
 
     assert asyncio.run(
         foreign_key_exists(

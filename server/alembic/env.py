@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.database import Base
 from app.modules.accounts import models as account_models  # noqa: F401
 from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.budgets import models as budget_models  # noqa: F401
 from app.modules.categories import models as category_models  # noqa: F401
 from app.modules.idempotency import models as idempotency_models  # noqa: F401
 from app.modules.transactions import models as transaction_models  # noqa: F401

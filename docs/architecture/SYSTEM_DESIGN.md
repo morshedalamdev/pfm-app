@@ -132,7 +132,7 @@ Each user-owned record must include ownership checks at the service boundary. Ha
 | `transactions` | Income, expenses, and transfer rows | Uses `NUMERIC`/`Decimal`; links user, account, optional category, optional transfer link, optional recurring rule, and optional receipt. |
 | `transfer_links` | Paired transfer grouping | Connects the two transaction rows that represent one transfer and must be written transactionally. |
 | `idempotency_records` | Retry protection | Unique by user, route/action, and idempotency key; records request hash and response summary for safe replay. |
-| `budgets` | Period/category spending limits | Unique by user, period, and category where active; progress is computed from transactions. |
+| `budgets` | Period/category spending limits | Active budgets cannot overlap for the same user and same scope. Global and category budgets may overlap because global tracks total spend while category budgets track category caps. Progress is computed from transactions. |
 | `savings_goals` | Goal target and status | Stores target amount/date, status, monthly target, and user ownership. |
 | `savings_contributions` | Goal progress movements | Links user and goal; optionally links a transaction; supports audit-safe reversal rather than silent deletion. |
 | `loan_accounts` | Lent/borrowed personal debt records | Stores type, counterparty, principal/current amount, dates, and optional phone. |
