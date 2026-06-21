@@ -233,6 +233,8 @@ The intentional MVP limitations are: recurring templates create only income or e
 
 `outbox_events` stores durable side-effect work with `event_type`, optional user and aggregate references, JSONB payload, unique event idempotency key, status, attempt counters, availability time, processed time, error metadata, and worker lock fields. Workers should claim pending rows with PostgreSQL row locking in later phases and use the event type plus idempotency key to avoid duplicate side effects.
 
+Phase 06.2 implements authenticated recurring-rule CRUD under `/api/v1/recurring-rules`, including list, retrieve, update, pause, resume, and archive behavior. Schedule calculation is deterministic from `start_at`, `frequency`, `interval_count`, and `timezone`; API timestamps are normalized to UTC, while monthly and yearly recurrence preserve the original local wall-clock time and clamp month-end days when the target month is shorter. Archived rules are hidden from the default list and cannot be updated, paused, or resumed. Worker execution and transaction creation from due rules remain later milestone 06 work.
+
 ## Transaction Flow
 
 ```mermaid

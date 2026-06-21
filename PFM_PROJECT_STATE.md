@@ -118,7 +118,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 05 | 05.5 Analytics tests | PASSED | phase commit created after this state update | Hardened analytics fixture coverage and verified report OpenAPI contracts against chart/UI response needs. |
 | 05 | 05.V Analytics verification | PASSED | verification commit created after this state update | Verified milestone 05 report endpoints, query-plan documentation, full server quality suite, full tests, and disposable Alembic upgrade. |
 | 06 | 06.1 Recurring and outbox schema | PASSED | phase commit created after this state update | Added recurring rule and durable outbox persistence, worker coordination fields, migration, schema tests, and recurrence limitations documentation. |
-| 06 | 06.2 Scheduling rules | NOT_STARTED | — | — |
+| 06 | 06.2 Scheduling rules | PASSED | phase commit created after this state update | Added recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic UTC schedule calculation, ownership validation, and tests. |
 | 06 | 06.3 Worker process | NOT_STARTED | — | — |
 | 06 | 06.4 Retry and idempotency | NOT_STARTED | — | — |
 | 06 | 06.5 Worker tests | NOT_STARTED | — | — |
@@ -490,6 +490,18 @@ Append only. Do not rewrite earlier records.
 - Added schema and migration tests in `server/tests/test_recurring_schema.py`, covering model columns, constraints, indexes, ownership foreign keys, worker due index, outbox idempotency uniqueness, and migration up/down/up behavior.
 - Updated `docs/architecture/SYSTEM_DESIGN.md` with supported recurrence rules and intentional MVP limitations. No recurring APIs, scheduling calculation, worker entrypoint, retry logic, or endpoint behavior was added in phase 06.1.
 
+### Phase 06.2 recurring schedule rule inventory
+
+- Added recurring-rule API schemas, cursor pagination, deterministic schedule helpers, repository, service, and router under `server/app/modules/recurring/`.
+- Mounted the recurring router from `server/app/api/v1/router.py`.
+- Implemented authenticated `POST /api/v1/recurring-rules`, `GET /api/v1/recurring-rules`, `GET /api/v1/recurring-rules/{rule_id}`, `PATCH /api/v1/recurring-rules/{rule_id}`, `POST /api/v1/recurring-rules/{rule_id}/pause`, `POST /api/v1/recurring-rules/{rule_id}/resume`, and `DELETE /api/v1/recurring-rules/{rule_id}`.
+- Recurring rule create/update validates positive Decimal string amounts, rejects JSON float amounts, validates IANA timezones, requires timezone-aware start/end timestamps, validates end-after-start bounds, and enforces owned active account/category references whose category kind matches `income` or `expense`.
+- Recurring list uses cursor pagination and `status=all|active|paused|archived`; default `all` excludes archived rules. Archive is a safe state change to `status='archived'` with `archived_at`.
+- Pause and resume preserve ownership boundaries; archived rules cannot be updated, paused, or resumed. Resume recalculates `next_run_at` deterministically from the rule schedule and current UTC time.
+- Schedule helpers compute daily, weekly, monthly, and yearly recurrences from `start_at`, `frequency`, `interval_count`, and `timezone`, normalize API timestamps to UTC, preserve local wall-clock time, and clamp month-end/yearly leap-day dates when the target month is shorter.
+- Added `server/tests/test_recurring_rules.py` for CRUD, pagination, pause/resume/archive behavior, ownership, invalid references, invalid cursors, OpenAPI exposure, UTC normalization, timezone validation, month-end behavior, leap-year behavior, and supported interval calculation.
+- Updated `docs/architecture/SYSTEM_DESIGN.md` and `docs/architecture/UI_API_MATRIX.md` with implemented recurring-rule API and schedule semantics. No worker process, due transaction creation, outbox processing, retry handling, idempotent due-run execution, migrations, or frontend integration was added in phase 06.2.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -557,6 +569,11 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 ### Phase 05.V analytics verification update
 
 - Milestone 05 verification confirmed the UI/API matrix and system design continue to record the implemented dashboard, monthly summary, cash-flow, and spending-by-category report contracts and the report query-plan notes.
+
+### Phase 06.2 recurring rule matrix update
+
+- `docs/architecture/UI_API_MATRIX.md` now records implemented recurring-rule CRUD, list, pause, resume, and archive endpoints for the transaction form's recurring template behavior.
+- Recurring templates are limited to income and expense rules with owned active account/category references, decimal-string amount fields, timezone-aware start/end timestamps, and `daily|weekly|monthly|yearly` frequencies with positive interval counts.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -661,6 +678,8 @@ Phase 05.V added no endpoints. Verification confirmed the milestone 05 endpoint 
 
 Phase 06.1 added no endpoints. It added only recurring rule and outbox persistence for later recurring-rule APIs and worker execution.
 
+Phase 06.2 added recurring rule endpoints: `POST /api/v1/recurring-rules`, `GET /api/v1/recurring-rules`, `GET /api/v1/recurring-rules/{rule_id}`, `PATCH /api/v1/recurring-rules/{rule_id}`, `POST /api/v1/recurring-rules/{rule_id}/pause`, `POST /api/v1/recurring-rules/{rule_id}/resume`, and `DELETE /api/v1/recurring-rules/{rule_id}`. List supports `status=all|active|paused|archived`, `cursor`, and `limit`; create/update validates owned active references and deterministic schedule fields.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -720,6 +739,8 @@ Phase 05.5 created no migrations. It uses the existing report indexes from migra
 Phase 05.V created no migrations. Verification ran `alembic upgrade head` against disposable PostgreSQL through migration `202606210504_add_report_query_indexes.py`.
 
 Phase 06.1 created Alembic migration `202606210601_add_recurring_outbox_schema.py` for `recurring_rules` and `outbox_events`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
+
+Phase 06.2 created no migrations. It uses the existing recurring and outbox schema from migration `202606210601`.
 
 ## 11. Environment variables
 
@@ -821,6 +842,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 06.1 recurring and outbox schema variables
+
+- No new environment variables were added.
+
+### Phase 06.2 recurring schedule rule variables
 
 - No new environment variables were added.
 
@@ -1205,6 +1230,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=<disposable PostgreSQL URL> alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606210601` to `202606210504`. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=<disposable PostgreSQL URL> alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded from `202606210504` to `202606210601`. |
 
+### Phase 06.2 recurring schedule rule commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `recurring-worker` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_recurring_rules.py` | FAIL in sandbox, PASS with approval | Focused recurring-rule API and schedule tests. Sandboxed run could not bind localhost for disposable PostgreSQL. Approved rerun passed: 3 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial run flagged line wrapping and an unused import in new recurring files; repaired with Ruff fixes and formatting. Final result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS after repair | Required format check. Initial run required formatting new recurring files; repaired with `ruff format`. Final result: 111 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 80 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 40 passed, 64 errors. Approved rerun passed: 104 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1237,6 +1273,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 05.5 is passed. Next allowed phase is 05.V, Analytics verification, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Milestone 05 is verified. Next allowed phase is 06.1, Recurring and outbox schema, after user permission to push the `reports-analytics` branch and begin milestone 06. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.1 is passed. Next allowed phase is 06.2, Scheduling rules, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 06.2 is passed. Next allowed phase is 06.3, Worker process, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1274,3 +1311,4 @@ Append a dated entry after every completed phase.
 - 2026-06-21: Phase 05.5 analytics tests and contract review passed. Added multi-account, multi-category, multi-period analytics fixture coverage; verified report OpenAPI security, parameters, response references, enums, and decimal-string chart fields; ran the full backend quality suite; and confirmed the next allowed phase is 05.V.
 - 2026-06-21: Phase 05.V analytics verification passed. Verified milestone 05 report endpoints and query-plan notes are recorded, ran the required Ruff, mypy, pytest, and disposable Alembic upgrade checks, and set the next allowed phase to 06.1 after permission to push the branch and begin milestone 06.
 - 2026-06-21: Phase 06.1 recurring and outbox schema passed. Added recurring income/expense rule persistence, durable outbox event persistence, worker locking and idempotency fields, migration `202606210601`, schema/migration tests, and recurrence limitation documentation. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade checks passed, and the next allowed phase is 06.2.
+- 2026-06-21: Phase 06.2 recurring schedule rules passed. Added authenticated recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic daily/weekly/monthly/yearly next-run calculation with UTC normalization and timezone-aware month-end handling, ownership/reference validation, OpenAPI coverage, and integration tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.3.
