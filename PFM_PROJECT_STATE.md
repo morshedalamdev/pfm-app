@@ -119,7 +119,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 05 | 05.V Analytics verification | PASSED | verification commit created after this state update | Verified milestone 05 report endpoints, query-plan documentation, full server quality suite, full tests, and disposable Alembic upgrade. |
 | 06 | 06.1 Recurring and outbox schema | PASSED | phase commit created after this state update | Added recurring rule and durable outbox persistence, worker coordination fields, migration, schema tests, and recurrence limitations documentation. |
 | 06 | 06.2 Scheduling rules | PASSED | phase commit created after this state update | Added recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic UTC schedule calculation, ownership validation, and tests. |
-| 06 | 06.3 Worker process | NOT_STARTED | — | — |
+| 06 | 06.3 Worker process | PASSED | phase commit created after this state update | Added separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claims, atomic scheduled transaction creation, outbox emission, rule advancement, and duplicate-execution tests. |
 | 06 | 06.4 Retry and idempotency | NOT_STARTED | — | — |
 | 06 | 06.5 Worker tests | NOT_STARTED | — | — |
 | 06 | 06.V Worker verification | NOT_STARTED | — | — |
@@ -502,6 +502,17 @@ Append only. Do not rewrite earlier records.
 - Added `server/tests/test_recurring_rules.py` for CRUD, pagination, pause/resume/archive behavior, ownership, invalid references, invalid cursors, OpenAPI exposure, UTC normalization, timezone validation, month-end behavior, leap-year behavior, and supported interval calculation.
 - Updated `docs/architecture/SYSTEM_DESIGN.md` and `docs/architecture/UI_API_MATRIX.md` with implemented recurring-rule API and schedule semantics. No worker process, due transaction creation, outbox processing, retry handling, idempotent due-run execution, migrations, or frontend integration was added in phase 06.2.
 
+### Phase 06.3 PostgreSQL coordinated worker inventory
+
+- Added `server/app/workers/recurring.py` as a separately runnable recurring worker entrypoint. It supports one-shot execution with `python -m app.workers.recurring --once` and a polling loop for local or production worker processes.
+- Added `RecurringWorker`, `run_once`, and `poll_forever` for recurring due-rule execution using the existing async SQLAlchemy session factory.
+- Added due-rule claiming with PostgreSQL row locking via `SELECT ... FOR UPDATE SKIP LOCKED`, active-rule filtering, lock owner/time/expiry fields, batch size, and lock timeout.
+- Added atomic scheduled transaction creation from claimed recurring rules. The worker inserts the income or expense source transaction, advances `next_run_at`, records `last_run_at`, `last_run_key`, and `run_count`, clears the lock fields, and commits the unit as one transaction.
+- Added outbox event persistence for completed recurring work using `event_type='recurring.transaction.created'`, aggregate transaction references, a deterministic run idempotency key, and a payload containing the recurring rule id, transaction id, and run timestamp.
+- Added `server/app/modules/outbox/repositories.py` for outbox event insertion.
+- Added `server/tests/test_recurring_worker.py` proving `SKIP LOCKED` prevents a second worker from claiming a currently locked due rule and concurrent worker executions create only one scheduled transaction for the same due rule.
+- No API endpoints, migrations, retry backoff, terminal failure handling, outbox processing, frontend integration, or operational documentation was added in phase 06.3.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -680,6 +691,8 @@ Phase 06.1 added no endpoints. It added only recurring rule and outbox persisten
 
 Phase 06.2 added recurring rule endpoints: `POST /api/v1/recurring-rules`, `GET /api/v1/recurring-rules`, `GET /api/v1/recurring-rules/{rule_id}`, `PATCH /api/v1/recurring-rules/{rule_id}`, `POST /api/v1/recurring-rules/{rule_id}/pause`, `POST /api/v1/recurring-rules/{rule_id}/resume`, and `DELETE /api/v1/recurring-rules/{rule_id}`. List supports `status=all|active|paused|archived`, `cursor`, and `limit`; create/update validates owned active references and deterministic schedule fields.
 
+Phase 06.3 added no API endpoints. It added a separate recurring worker process path under `server/app/workers/recurring.py`.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -741,6 +754,8 @@ Phase 05.V created no migrations. Verification ran `alembic upgrade head` agains
 Phase 06.1 created Alembic migration `202606210601_add_recurring_outbox_schema.py` for `recurring_rules` and `outbox_events`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 Phase 06.2 created no migrations. It uses the existing recurring and outbox schema from migration `202606210601`.
+
+Phase 06.3 created no migrations. It uses the existing `recurring_rules`, `transactions`, and `outbox_events` tables.
 
 ## 11. Environment variables
 
@@ -848,6 +863,10 @@ Committed template: `server/.env.example`.
 ### Phase 06.2 recurring schedule rule variables
 
 - No new environment variables were added.
+
+### Phase 06.3 recurring worker variables
+
+- No new environment variables were added. The worker uses the existing application database settings.
 
 ## 12. Test command registry
 
@@ -1241,6 +1260,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 80 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 40 passed, 64 errors. Approved rerun passed: 104 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 06.3 PostgreSQL coordinated worker commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `recurring-worker` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_recurring_worker.py` | FAIL in sandbox, PASS after repair with approval | Focused worker tests. Sandboxed run could not bind localhost for disposable PostgreSQL; first approved run exposed an async test harness loop issue, and second approved run exposed shared-test due-rule cleanup. After repair, focused worker tests passed: 2 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 114 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 82 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 40 passed, 66 errors. Approved rerun passed: 106 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1274,6 +1304,7 @@ Record only active blockers or intentionally deferred decisions.
 - Milestone 05 is verified. Next allowed phase is 06.1, Recurring and outbox schema, after user permission to push the `reports-analytics` branch and begin milestone 06. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.1 is passed. Next allowed phase is 06.2, Scheduling rules, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.2 is passed. Next allowed phase is 06.3, Worker process, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 06.3 is passed. Next allowed phase is 06.4, Retries and idempotency, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1312,3 +1343,4 @@ Append a dated entry after every completed phase.
 - 2026-06-21: Phase 05.V analytics verification passed. Verified milestone 05 report endpoints and query-plan notes are recorded, ran the required Ruff, mypy, pytest, and disposable Alembic upgrade checks, and set the next allowed phase to 06.1 after permission to push the branch and begin milestone 06.
 - 2026-06-21: Phase 06.1 recurring and outbox schema passed. Added recurring income/expense rule persistence, durable outbox event persistence, worker locking and idempotency fields, migration `202606210601`, schema/migration tests, and recurrence limitation documentation. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade checks passed, and the next allowed phase is 06.2.
 - 2026-06-21: Phase 06.2 recurring schedule rules passed. Added authenticated recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic daily/weekly/monthly/yearly next-run calculation with UTC normalization and timezone-aware month-end handling, ownership/reference validation, OpenAPI coverage, and integration tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.3.
+- 2026-06-21: Phase 06.3 PostgreSQL coordinated worker passed. Added a separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claiming, atomic scheduled transaction creation, recurring rule advancement, completed-work outbox event emission, and duplicate-execution tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.4.
