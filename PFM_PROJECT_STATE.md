@@ -112,7 +112,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 04 | 04.4 Budget and savings tests | PASSED | phase commit created after this state update | Hardened budget/savings edge-case tests, OpenAPI contract tests, and UI/API matrix status. |
 | 04 | 04.V Budget and savings verification | NOT_STARTED | — | — |
 | 05 | 05.1 Report contracts | PASSED | phase commit created after this state update | Defined report query/response schemas and documented the minimal dashboard and analytics report endpoint contracts from verified UI needs. |
-| 05 | 05.2 Dashboard summaries | NOT_STARTED | — | — |
+| 05 | 05.2 Dashboard summaries | PASSED | phase commit created after this state update | Implemented authenticated dashboard report summary, active-account balance aggregation, period totals, zero-filled chart buckets, and tests. |
 | 05 | 05.3 Trends and breakdowns | NOT_STARTED | — | — |
 | 05 | 05.4 Query performance | NOT_STARTED | — | — |
 | 05 | 05.5 Analytics tests | NOT_STARTED | — | — |
@@ -430,6 +430,18 @@ Append only. Do not rewrite earlier records.
 - Added `server/tests/test_report_contracts.py` covering report query validation, UTC normalization, decimal-string schema contracts, and zero bucket serialization.
 - No report routes, SQL aggregation, endpoint behavior, migrations, environment variables, frontend integration, query-plan work, or later analytics implementation was added in phase 05.1.
 
+### Phase 05.2 dashboard summary inventory
+
+- Added `server/app/modules/reports/repositories.py`, `server/app/modules/reports/services.py`, and `server/app/modules/reports/router.py` for the first implemented report endpoint.
+- Mounted the reports router from `server/app/api/v1/router.py`.
+- Implemented authenticated `GET /api/v1/reports/dashboard` with `period=week|month|year`, `type=income|expense`, and optional `as_of=YYYY-MM-DD`.
+- Dashboard reports compute active-account available balance from non-archived account opening balances plus non-voided source rows on non-archived accounts. Income and transfer credits increase balance; expenses and transfer debits decrease balance.
+- Dashboard period totals compute selected-period income, expense, and net flow from non-voided transaction source rows using UTC half-open period boundaries.
+- Dashboard chart buckets are deterministic and zero-filled: week returns seven Sunday-start daily buckets with weekday labels, month returns one daily bucket for each UTC day in the month, and year returns twelve calendar-month buckets.
+- Recent dashboard transactions continue to use the existing `GET /api/v1/transactions?limit=6` endpoint rather than duplicating recent rows inside the report payload.
+- Added `server/tests/test_dashboard_reports.py` covering empty-state determinism, Decimal aggregation, active-account balance behavior, transfer neutrality, void exclusion, period boundary behavior, cross-user isolation, year buckets, and bearer auth.
+- No migrations, environment variables, frontend integration, monthly summary endpoint, cash-flow endpoint, spending-by-category endpoint, or query-plan optimization was added in phase 05.2.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -472,6 +484,13 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 - Dashboard report contracts cover available balance, selected-period income/expense/net-flow totals, RootChart week/month/year buckets, and reuse of the existing transaction list endpoint for recent transactions.
 - Analytics report contracts cover monthly summary cards, active savings count, budget usage, top-expense cards, monthly trend cards, income-vs-expense cash-flow buckets, and spending-by-category pie slices.
 - Report contracts define UTC half-open date ranges, `YYYY-MM` month expansion, Sunday-start dashboard weeks, deterministic `day|week|month` grouping, zero-filled empty buckets, empty category/top-expense arrays, and decimal-string money/percent serialization.
+
+### Phase 05.2 dashboard summary matrix update
+
+- `docs/architecture/UI_API_MATRIX.md` now records `GET /api/v1/reports/dashboard` as implemented.
+- Dashboard available balance is documented as active-account balance over non-archived accounts and non-voided source rows on non-archived accounts.
+- The dashboard recent-transactions surface remains mapped to the existing `GET /api/v1/transactions?limit=6` list endpoint.
+- Monthly summary, cash-flow, and spending-by-category report endpoints remain documented but not yet implemented.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -564,6 +583,8 @@ Phase 04.4 added no endpoints. It hardened budget/savings edge-case and OpenAPI 
 
 Phase 05.1 added no implemented endpoints. It documented the future report contracts for `GET /api/v1/reports/dashboard`, `GET /api/v1/reports/monthly-summary`, `GET /api/v1/reports/cash-flow`, and `GET /api/v1/reports/spending-by-category`.
 
+Phase 05.2 added `GET /api/v1/reports/dashboard`, an authenticated dashboard report endpoint supporting `period=week|month|year`, `type=income|expense`, and optional `as_of=YYYY-MM-DD`. It returns active-account available balance, selected-period income, expense, net flow, UTC range metadata, and zero-filled chart buckets. Recent transactions remain served by `GET /api/v1/transactions?limit=6`.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -611,6 +632,8 @@ Phase 04.3 created Alembic migration `202606190403_add_savings_goals_schema.py` 
 Phase 04.4 created no migrations. It uses the existing budget schema from migration `202606190401` and savings schema from migration `202606190403`.
 
 Phase 05.1 created no migrations. It defined report contracts only and uses existing finance, budget, and savings source-record schemas for later implementation phases.
+
+Phase 05.2 created no migrations. The dashboard report reads existing account and transaction source-record schemas.
 
 ## 11. Environment variables
 
@@ -688,6 +711,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 05.1 report contract variables
+
+- No new environment variables were added.
+
+### Phase 05.2 dashboard summary variables
 
 - No new environment variables were added.
 
@@ -995,6 +1022,18 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Final result: no issues in 67 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS after repair with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and also exposed a new report contract test that needed to resolve Pydantic `$defs` aliases. After repair, approved rerun passed: 89 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 05.2 dashboard summary commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `reports-analytics` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_report_contracts.py` | PASS | Focused contract regression check passed: 4 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_dashboard_reports.py` | PASS with approval | Focused dashboard report integration tests. Approved disposable PostgreSQL run was needed for localhost binding. Result: 3 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS after repair | Required lint check. Initial focused run flagged line wrapping in new report files; repaired with `ruff format`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Final result: 96 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS after repair | Required type check. Initial run required typing the report scalar aggregate helper as a SQLAlchemy executable. Final result: no issues in 70 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL. Approved rerun passed: 92 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1021,6 +1060,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 04.3 is passed.
 - Phase 04.4 is passed. Next allowed phase is 04.V, Budget and savings verification, after user permission. Milestone 03.V remains not started in this state file because milestone 04 phases were explicitly requested by the user.
 - Phase 05.1 is passed. Next allowed phase is 05.2, Dashboard summaries, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 05.2 is passed. Next allowed phase is 05.3, Trends and breakdowns, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1052,3 +1092,4 @@ Append a dated entry after every completed phase.
 - 2026-06-19: Phase 04.3 savings goals and contributions passed. Added authenticated savings goal CRUD/archive endpoints, auditable contribution create/list endpoints, progress computed from contribution source records, over-target completion behavior, completed/archived contribution rejection, migration `202606190403`, schema tests, and integration tests. No frontend integration or later reporting behavior was added, and the next allowed phase is 04.4.
 - 2026-06-19: Phase 04.4 budget and savings hardening passed. Added edge-case tests for budget UTC boundaries, budget cursors, savings goal/contribution cursors, archived savings filters, and budget/savings OpenAPI decimal/list/security contracts; updated the UI/API matrix with implemented budget and savings contract status and deferred summary/setup endpoints. No migrations or endpoints were added, and the next allowed phase is 04.V.
 - 2026-06-21: Phase 05.1 report contracts passed. Added report query/response schema contracts, documented dashboard, monthly summary, cash-flow, and spending-by-category report endpoints before implementation, recorded UTC range/grouping/empty-period/decimal semantics, updated the UI/API matrix and system design, and confirmed the next allowed phase is 05.2.
+- 2026-06-21: Phase 05.2 dashboard summaries passed. Implemented authenticated dashboard report aggregation from account and transaction source records, active-account available balance, selected-period income/expense/net-flow totals, zero-filled week/month/year chart buckets, dashboard report tests, and documentation/state updates. No migrations or frontend integration were added, and the next allowed phase is 05.3.
