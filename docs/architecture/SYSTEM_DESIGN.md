@@ -217,6 +217,12 @@ Grouping intervals must be deterministic. `day` yields one bucket per UTC day, `
 
 Dashboard recent transactions are intentionally served by the existing `GET /api/v1/transactions?limit=6` list endpoint, rather than duplicated inside the dashboard report response.
 
+Phase 05.4 reviewed report query plans against disposable representative PostgreSQL data. Report aggregations remain direct source-record reads; no materialized views are needed for the MVP query shapes. The report indexes are:
+
+- `ix_transactions_reports_active_user_at` on non-voided transaction rows for user/date report windows, covering type, category, account, and amount. The representative period income/expense plan used an index-only scan with zero heap fetches.
+- `ix_savings_contributions_reports_user_contributed_at` for monthly savings contribution totals without a goal filter. The representative plan used an index-only scan instead of repeated goal-scoped index searches.
+- `ix_budgets_reports_active_user_period` for active budget month-overlap lookups. Small tables may still prefer sequential scans, but a larger representative budget set used the index for the report month lookup.
+
 ## Transaction Flow
 
 ```mermaid

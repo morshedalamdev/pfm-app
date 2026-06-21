@@ -83,6 +83,7 @@ def test_budget_model_schema() -> None:
         "ix_budgets_user_id_category_id",
         "ix_budgets_user_id_period_start",
         "ix_budgets_user_id_archived_at",
+        "ix_budgets_reports_active_user_period",
     }
 
 

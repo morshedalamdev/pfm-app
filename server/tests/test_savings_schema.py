@@ -124,4 +124,5 @@ def test_savings_contribution_model_schema() -> None:
     assert index_names(table.indexes) == {
         "ix_savings_contributions_user_id_created_at",
         "ix_savings_contributions_user_id_goal_id_contributed_at",
+        "ix_savings_contributions_reports_user_contributed_at",
     }

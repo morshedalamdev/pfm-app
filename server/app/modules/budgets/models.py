@@ -71,6 +71,14 @@ class Budget(Base):
         Index("ix_budgets_user_id_category_id", "user_id", "category_id"),
         Index("ix_budgets_user_id_period_start", "user_id", "period_start"),
         Index("ix_budgets_user_id_archived_at", "user_id", "archived_at"),
+        Index(
+            "ix_budgets_reports_active_user_period",
+            "user_id",
+            "period_start",
+            "period_end",
+            postgresql_include=["category_id", "limit_amount"],
+            postgresql_where=text("archived_at IS NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

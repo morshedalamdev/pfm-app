@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -61,6 +62,13 @@ class Transaction(Base):
             "user_id",
             "type",
             "transaction_at",
+        ),
+        Index(
+            "ix_transactions_reports_active_user_at",
+            "user_id",
+            "transaction_at",
+            postgresql_include=["type", "category_id", "account_id", "amount"],
+            postgresql_where=text("voided_at IS NULL"),
         ),
     )
 

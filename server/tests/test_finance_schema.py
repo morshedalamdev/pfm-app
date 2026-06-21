@@ -188,6 +188,7 @@ def test_transaction_model_schema() -> None:
         "ix_transactions_user_id_account_id_transaction_at",
         "ix_transactions_user_id_category_id_transaction_at",
         "ix_transactions_user_id_type_transaction_at",
+        "ix_transactions_reports_active_user_at",
     }
 
 

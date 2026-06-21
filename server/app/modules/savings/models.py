@@ -112,6 +112,12 @@ class SavingsContribution(Base):
             "contributed_at",
         ),
         Index(
+            "ix_savings_contributions_reports_user_contributed_at",
+            "user_id",
+            "contributed_at",
+            postgresql_include=["amount"],
+        ),
+        Index(
             "ix_savings_contributions_user_id_created_at",
             "user_id",
             "created_at",
