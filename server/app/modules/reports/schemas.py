@@ -56,10 +56,9 @@ class MonthlyReportQuery(BaseModel):
         return month
 
 
-class ReportDateRangeQuery(BaseModel):
+class ReportDateTimeRangeQuery(BaseModel):
     date_from: datetime
     date_to: datetime
-    interval: ReportInterval
 
     @field_validator("date_from", "date_to")
     @classmethod
@@ -69,10 +68,14 @@ class ReportDateRangeQuery(BaseModel):
         return value.astimezone(UTC)
 
     @model_validator(mode="after")
-    def validate_range(self) -> ReportDateRangeQuery:
+    def validate_range(self) -> ReportDateTimeRangeQuery:
         if self.date_from >= self.date_to:
             raise ValueError("Report date_from must be before date_to")
         return self
+
+
+class ReportDateRangeQuery(ReportDateTimeRangeQuery):
+    interval: ReportInterval
 
 
 class ReportRangeResponse(BaseModel):
