@@ -223,6 +223,16 @@ Phase 05.4 reviewed report query plans against disposable representative Postgre
 - `ix_savings_contributions_reports_user_contributed_at` for monthly savings contribution totals without a goal filter. The representative plan used an index-only scan instead of repeated goal-scoped index searches.
 - `ix_budgets_reports_active_user_period` for active budget month-overlap lookups. Small tables may still prefer sequential scans, but a larger representative budget set used the index for the report month lookup.
 
+## Recurring And Outbox Schema
+
+Phase 06.1 implements persistence for recurring income/expense rules and durable outbox events without adding APIs or worker execution yet.
+
+`recurring_rules` stores user-owned income and expense transaction templates with owned account and category references, positive `NUMERIC(18,4)` amounts, currency, optional description, explicit schedule metadata, next-run metadata, status, and worker lock fields. Supported schedule frequencies are `daily`, `weekly`, `monthly`, and `yearly`, each with a positive `interval_count` so rules such as every 2 weeks or every 3 months can be represented. Rules store `start_at`, optional `end_at`, `next_run_at`, `last_run_at`, `last_run_key`, `run_count`, `timezone`, `locked_by`, `locked_at`, and `locked_until`.
+
+The intentional MVP limitations are: recurring templates create only income or expense transactions, not transfers; every template requires one account and one category; recurrence exceptions, skipped occurrences, business-day adjustment, custom day sets, and multiple categories per rule are deferred; phase 06.2 owns deterministic month-end and timezone calculation behavior.
+
+`outbox_events` stores durable side-effect work with `event_type`, optional user and aggregate references, JSONB payload, unique event idempotency key, status, attempt counters, availability time, processed time, error metadata, and worker lock fields. Workers should claim pending rows with PostgreSQL row locking in later phases and use the event type plus idempotency key to avoid duplicate side effects.
+
 ## Transaction Flow
 
 ```mermaid

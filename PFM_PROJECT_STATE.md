@@ -117,7 +117,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 05 | 05.4 Query performance | PASSED | phase commit created after this state update | Added report query indexes, documented EXPLAIN plan findings, verified migration smoke, and kept report analytics on direct source-record aggregation. |
 | 05 | 05.5 Analytics tests | PASSED | phase commit created after this state update | Hardened analytics fixture coverage and verified report OpenAPI contracts against chart/UI response needs. |
 | 05 | 05.V Analytics verification | PASSED | verification commit created after this state update | Verified milestone 05 report endpoints, query-plan documentation, full server quality suite, full tests, and disposable Alembic upgrade. |
-| 06 | 06.1 Recurring and outbox schema | NOT_STARTED | — | — |
+| 06 | 06.1 Recurring and outbox schema | PASSED | phase commit created after this state update | Added recurring rule and durable outbox persistence, worker coordination fields, migration, schema tests, and recurrence limitations documentation. |
 | 06 | 06.2 Scheduling rules | NOT_STARTED | — | — |
 | 06 | 06.3 Worker process | NOT_STARTED | — | — |
 | 06 | 06.4 Retry and idempotency | NOT_STARTED | — | — |
@@ -162,6 +162,7 @@ Append only. Do not rewrite earlier records.
 | 2026-06-15 | Defer login and registration rate limiting until a shared persistent throttle foundation exists | Phase 02 has no cross-worker throttling foundation. Process-local counters would give false protection, so the intended future shape is PostgreSQL-backed throttling keyed by endpoint, normalized email when present, client network bucket, and time window with generic responses. | 02.5 |
 | 2026-06-15 | Store finance source amounts as `NUMERIC(18,4)` with positive rows and type-directed balance effects | Four decimal places preserve exact `Decimal` math beyond cents while the UI can still format to cents; positive rows plus explicit transaction types keep income, expense, and transfer direction auditable. | 03.1 |
 | 2026-06-19 | Allow a final savings contribution to exceed the target, then freeze completed or archived goals against later contributions | Real deposits may not match the exact target; preserving the source contribution keeps progress reproducible, while rejecting further writes to completed or archived goals gives clear lifecycle behavior. | 04.3 |
+| 2026-06-21 | Limit MVP recurring transaction templates to income and expense source rows | The current UI recurring control lives on the income/expense transaction form and existing transaction creation requires one owned account and category; recurring transfers, split templates, exceptions, and business-day adjustments are deferred until a concrete UI/API need exists. | 06.1 |
 
 ## 7. Verified repository inventory
 
@@ -479,6 +480,16 @@ Append only. Do not rewrite earlier records.
 - Ran the complete server quality suite, full pytest suite, and Alembic upgrade to head against disposable PostgreSQL.
 - No source endpoint behavior, migrations, environment variables, frontend integration, or milestone 06 worker behavior was added in phase 05.V.
 
+### Phase 06.1 recurring and outbox schema inventory
+
+- Added `server/app/modules/recurring/` with a `RecurringRule` SQLAlchemy model for user-owned recurring income and expense transaction templates.
+- Recurring rules store owned account/category references, positive `NUMERIC(18,4)` amount, currency, optional description, `daily|weekly|monthly|yearly` frequency, positive interval count, timezone, start/end bounds, next/last run metadata, `last_run_key`, run count, status, pause/archive timestamps, and worker lock fields.
+- Added `server/app/modules/outbox/` with an `OutboxEvent` SQLAlchemy model for durable side-effect work.
+- Outbox events store event type, optional user and aggregate references, JSONB payload, unique event idempotency key, status, attempts/max attempts, available/processed timestamps, error metadata, and worker lock fields.
+- Added Alembic metadata imports and migration `202606210601_add_recurring_outbox_schema.py` for `recurring_rules` and `outbox_events`.
+- Added schema and migration tests in `server/tests/test_recurring_schema.py`, covering model columns, constraints, indexes, ownership foreign keys, worker due index, outbox idempotency uniqueness, and migration up/down/up behavior.
+- Updated `docs/architecture/SYSTEM_DESIGN.md` with supported recurrence rules and intentional MVP limitations. No recurring APIs, scheduling calculation, worker entrypoint, retry logic, or endpoint behavior was added in phase 06.1.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -648,6 +659,8 @@ Phase 05.5 added no endpoints. It only expanded analytics correctness tests and 
 
 Phase 05.V added no endpoints. Verification confirmed the milestone 05 endpoint set remains `GET /api/v1/reports/dashboard`, `GET /api/v1/reports/monthly-summary`, `GET /api/v1/reports/cash-flow`, and `GET /api/v1/reports/spending-by-category`.
 
+Phase 06.1 added no endpoints. It added only recurring rule and outbox persistence for later recurring-rule APIs and worker execution.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -705,6 +718,8 @@ Phase 05.4 created Alembic migration `202606210504_add_report_query_indexes.py` 
 Phase 05.5 created no migrations. It uses the existing report indexes from migration `202606210504` and existing finance, budget, and savings source-record schemas.
 
 Phase 05.V created no migrations. Verification ran `alembic upgrade head` against disposable PostgreSQL through migration `202606210504_add_report_query_indexes.py`.
+
+Phase 06.1 created Alembic migration `202606210601_add_recurring_outbox_schema.py` for `recurring_rules` and `outbox_events`. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -802,6 +817,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 05.V analytics verification variables
+
+- No new environment variables were added.
+
+### Phase 06.1 recurring and outbox schema variables
 
 - No new environment variables were added.
 
@@ -1169,6 +1188,23 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required full test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 37 passed, 60 errors. Approved rerun passed: 97 passed, 1 Starlette/httpx dependency warning. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=<disposable PostgreSQL URL> alembic upgrade head` | PASS with approval | Required migration upgrade check against disposable PostgreSQL. Applied all migrations through `202606210504_add_report_query_indexes.py`. |
 
+### Phase 06.1 recurring and outbox schema commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `reports-analytics` and clean worktree before creating the milestone branch. |
+| `git switch -c recurring-worker` | PASS with approval | Created the required milestone 06 branch. |
+| `cd server && ruff check .` | FAIL / unavailable PATH | Bare shell did not have `ruff` on `PATH`; reran with the project virtualenv on `PATH`. |
+| `cd server && ruff format --check .` | FAIL / unavailable PATH | Bare shell did not have `ruff` on `PATH`; reran with the project virtualenv on `PATH`. |
+| `cd server && mypy app` | FAIL / unavailable PATH | Bare shell did not have `mypy` on `PATH`; reran with the project virtualenv on `PATH`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS after repair | Required format check. Initial virtualenv run required formatting the new migration and schema test; repaired with `ruff format .`. Final result: 104 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 74 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required full test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 39 passed, 62 errors. Approved rerun passed: 101 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=<disposable PostgreSQL URL> alembic upgrade head` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Applied all migrations through `202606210601_add_recurring_outbox_schema.py`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=<disposable PostgreSQL URL> alembic downgrade -1` | PASS with approval | Required migration smoke check against disposable PostgreSQL. Downgraded from `202606210601` to `202606210504`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=<disposable PostgreSQL URL> alembic upgrade head` | PASS with approval | Required final migration smoke check against disposable PostgreSQL. Upgraded from `202606210504` to `202606210601`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1200,6 +1236,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 05.4 is passed. Next allowed phase is 05.5, Analytics tests, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 05.5 is passed. Next allowed phase is 05.V, Analytics verification, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Milestone 05 is verified. Next allowed phase is 06.1, Recurring and outbox schema, after user permission to push the `reports-analytics` branch and begin milestone 06. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 06.1 is passed. Next allowed phase is 06.2, Scheduling rules, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1236,3 +1273,4 @@ Append a dated entry after every completed phase.
 - 2026-06-21: Phase 05.4 query performance passed. Added report query indexes for non-voided transaction windows, savings contribution user/date totals, and active budget month-overlap lookups; captured disposable PostgreSQL EXPLAIN plans, verified migration upgrade/downgrade/upgrade, documented that materialized views are deferred, and confirmed the next allowed phase is 05.5.
 - 2026-06-21: Phase 05.5 analytics tests and contract review passed. Added multi-account, multi-category, multi-period analytics fixture coverage; verified report OpenAPI security, parameters, response references, enums, and decimal-string chart fields; ran the full backend quality suite; and confirmed the next allowed phase is 05.V.
 - 2026-06-21: Phase 05.V analytics verification passed. Verified milestone 05 report endpoints and query-plan notes are recorded, ran the required Ruff, mypy, pytest, and disposable Alembic upgrade checks, and set the next allowed phase to 06.1 after permission to push the branch and begin milestone 06.
+- 2026-06-21: Phase 06.1 recurring and outbox schema passed. Added recurring income/expense rule persistence, durable outbox event persistence, worker locking and idempotency fields, migration `202606210601`, schema/migration tests, and recurrence limitation documentation. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade checks passed, and the next allowed phase is 06.2.

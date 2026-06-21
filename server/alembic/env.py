@@ -15,6 +15,8 @@ from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.budgets import models as budget_models  # noqa: F401
 from app.modules.categories import models as category_models  # noqa: F401
 from app.modules.idempotency import models as idempotency_models  # noqa: F401
+from app.modules.outbox import models as outbox_models  # noqa: F401
+from app.modules.recurring import models as recurring_models  # noqa: F401
 from app.modules.savings import models as savings_models  # noqa: F401
 from app.modules.transactions import models as transaction_models  # noqa: F401
 from app.modules.users import models as user_models  # noqa: F401
