@@ -116,7 +116,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 05 | 05.3 Trends and breakdowns | PASSED | phase commit created after this state update | Implemented authenticated monthly summary, cash-flow trend, and spending-by-category analytics endpoints with deterministic chart tests. |
 | 05 | 05.4 Query performance | PASSED | phase commit created after this state update | Added report query indexes, documented EXPLAIN plan findings, verified migration smoke, and kept report analytics on direct source-record aggregation. |
 | 05 | 05.5 Analytics tests | PASSED | phase commit created after this state update | Hardened analytics fixture coverage and verified report OpenAPI contracts against chart/UI response needs. |
-| 05 | 05.V Analytics verification | NOT_STARTED | — | — |
+| 05 | 05.V Analytics verification | PASSED | verification commit created after this state update | Verified milestone 05 report endpoints, query-plan documentation, full server quality suite, full tests, and disposable Alembic upgrade. |
 | 06 | 06.1 Recurring and outbox schema | NOT_STARTED | — | — |
 | 06 | 06.2 Scheduling rules | NOT_STARTED | — | — |
 | 06 | 06.3 Worker process | NOT_STARTED | — | — |
@@ -471,6 +471,14 @@ Append only. Do not rewrite earlier records.
 - Reused the existing deterministic empty-state, UTC boundary, Decimal, grouping, and user-isolation coverage from phases 05.2 and 05.3.
 - No endpoint behavior, migrations, environment variables, frontend integration, query-plan changes, report pagination, or later milestone behavior was added in phase 05.5.
 
+### Phase 05.V analytics verification inventory
+
+- Verified the milestone 05 endpoint set remains limited to authenticated report reads for dashboard, monthly summary, cash-flow, and spending-by-category analytics.
+- Verified report endpoint contracts are recorded in `docs/architecture/UI_API_MATRIX.md` and `docs/architecture/SYSTEM_DESIGN.md`.
+- Verified query-plan notes are recorded in `docs/architecture/SYSTEM_DESIGN.md` and project state, including the three report indexes and the decision not to add MVP materialized views.
+- Ran the complete server quality suite, full pytest suite, and Alembic upgrade to head against disposable PostgreSQL.
+- No source endpoint behavior, migrations, environment variables, frontend integration, or milestone 06 worker behavior was added in phase 05.V.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -534,6 +542,10 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 ### Phase 05.5 analytics contract update
 
 - Report OpenAPI contracts were verified for all implemented dashboard and analytics report endpoints, including bearer security, query parameters, response schema references, enum values, and decimal-string chart fields.
+
+### Phase 05.V analytics verification update
+
+- Milestone 05 verification confirmed the UI/API matrix and system design continue to record the implemented dashboard, monthly summary, cash-flow, and spending-by-category report contracts and the report query-plan notes.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -634,6 +646,8 @@ Phase 05.4 added no endpoints. It added only report query-plan indexes and docum
 
 Phase 05.5 added no endpoints. It only expanded analytics correctness tests and report OpenAPI contract coverage for the existing report endpoints.
 
+Phase 05.V added no endpoints. Verification confirmed the milestone 05 endpoint set remains `GET /api/v1/reports/dashboard`, `GET /api/v1/reports/monthly-summary`, `GET /api/v1/reports/cash-flow`, and `GET /api/v1/reports/spending-by-category`.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -689,6 +703,8 @@ Phase 05.3 created no migrations. The analytics report endpoints read existing t
 Phase 05.4 created Alembic migration `202606210504_add_report_query_indexes.py` for report query indexes on non-voided transaction report windows, savings contribution user/date totals, and active budget period overlap lookups. Upgrade/downgrade -1/upgrade smoke checks passed against a disposable PostgreSQL database.
 
 Phase 05.5 created no migrations. It uses the existing report indexes from migration `202606210504` and existing finance, budget, and savings source-record schemas.
+
+Phase 05.V created no migrations. Verification ran `alembic upgrade head` against disposable PostgreSQL through migration `202606210504_add_report_query_indexes.py`.
 
 ## 11. Environment variables
 
@@ -782,6 +798,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 05.5 analytics test variables
+
+- No new environment variables were added.
+
+### Phase 05.V analytics verification variables
 
 - No new environment variables were added.
 
@@ -1137,6 +1157,18 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 70 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL. Approved rerun passed: 97 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 05.V analytics verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `reports-analytics`, one local commit ahead of origin, and clean worktree before verification edits. |
+| `rg -n "reports/dashboard|monthly-summary|cash-flow|spending-by-category|ix_transactions_reports_active_user_at|ix_savings_contributions_reports_user_contributed_at|ix_budgets_reports_active_user_period|materialized views|Phase 05\\.4|Phase 05\\.5|05\\.V|Next allowed phase" PFM_PROJECT_STATE.md docs/architecture/SYSTEM_DESIGN.md docs/architecture/UI_API_MATRIX.md server/tests/test_report_contracts.py server/tests/test_report_analytics.py server/app/modules/reports/router.py server/alembic/versions/202606210504_add_report_query_indexes.py` | PASS | Verified report endpoints and query-plan notes are recorded in docs, tests, migrations, router code, and project state. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 98 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 70 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required full test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 37 passed, 60 errors. Approved rerun passed: 97 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=<disposable PostgreSQL URL> alembic upgrade head` | PASS with approval | Required migration upgrade check against disposable PostgreSQL. Applied all migrations through `202606210504_add_report_query_indexes.py`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1167,6 +1199,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 05.3 is passed. Next allowed phase is 05.4, Query performance review, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 05.4 is passed. Next allowed phase is 05.5, Analytics tests, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 05.5 is passed. Next allowed phase is 05.V, Analytics verification, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Milestone 05 is verified. Next allowed phase is 06.1, Recurring and outbox schema, after user permission to push the `reports-analytics` branch and begin milestone 06. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1202,3 +1235,4 @@ Append a dated entry after every completed phase.
 - 2026-06-21: Phase 05.3 trends and breakdowns passed. Implemented authenticated monthly summary, cash-flow, and spending-by-category report endpoints from existing transaction, category, budget, and savings source records; added deterministic chart analytics tests for empty states, UTC boundaries, Decimal values, grouping intervals, budget/savings summary fields, and user isolation; updated docs and confirmed the next allowed phase is 05.4.
 - 2026-06-21: Phase 05.4 query performance passed. Added report query indexes for non-voided transaction windows, savings contribution user/date totals, and active budget month-overlap lookups; captured disposable PostgreSQL EXPLAIN plans, verified migration upgrade/downgrade/upgrade, documented that materialized views are deferred, and confirmed the next allowed phase is 05.5.
 - 2026-06-21: Phase 05.5 analytics tests and contract review passed. Added multi-account, multi-category, multi-period analytics fixture coverage; verified report OpenAPI security, parameters, response references, enums, and decimal-string chart fields; ran the full backend quality suite; and confirmed the next allowed phase is 05.V.
+- 2026-06-21: Phase 05.V analytics verification passed. Verified milestone 05 report endpoints and query-plan notes are recorded, ran the required Ruff, mypy, pytest, and disposable Alembic upgrade checks, and set the next allowed phase to 06.1 after permission to push the branch and begin milestone 06.
