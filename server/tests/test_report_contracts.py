@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from app.main import create_app
 from app.modules.reports.schemas import (
     CashFlowBucketResponse,
     CashFlowReportResponse,
@@ -120,6 +121,65 @@ def test_cash_flow_response_serializes_empty_buckets_as_decimal_strings() -> Non
     ]
 
 
+def test_report_openapi_contract_matches_chart_matrix() -> None:
+    schema = create_app().openapi()
+    paths = schema["paths"]
+
+    expected_paths = {
+        "/api/v1/reports/dashboard": {
+            "params": {"period", "type", "as_of"},
+            "response": "DashboardReportResponse",
+        },
+        "/api/v1/reports/monthly-summary": {
+            "params": {"month"},
+            "response": "MonthlySummaryReportResponse",
+        },
+        "/api/v1/reports/cash-flow": {
+            "params": {"date_from", "date_to", "interval"},
+            "response": "CashFlowReportResponse",
+        },
+        "/api/v1/reports/spending-by-category": {
+            "params": {"date_from", "date_to"},
+            "response": "SpendingByCategoryReportResponse",
+        },
+    }
+
+    for path, expected in expected_paths.items():
+        operation = paths[path]["get"]
+        assert operation["security"] == [{"HTTPBearer": []}]
+        assert {param["name"] for param in operation["parameters"]} == expected[
+            "params"
+        ]
+        assert operation["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ] == {"$ref": f"#/components/schemas/{expected['response']}"}
+
+    dashboard_params = paths["/api/v1/reports/dashboard"]["get"]["parameters"]
+    period_schema = resolve_component_ref(schema, dashboard_params[0]["schema"])
+    type_schema = resolve_component_ref(schema, dashboard_params[1]["schema"])
+    assert period_schema["enum"] == ["week", "month", "year"]
+    assert type_schema["enum"] == ["income", "expense"]
+
+    cash_flow_params = paths["/api/v1/reports/cash-flow"]["get"]["parameters"]
+    interval_schema = cash_flow_params[2]["schema"]
+    assert interval_schema["enum"] == ["day", "week", "month"]
+
+    components = schema["components"]["schemas"]
+    monthly = components["MonthlySummaryReportResponse"]
+    assert "top_expenses" in monthly["properties"]
+    assert "trends" in monthly["properties"]
+    assert_decimal_string_schema(schema, monthly["properties"]["savings_amount"])
+    assert_decimal_string_schema(schema, monthly["properties"]["budget_used_percent"])
+
+    cash_flow_bucket = components["CashFlowBucketResponse"]
+    for field_name in ["income_amount", "expense_amount", "net_flow_amount"]:
+        assert_decimal_string_schema(schema, cash_flow_bucket["properties"][field_name])
+
+    spending_item = components["SpendingByCategoryItemResponse"]
+    for field_name in ["amount", "percent"]:
+        assert_decimal_string_schema(schema, spending_item["properties"][field_name])
+
+
 def assert_decimal_string_schema(
     root_schema: dict[str, Any], field_schema: dict[str, Any]
 ) -> None:
@@ -142,7 +202,24 @@ def resolve_ref(
     ref = field_schema.get("$ref")
     if not isinstance(ref, str):
         return field_schema
+    if ref.startswith("#/components/schemas/"):
+        definition_name = ref.removeprefix("#/components/schemas/")
+        resolved = root_schema["components"]["schemas"][definition_name]
+        assert isinstance(resolved, dict)
+        return resolved
     definition_name = ref.removeprefix("#/$defs/")
     resolved = root_schema["$defs"][definition_name]
+    assert isinstance(resolved, dict)
+    return resolved
+
+
+def resolve_component_ref(
+    openapi_schema: dict[str, Any], field_schema: dict[str, Any]
+) -> dict[str, Any]:
+    ref = field_schema.get("$ref")
+    if not isinstance(ref, str):
+        return field_schema
+    definition_name = ref.removeprefix("#/components/schemas/")
+    resolved = openapi_schema["components"]["schemas"][definition_name]
     assert isinstance(resolved, dict)
     return resolved

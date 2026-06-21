@@ -409,6 +409,238 @@ def test_cash_flow_week_and_month_groupings_respect_boundaries(
     assert Decimal(monthly["buckets"][1]["expense_amount"]) == Decimal("4.0000")
 
 
+def test_analytics_reports_cover_multiple_accounts_categories_and_periods(
+    report_context: ReportAnalyticsContext,
+) -> None:
+    context = report_context
+    headers = auth_headers(context, "analytics-matrix-owner@example.com")
+    other_headers = auth_headers(context, "analytics-matrix-other@example.com")
+
+    checking = create_account(context, headers, "Checking", "bank", "0")
+    card = create_account(context, headers, "Rewards Card", "card", "0")
+    other_account = create_account(context, other_headers, "Other Account", "bank", "0")
+
+    groceries = create_category(context, headers, "Groceries", "expense", "cart")
+    utilities = create_category(context, headers, "Utilities", "expense", "bolt")
+    travel = create_category(context, headers, "Travel", "expense", "plane")
+    salary = create_category(context, headers, "Salary", "income", "briefcase")
+    other_category = create_category(
+        context,
+        other_headers,
+        "Other Groceries",
+        "expense",
+        "cart",
+    )
+
+    create_budget(
+        context,
+        headers,
+        category_id=None,
+        period_start="2026-02-01",
+        period_end="2026-03-01",
+        limit_amount="100.0000",
+    )
+    create_budget(
+        context,
+        headers,
+        category_id=groceries["id"],
+        period_start="2026-02-01",
+        period_end="2026-03-01",
+        limit_amount="20.0000",
+    )
+
+    goal = create_savings_goal(
+        context,
+        headers,
+        name="Emergency Fund",
+        target_amount="1000.0000",
+        target_date=(date.today() + timedelta(days=90)).isoformat(),
+    )
+    create_contribution(
+        context,
+        headers,
+        goal["id"],
+        amount="50.0000",
+        contributed_at="2026-01-15T00:00:00+00:00",
+    )
+    create_contribution(
+        context,
+        headers,
+        goal["id"],
+        amount="25.0000",
+        contributed_at="2026-02-15T00:00:00+00:00",
+    )
+
+    create_transaction(
+        context,
+        headers,
+        checking["id"],
+        groceries["id"],
+        "expense",
+        "99.0000",
+        "2026-01-31T23:59:59+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        checking["id"],
+        salary["id"],
+        "income",
+        "200.0000",
+        "2026-02-01T09:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        checking["id"],
+        groceries["id"],
+        "expense",
+        "30.0000",
+        "2026-02-02T08:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        card["id"],
+        utilities["id"],
+        "expense",
+        "25.0000",
+        "2026-02-02T20:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        card["id"],
+        travel["id"],
+        "expense",
+        "10.0000",
+        "2026-02-03T10:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        card["id"],
+        groceries["id"],
+        "expense",
+        "5.0000",
+        "2026-02-28T23:59:59+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        checking["id"],
+        groceries["id"],
+        "expense",
+        "999.0000",
+        "2026-03-01T00:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        other_headers,
+        other_account["id"],
+        other_category["id"],
+        "expense",
+        "777.0000",
+        "2026-02-02T00:00:00+00:00",
+    )
+
+    monthly_response = context.client.get(
+        "/api/v1/reports/monthly-summary",
+        headers=headers,
+        params={"month": "2026-02"},
+    )
+    cash_flow_response = context.client.get(
+        "/api/v1/reports/cash-flow",
+        headers=headers,
+        params={
+            "date_from": "2026-02-01T00:00:00+00:00",
+            "date_to": "2026-03-01T00:00:00+00:00",
+            "interval": "day",
+        },
+    )
+    spending_response = context.client.get(
+        "/api/v1/reports/spending-by-category",
+        headers=headers,
+        params={
+            "date_from": "2026-02-01T00:00:00+00:00",
+            "date_to": "2026-03-01T00:00:00+00:00",
+        },
+    )
+
+    assert monthly_response.status_code == 200
+    monthly = monthly_response.json()
+    assert monthly["month"] == "2026-02"
+    assert Decimal(monthly["savings_amount"]) == Decimal("25.0000")
+    assert Decimal(monthly["savings_month_over_month_percent"]) == Decimal("-50.0000")
+    assert Decimal(monthly["income_amount"]) == Decimal("200.0000")
+    assert Decimal(monthly["expense_amount"]) == Decimal("70.0000")
+    assert Decimal(monthly["net_flow_amount"]) == Decimal("130.0000")
+    assert Decimal(monthly["budget_used_percent"]) == Decimal("70.0000")
+    assert monthly["active_savings_goal_count"] == 1
+    assert Decimal(monthly["trends"]["average_daily_spending"]) == Decimal("2.5000")
+    assert monthly["trends"]["most_expensive_day"] == {
+        "date": "2026-02-02",
+        "amount": "55.0000",
+    }
+    assert [item["category_name"] for item in monthly["top_expenses"]] == [
+        "Groceries",
+        "Utilities",
+        "Travel",
+    ]
+    assert Decimal(monthly["top_expenses"][0]["amount"]) == Decimal("35.0000")
+    assert monthly["top_expenses"][0]["transaction_count"] == 2
+    assert Decimal(monthly["top_expenses"][0]["budget_limit_amount"]) == Decimal(
+        "20.0000"
+    )
+    assert Decimal(monthly["top_expenses"][0]["budget_percent_used"]) == Decimal(
+        "175.0000"
+    )
+
+    assert cash_flow_response.status_code == 200
+    cash_flow = cash_flow_response.json()
+    assert len(cash_flow["buckets"]) == 28
+    assert Decimal(cash_flow["buckets"][0]["income_amount"]) == Decimal("200.0000")
+    assert Decimal(cash_flow["buckets"][1]["expense_amount"]) == Decimal("55.0000")
+    assert Decimal(cash_flow["buckets"][2]["expense_amount"]) == Decimal("10.0000")
+    assert Decimal(cash_flow["buckets"][27]["expense_amount"]) == Decimal("5.0000")
+    assert all(
+        set(bucket)
+        == {
+            "label",
+            "start_at",
+            "end_at",
+            "income_amount",
+            "expense_amount",
+            "net_flow_amount",
+        }
+        for bucket in cash_flow["buckets"]
+    )
+
+    assert spending_response.status_code == 200
+    spending = spending_response.json()
+    assert Decimal(spending["total_amount"]) == Decimal("70.0000")
+    assert [item["category_name"] for item in spending["items"]] == [
+        "Groceries",
+        "Utilities",
+        "Travel",
+    ]
+    assert [item["icon_key"] for item in spending["items"]] == [
+        "cart",
+        "bolt",
+        "plane",
+    ]
+    assert [Decimal(item["amount"]) for item in spending["items"]] == [
+        Decimal("35.0000"),
+        Decimal("25.0000"),
+        Decimal("10.0000"),
+    ]
+    assert [Decimal(item["percent"]) for item in spending["items"]] == [
+        Decimal("50.0000"),
+        Decimal("35.7143"),
+        Decimal("14.2857"),
+    ]
+
+
 def auth_headers(context: ReportAnalyticsContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",
