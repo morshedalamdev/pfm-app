@@ -200,6 +200,21 @@ FastAPI's OpenAPI schema is the contract source. Milestone 08 should generate Ty
 
 Auth request/response schemas in OpenAPI intentionally expose token fields only on login and refresh responses and refresh/logout request bodies. Error responses follow the shared envelope and redact validation input for password and token fields.
 
+## Report Contracts
+
+Phase 05.1 defines report contracts from the existing dashboard and analytics UI without mounting report routes or adding query implementations yet.
+
+Report endpoints should be implemented under `/api/v1/reports`:
+
+- `GET /api/v1/reports/dashboard?period=week|month|year&type=income|expense&as_of=YYYY-MM-DD` returns the dashboard available balance, selected-period income, expense, net flow, and RootChart buckets for the selected income/expense type.
+- `GET /api/v1/reports/monthly-summary?month=YYYY-MM` returns the analytics summary cards, savings month-over-month percent, active savings goal count, budget usage, bounded top-expense cards, and monthly trend cards. Separate top-expense and monthly-trend endpoints are intentionally deferred until the UI needs independent pagination or filtering.
+- `GET /api/v1/reports/cash-flow?date_from=<ISO datetime>&date_to=<ISO datetime>&interval=day|week|month` returns bucketed income, expense, and net flow for chart surfaces such as analytics income-vs-expense.
+- `GET /api/v1/reports/spending-by-category?date_from=<ISO datetime>&date_to=<ISO datetime>` returns expense category slices with category id/name/icon, amount, and percent for the spending pie chart.
+
+Report date ranges use UTC half-open semantics: `date_from` or `start_at` is inclusive and `date_to` or `end_at` is exclusive. `month=YYYY-MM` expands to the UTC calendar month. Dashboard `week` uses Sunday-start calendar weeks to match the current RootChart labels; dashboard `month` and `year` use UTC calendar boundaries containing `as_of`, or the current UTC date when `as_of` is omitted.
+
+Grouping intervals must be deterministic. `day` yields one bucket per UTC day, `week` yields one Sunday-start week bucket, and `month` yields one UTC calendar month bucket. Empty periods return zero totals and zero-filled buckets for every expected interval; category and top-expense lists return empty arrays. Money and percentage values serialize as decimal strings from Python `Decimal`. Percent changes may be negative, and budget or savings percentages may exceed 100 when source records are over budget or over target.
+
 ## Transaction Flow
 
 ```mermaid
