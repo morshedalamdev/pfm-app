@@ -128,7 +128,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 07 | 07.3 Notifications and email | PASSED | phase commit created after this state update | Added notification persistence, authenticated list/unread/read APIs, email delivery outbox flow, local email handler, migration, docs, and tests. |
 | 07 | 07.4 SSE events | PASSED | phase commit created after this state update | Added authenticated notification SSE stream, event serialization helpers, disconnect handling, frontend integration expectations, and tests. |
 | 07 | 07.5 Integration tests | PASSED | phase commit created after this state update | Hardened adapter/provider boundaries, receipt cleanup resilience, notification email retry coverage, docs, and tests; full backend suite passed on retry. |
-| 07 | 07.V Integration verification | NOT_STARTED | — | — |
+| 07 | 07.V Integration verification | PASSED | verification commit created after this state update | Verified uploads, notifications, email adapter flow, SSE, migrations, ignored local storage, and tracked-secret posture for milestone 07. |
 | 08 | 08.1 Generated API contract | NOT_STARTED | — | — |
 | 08 | 08.2 Frontend API and auth layer | NOT_STARTED | — | — |
 | 08 | 08.3 Dashboard integration | NOT_STARTED | — | — |
@@ -600,6 +600,15 @@ Append only. Do not rewrite earlier records.
 - No production provider SDKs, provider credentials, new endpoints, migrations, or frontend behavior were added.
 - Retry cleared the prior full-suite blocker. The required full backend test suite passed with approved disposable PostgreSQL access after replacing a brittle log-capture assertion with a direct service-logger boundary assertion.
 
+### Phase 07.V integration verification inventory
+
+- Verified milestone 07 scope remains limited to adapter contracts, local receipt storage, receipt metadata APIs, notification persistence, email adapter outbox flow, authenticated notification SSE, integration-boundary hardening, docs, and tests.
+- Verified uploaded receipt bytes remain outside Git tracking through ignored `.local/` storage paths at the repository and server levels.
+- Verified `server/.env.example` remains tracked and documents only key-free local defaults plus deferred production-provider descriptions, not production credentials.
+- Verified tracked-file secret scans found no private-key, cloud-key, GitHub-token, OpenAI-key, Google-key, Slack-token, SMTP password, or transactional-email provider key patterns.
+- Ran the required milestone 07 verification checks: Ruff lint, Ruff format check, mypy, full pytest, and Alembic `upgrade head` against disposable PostgreSQL.
+- No endpoint behavior, migrations, environment variables, frontend integration, production provider SDKs, or provider credentials were added in phase 07.V.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -796,6 +805,8 @@ Phase 07.4 added `GET /api/v1/notifications/stream`, an authenticated `text/even
 
 Phase 07.5 added no endpoints. It only hardens and documents the existing receipt, notification email, outbox, adapter, and SSE integration boundaries.
 
+Phase 07.V added no endpoints. Verification confirmed the milestone 07 endpoint set remains receipt upload/list/get/delete, notification list/unread/read/read-all, and authenticated notification SSE.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -875,6 +886,8 @@ Phase 07.3 created Alembic migration `202607010703_add_notification_schema.py` f
 Phase 07.4 created no migrations. It uses the existing notification schema from migration `202607010703`.
 
 Phase 07.5 created no migrations. It uses the existing receipt, notification, and outbox schemas.
+
+Phase 07.V created no migrations. Verification ran Alembic `upgrade head` against disposable PostgreSQL through `202607010703_add_notification_schema.py`.
 
 ## 11. Environment variables
 
@@ -1034,6 +1047,10 @@ Committed template: `server/.env.example`.
 ### Phase 07.5 integration hardening variables
 
 - No new environment variables were added. `server/.env.example` now explicitly notes that production object-storage, SMTP, and transactional-email provider variables are intentionally omitted until a provider adapter is selected.
+
+### Phase 07.V integration verification variables
+
+- No new environment variables were added. Verification confirmed local upload and email defaults remain key-free and production provider choices remain deferred.
 
 ## 12. Test command registry
 
@@ -1549,6 +1566,23 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | BLOCKED before retry | Original required full test suite could not be completed. Escalated run was rejected by the environment usage limit. Sandboxed run failed because disposable PostgreSQL could not bind `127.0.0.1`: 58 passed, 83 errors, 1 Starlette/httpx dependency warning. |
 | `cd server && .venv/bin/pytest -q tests` | FAIL then PASS with approval | Retry first exposed a brittle `caplog` assertion in `tests/test_integration_boundaries.py`; after replacing it with a direct service-logger assertion, the approved required full suite passed: 141 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 07.V integration verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `integrations-notifications` and clean worktree before verification. |
+| `rg -n "receipts|notifications/stream|notification.email.requested|STORAGE_BACKEND|LOCAL_STORAGE_ROOT|EMAIL_BACKEND|\\.local|provider|Phase 07|202607010702|202607010703" PFM_PROJECT_STATE.md docs/architecture/SYSTEM_DESIGN.md docs/architecture/UI_API_MATRIX.md server/README.md server/.env.example server/.gitignore .gitignore server/app server/tests server/alembic/versions` | PASS | Verified milestone 07 receipt, notification, email, SSE, adapter, local-storage, provider-deferral, migration, docs, and tests are present. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 142 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 102 source files. |
+| `cd server && .venv/bin/pytest -q` | PASS with approval | Required full backend test suite passed against disposable PostgreSQL: 141 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Required migration upgrade check applied all migrations through `202607010703_add_notification_schema.py` against disposable PostgreSQL. |
+| `git check-ignore -v server/.local/storage/receipts/example.bin .local/storage/example.bin server/.env .env` | PASS | Confirmed uploaded local-storage paths and real environment files are ignored. |
+| `git ls-files server/.env.example` | PASS | Confirmed the committed environment template remains tracked. |
+| `git ls-files server/.local .local` | PASS | Confirmed no local upload storage files are tracked. |
+| `git grep -n -I -E 'BEGIN (RSA\|OPENSSH\|PRIVATE) KEY\|AKIA[0-9A-Z]{16}\|ASIA[0-9A-Z]{16}\|ghp_[A-Za-z0-9_]{20,}\|sk-[A-Za-z0-9]{20,}\|xox[baprs]-\|AIza[0-9A-Za-z_-]{20,}' -- . ':!client/package-lock.json' ':!server/uv.lock'` | PASS | No known private-key, cloud-key, GitHub-token, OpenAI-key, Google-key, or Slack-token patterns found in tracked files. |
+| `git grep -n -I -E 'AWS_ACCESS_KEY_ID\|AWS_SECRET_ACCESS_KEY\|SMTP_PASSWORD\|SENDGRID\|POSTMARK\|MAILGUN\|S3_BUCKET\|OBJECT_STORAGE' -- . ':!PFM_PROJECT_STATE.md' ':!docs/architecture/SYSTEM_DESIGN.md' ':!server/README.md' ':!server/.env.example' ':!server/tests/test_integration_boundaries.py'` | PASS | No production-provider credential variable patterns were found outside documentation/template/test assertions. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1591,6 +1625,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 07.3 is passed. Next allowed phase is 07.4, Server-Sent Events, after user permission.
 - Phase 07.4 is passed. Next allowed phase is 07.5, Integration tests, after user permission.
 - Phase 07.5 is passed. Next allowed phase is 07.V, Integration verification, after user permission.
+- Milestone 07 is verified. Next allowed phase is 08.1, Generated API contract, after user permission to push the `integrations-notifications` branch and begin milestone 08.
 
 ## 14. Progress log
 
@@ -1640,3 +1675,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 07.4 server-sent events passed. Added authenticated `GET /api/v1/notifications/stream`, SSE serialization helpers, snapshot/notification/heartbeat event behavior, retry and disconnect expectations, user-isolation coverage, and milestone 08 frontend stream guidance. Required Ruff, mypy, and full pytest checks passed, and the next allowed phase is 07.5.
 - 2026-07-01: Phase 07.5 integration hardening blocked. Implemented receipt cleanup resilience, key-free provider configuration assertions, notification email adapter failure retry coverage, and provider-deferred documentation in the working tree. Required Ruff and mypy checks passed, focused DB-free boundary tests passed, and focused notification database tests passed with approval. The required full `pytest -q tests` check remains blocked because sandboxed disposable PostgreSQL localhost binding fails and the escalated rerun was rejected by the environment usage limit.
 - 2026-07-01: Phase 07.5 integration hardening passed on retry. Replaced the brittle receipt-cleanup log-capture assertion with a direct service-logger assertion, reran required Ruff, format, mypy, and full pytest checks, and confirmed local development remains key-free with production provider choices deferred. The next allowed phase is 07.V.
+- 2026-07-01: Phase 07.V integration verification passed. Verified milestone 07 upload, notification, email adapter, and SSE scope; confirmed ignored local upload storage and tracked-secret posture; ran required Ruff, format, mypy, full pytest, and Alembic upgrade checks; and set the next allowed phase to 08.1 after permission to push the branch and begin milestone 08.
