@@ -1,10 +1,10 @@
 # UI API Matrix
 
-Phase 00.2 inspected the implemented Next.js routes, data-bearing components, charts, filters, drawers, forms, constants, and helper files under `client/app`, `client/components`, and `client/lib`. The UI currently has no API helper, generated client, server-state cache, Zustand store, or repository-owned tests. All finance/profile/auth data shown in the app is local placeholder data or uncontrolled form input.
+Phase 00.2 inspected the implemented Next.js routes, data-bearing components, charts, filters, drawers, forms, constants, and helper files under `client/app`, `client/components`, and `client/lib`. Milestone 08 has since added generated OpenAPI contracts, typed frontend API helpers, auth/session state, and server-backed dashboard, analytics, transaction, budget, and savings surfaces. Remaining deferred surfaces are documented below and must not use runtime finance fixtures.
 
 ## Finance Core API Contract Status
 
-Phase 05.1 reviewed the implemented finance, budget, savings, and report-contract needs recorded below. Account, category, transaction, transfer, budget CRUD/progress, and savings goal/contribution APIs are available under `/api/v1`; report endpoint contracts are defined but not yet implemented. Budget setup templates, loans, profile mutation, and frontend integration remain later milestone work.
+Phase 08.5 reviewed the implemented finance, budget, savings, report, and frontend integration state recorded below. Account, category, transaction, transfer, budget CRUD/progress, savings goal/contribution, dashboard report, and analytics report APIs are available under `/api/v1` and are consumed by the corresponding milestone 08 frontend surfaces. Budget setup templates, loans, and profile mutation remain deferred unless a later phase implements matching backend contracts.
 
 - Accounts: `POST /api/v1/accounts`, `GET /api/v1/accounts`, `GET /api/v1/accounts/{account_id}`, `PATCH /api/v1/accounts/{account_id}`, and `DELETE /api/v1/accounts/{account_id}`. List responses use `items`, `next_cursor`, and `has_more`.
 - Categories: `POST /api/v1/categories`, `GET /api/v1/categories`, `PATCH /api/v1/categories/{category_id}`, and `DELETE /api/v1/categories/{category_id}`. Category list supports `kind=income|expense` and the same pagination envelope.
@@ -41,9 +41,9 @@ Phase 05.3 implements the dashboard and analytics report endpoints documented be
 |---|---|---|---|---|---|---|---|
 | `/` home dashboard | Available balance `$2,483.39`, income `$5,000.00`, expense `$2,516.61`, week/month/year bar chart, income/expense chart toggle, recent transaction list | Implemented: `GET /api/v1/reports/dashboard?period=week|month|year&type=income|expense&as_of=YYYY-MM-DD`; existing list endpoint for recents: `GET /api/v1/transactions?limit=6` | None on the page; transaction drawer actions are listed below | Period/type query values must be enum validated; optional `as_of` is a UTC calendar date; report amounts are decimal strings | Summary-card skeletons, chart skeleton, recent-transaction skeleton list | Zero-balance totals, zero-filled chart buckets, and no recent transactions | Retry dashboard report and recent transactions independently |
 | `/analytics` | Month selector, savings total `$2,483.39`, month-over-month percentage, income/expense cards, active savings count, budget usage, income-vs-expense chart, spending pie chart, top expenses, monthly trends | Implemented: `GET /api/v1/reports/monthly-summary?month=YYYY-MM`; `GET /api/v1/reports/cash-flow?date_from=<month-start>&date_to=<next-month-start>&interval=day`; `GET /api/v1/reports/spending-by-category?date_from=<month-start>&date_to=<next-month-start>` | None | Month must be a valid month key; UTC date ranges are half-open; chart amounts are decimal strings; month-over-month percentages may be negative and budget/goal percentages may exceed 100 when source records require it | Section-level skeletons for summary, cash-flow chart, spending chart, top expenses, and trends | No activity for selected month; zero summary totals; zero-filled cash-flow chart; empty category/top-expense lists | Retry summary, cash-flow, and spending reports independently |
-| `RootChart` component | Static `weekData`, `monthData`, `yearData` arrays with highlighted bars | Included in the documented dashboard report endpoint above | None | Bar labels require deterministic period labels, UTC bucket boundaries, and decimal amount strings | Chart skeleton preserving current height | Zero-filled buckets for selected period | Chart-specific retry or fallback message |
-| `IncomeVsExpenseChart` component | Static daily income/expense line data for days 1-30 | Included in the documented cash-flow report endpoint above with `interval=day` for the selected month | None | Day bucket count must match selected month length; amount strings must parse as decimals | Chart skeleton preserving current height | Zero-filled income and expense buckets for the month | Chart-specific retry or fallback message |
-| `SpendingChart` component | Static pie data: Food, Housing, Transport, Entertainment, Others | Included in the documented spending-by-category report endpoint above | None | Category ids/names/icon keys must map to server categories; values are decimal strings; percent strings derive from total category spending | Chart skeleton preserving current aspect ratio | Empty category list and total amount `0.0000` | Chart-specific retry or fallback message |
+| `RootChart` component | Server-backed week/month/year buckets with highlighted bars | Included in the documented dashboard report endpoint above | None | Bar labels require deterministic period labels, UTC bucket boundaries, and decimal amount strings | Chart skeleton preserving current height | Zero-filled buckets for selected period | Chart-specific retry or fallback message |
+| `IncomeVsExpenseChart` component | Server-backed daily income/expense line data for the selected month | Included in the documented cash-flow report endpoint above with `interval=day` for the selected month | None | Day bucket count must match selected month length; amount strings must parse as decimals | Chart skeleton preserving current height | Zero-filled income and expense buckets for the month | Chart-specific retry or fallback message |
+| `SpendingChart` component | Server-backed spending slices by category | Included in the documented spending-by-category report endpoint above | None | Category ids/names/icon keys must map to server categories; values are decimal strings; percent strings derive from total category spending | Chart skeleton preserving current aspect ratio | Empty category list and total amount `0.0000` | Chart-specific retry or fallback message |
 
 ## Transactions
 
@@ -77,10 +77,10 @@ Phase 05.3 implements the dashboard and analytics report endpoints documented be
 
 | Screen | Visible data | Required query | Required mutation | Validation | Loading state | Empty state | Error state |
 |---|---|---|---|---|---|---|---|
-| `/loan` | Lent out total `$12,500`, borrowed total `$3,200`, search, lent/borrowed filter, repeated loan cards | `GET /api/v1/loans/summary`; `GET /api/v1/loans?search=&type=all|lent|borrowed&cursor=&limit=` | Create link should route with real create mode; drawer delete is `DELETE /api/v1/loans/{id}` | Search length limit; type enum; amount fields decimal strings | Summary skeleton and card-list skeleton | No loans/debts for current filter with create action | Retry summary/list load; inline delete failure |
-| `/loan/[id]` create/edit loan form | Amount, lent/borrowed switch, counterparty name, optional phone, lent date, due date, note | Edit mode: `GET /api/v1/loans/{id}` | Create: `POST /api/v1/loans`; edit: `PATCH /api/v1/loans/{id}` | Amount decimal > 0; type enum; counterparty required; phone optional with length/format limit; lent date required; due date optional but not before lent date; note length limit | Form skeleton for edit mode | Create has no empty state; edit not found state | Field validation and submit retry |
-| Loan drawer in `LoanItem` | Static counterparty names `Mike Johnson` / `John Doe`, lent/borrowed wording, current amount, total amount, progress, start/due dates, edit/delete | Prefer list payload; optionally `GET /api/v1/loans/{id}` for fresh details | `DELETE /api/v1/loans/{id}`; future repayment action should be `POST /api/v1/loans/{id}/payments` when the UI adds it | Delete requires id; repayment amount decimal > 0 when implemented | Drawer detail skeleton if fetched lazily | Not found if loan was deleted elsewhere | Delete/payment failure states |
-| `FilterLoan` component | Local all/lent/borrowed filter | Feeds loan list query parameter | None | Type enum | Control pending state during refetch | Not applicable | Preserve selected filter and show list-level error |
+| `/loan` | Non-fixture empty/unavailable state | Deferred: loan endpoints do not exist in the current backend contract | None until loan APIs exist | Not applicable until loan APIs exist | Not applicable until loan APIs exist | No loan records available | Not applicable until loan APIs exist |
+| `/loan/[id]` create/edit loan form | Non-fixture empty/unavailable state | Deferred: loan endpoints do not exist in the current backend contract | None until loan APIs exist | Not applicable until loan APIs exist | Not applicable until loan APIs exist | No loan record available | Not applicable until loan APIs exist |
+| Loan drawer in `LoanItem` | Removed in phase 08.5 because no loan backend exists | Deferred until loan APIs exist | Deferred until loan APIs exist | Deferred until loan APIs exist | Deferred until loan APIs exist | Deferred until loan APIs exist | Deferred until loan APIs exist |
+| `FilterLoan` component | Removed in phase 08.5 because no loan backend exists | Deferred until loan APIs exist | None | Deferred until loan APIs exist | Deferred until loan APIs exist | Not applicable | Deferred until loan APIs exist |
 
 ## Profile And Auth
 
@@ -138,7 +138,7 @@ Milestone 08 must replace these runtime placeholders with server-backed data or 
 
 ## UI Gaps To Add During Integration
 
-- Add a generated or typed API layer; none exists today.
+- Generated OpenAPI contracts and typed API helpers exist from milestone 08; keep new integration code on those helpers.
 - Add server-state loading, empty, error, and retry states for every query-backed screen.
 - Wire form state, submit handlers, client validation, server validation display, and disabled/pending states.
 - Replace generic create/edit links such as `/transaction/create`, `/transaction/edit`, `/savings/create`, `/savings/edit`, `/loan/create`, and `/loan/edit` with route behavior that passes a real mode or record id.
@@ -153,3 +153,11 @@ Milestone 08 must replace these runtime placeholders with server-backed data or 
   the notification list/unread-count REST endpoints for source-of-truth state,
   tolerate `heartbeat` keepalives, and reconnect after the advertised SSE
   retry interval. Do not add WebSockets for this UI surface.
+
+## Phase 08.5 Fixture And Resilience Update
+
+- Analytics now consumes `GET /api/v1/reports/monthly-summary`, `GET /api/v1/reports/cash-flow`, and `GET /api/v1/reports/spending-by-category` at runtime. The previous static month list, summary cards, top expenses, trends, and chart data were removed.
+- `IncomeVsExpenseChart` and `SpendingChart` now render caller-provided report data rather than embedded chart fixtures.
+- Loan/debt runtime fixture cards, filters, drawer items, and create/edit forms were removed because the backend has no loan endpoints. The loan routes now show a non-fixture unavailable/empty state until a later phase implements the loan contract.
+- Deleted unused runtime fixture-only components: `client/components/items/LoanItem.tsx`, `client/components/filters/FilterLoan.tsx`, and `client/components/inputs/BudgetInput.tsx`.
+- Runtime searches for recorded finance fixture names and hardcoded finance dollar values under `client/app`, `client/components`, and `client/lib` returned no matches after phase 08.5.

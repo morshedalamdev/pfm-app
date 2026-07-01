@@ -26,10 +26,21 @@ export function monthBounds(month: string): {
 } {
   const [year, monthNumber] = month.split("-").map(Number);
   const start = new Date(Date.UTC(year, monthNumber - 1, 1));
-  const end = new Date(Date.UTC(year, monthNumber, 0));
+  const end = new Date(Date.UTC(year, monthNumber, 1));
   return {
     end: end.toISOString().slice(0, 10),
     start: start.toISOString().slice(0, 10),
+  };
+}
+
+export function monthDateTimeBounds(month: string): {
+  end: string;
+  start: string;
+} {
+  const bounds = monthBounds(month);
+  return {
+    end: `${bounds.end}T00:00:00.000Z`,
+    start: `${bounds.start}T00:00:00.000Z`,
   };
 }
 

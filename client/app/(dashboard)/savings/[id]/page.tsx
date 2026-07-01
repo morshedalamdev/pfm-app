@@ -136,7 +136,7 @@ export default function CreateSavingsPage() {
                     <InputGroupInput
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      placeholder="Vacation Fund"
+                      placeholder="Goal name"
                       required
                     />
                     <InputGroupAddon className="text-white font-bold">
