@@ -129,7 +129,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 07 | 07.4 SSE events | PASSED | phase commit created after this state update | Added authenticated notification SSE stream, event serialization helpers, disconnect handling, frontend integration expectations, and tests. |
 | 07 | 07.5 Integration tests | PASSED | phase commit created after this state update | Hardened adapter/provider boundaries, receipt cleanup resilience, notification email retry coverage, docs, and tests; full backend suite passed on retry. |
 | 07 | 07.V Integration verification | PASSED | verification commit created after this state update | Verified uploads, notifications, email adapter flow, SSE, migrations, ignored local storage, and tracked-secret posture for milestone 07. |
-| 08 | 08.1 Generated API contract | NOT_STARTED | — | — |
+| 08 | 08.1 Generated API contract | PASSED | phase commit created after this state update | Added stable FastAPI OpenAPI export, committed generated frontend OpenAPI JSON and TypeScript contracts, and added API contract generation/drift-check scripts. |
 | 08 | 08.2 Frontend API and auth layer | NOT_STARTED | — | — |
 | 08 | 08.3 Dashboard integration | NOT_STARTED | — | — |
 | 08 | 08.4 CRUD screen integration | NOT_STARTED | — | — |
@@ -609,6 +609,16 @@ Append only. Do not rewrite earlier records.
 - Ran the required milestone 07 verification checks: Ruff lint, Ruff format check, mypy, full pytest, and Alembic `upgrade head` against disposable PostgreSQL.
 - No endpoint behavior, migrations, environment variables, frontend integration, production provider SDKs, or provider credentials were added in phase 07.V.
 
+### Phase 08.1 generated API contract inventory
+
+- Created the milestone 08 branch `frontend-integration` from verified `integrations-notifications`.
+- Added `server/scripts/export_openapi.py` to export the FastAPI OpenAPI schema as stable sorted JSON without hand-maintained duplicate API types.
+- Added `openapi-typescript` as a frontend development dependency and configured client scripts: `api:schema`, `api:types`, `api:generate`, and `api:check`.
+- Committed generated API contract artifacts under `client/generated/`: `openapi.json`, `api-types.ts`, and a README documenting the generated-artifact policy.
+- Added `client/scripts/check-api-contract.mjs`, which exports a fresh schema to a temporary directory, regenerates TypeScript types, and fails when committed generated artifacts drift.
+- Verified the generated contract includes the implemented `/api/v1` backend surface through milestone 07, including auth, users, accounts, categories, transactions, transfers, budgets, savings goals, recurring rules, receipts, notifications, notification SSE, health, and reports.
+- No runtime frontend data layer, authentication behavior, fixture replacement, UI changes, endpoint behavior, migrations, or environment variables were added in phase 08.1.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -681,6 +691,12 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 
 - `docs/architecture/UI_API_MATRIX.md` now records implemented recurring-rule CRUD, list, pause, resume, and archive endpoints for the transaction form's recurring template behavior.
 - Recurring templates are limited to income and expense rules with owned active account/category references, decimal-string amount fields, timezone-aware start/end timestamps, and `daily|weekly|monthly|yearly` frequencies with positive interval counts.
+
+### Phase 08.1 generated contract update
+
+- Frontend API contracts are generated from the FastAPI OpenAPI schema through `client/generated/openapi.json` and `client/generated/api-types.ts`.
+- `client/generated/README.md` records that generated contract files must not be hand-edited.
+- `npm run api:generate` regenerates the schema and TypeScript contract; `npm run api:check` verifies contract drift for CI.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -807,6 +823,8 @@ Phase 07.5 added no endpoints. It only hardens and documents the existing receip
 
 Phase 07.V added no endpoints. Verification confirmed the milestone 07 endpoint set remains receipt upload/list/get/delete, notification list/unread/read/read-all, and authenticated notification SSE.
 
+Phase 08.1 added no endpoints. It generated frontend OpenAPI JSON and TypeScript API contracts from the existing FastAPI schema.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -888,6 +906,8 @@ Phase 07.4 created no migrations. It uses the existing notification schema from 
 Phase 07.5 created no migrations. It uses the existing receipt, notification, and outbox schemas.
 
 Phase 07.V created no migrations. Verification ran Alembic `upgrade head` against disposable PostgreSQL through `202607010703_add_notification_schema.py`.
+
+Phase 08.1 created no migrations. It only exported the existing OpenAPI schema and generated frontend TypeScript contracts.
 
 ## 11. Environment variables
 
@@ -1051,6 +1071,10 @@ Committed template: `server/.env.example`.
 ### Phase 07.V integration verification variables
 
 - No new environment variables were added. Verification confirmed local upload and email defaults remain key-free and production provider choices remain deferred.
+
+### Phase 08.1 generated API contract variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -1583,6 +1607,24 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `git grep -n -I -E 'BEGIN (RSA\|OPENSSH\|PRIVATE) KEY\|AKIA[0-9A-Z]{16}\|ASIA[0-9A-Z]{16}\|ghp_[A-Za-z0-9_]{20,}\|sk-[A-Za-z0-9]{20,}\|xox[baprs]-\|AIza[0-9A-Za-z_-]{20,}' -- . ':!client/package-lock.json' ':!server/uv.lock'` | PASS | No known private-key, cloud-key, GitHub-token, OpenAI-key, Google-key, or Slack-token patterns found in tracked files. |
 | `git grep -n -I -E 'AWS_ACCESS_KEY_ID\|AWS_SECRET_ACCESS_KEY\|SMTP_PASSWORD\|SENDGRID\|POSTMARK\|MAILGUN\|S3_BUCKET\|OBJECT_STORAGE' -- . ':!PFM_PROJECT_STATE.md' ':!docs/architecture/SYSTEM_DESIGN.md' ':!server/README.md' ':!server/.env.example' ':!server/tests/test_integration_boundaries.py'` | PASS | No production-provider credential variable patterns were found outside documentation/template/test assertions. |
 
+### Phase 08.1 generated API contract commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed the starting branch was clean on `integrations-notifications`; after branch creation, confirmed active branch `frontend-integration`. |
+| `git switch -c frontend-integration` | FAIL in sandbox, PASS with approval | Required milestone branch creation. Sandboxed run could not create `.git/refs/heads/frontend-integration.lock`; approved rerun created and switched to `frontend-integration`. |
+| `cd client && npm install --save-dev openapi-typescript` | PASS with approval | Added the OpenAPI TypeScript generator and updated `package-lock.json`. Sandboxed run was interrupted after no registry output; approved run installed the dependency. npm reported 6 existing audit findings. |
+| `cd client && npm run api:generate` | PASS | Exported `client/generated/openapi.json` from FastAPI and generated `client/generated/api-types.ts` with `openapi-typescript 7.13.0`. |
+| `cd client && npm run api:check` | PASS | Regenerated schema and types into a temporary directory and confirmed committed generated artifacts are up to date. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 143 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL and stopped with 58 passed, 83 errors, 1 warning. Approved rerun passed: 141 passed, 1 Starlette/httpx warning. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build failed fetching Google Fonts Urbanist. Approved network rerun passed; Next.js still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Final drift check passed after generation and required frontend checks. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1626,6 +1668,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 07.4 is passed. Next allowed phase is 07.5, Integration tests, after user permission.
 - Phase 07.5 is passed. Next allowed phase is 07.V, Integration verification, after user permission.
 - Milestone 07 is verified. Next allowed phase is 08.1, Generated API contract, after user permission to push the `integrations-notifications` branch and begin milestone 08.
+- Phase 08.1 is passed. Next allowed phase is 08.2, Frontend API and auth layer, after user permission.
 
 ## 14. Progress log
 
@@ -1676,3 +1719,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 07.5 integration hardening blocked. Implemented receipt cleanup resilience, key-free provider configuration assertions, notification email adapter failure retry coverage, and provider-deferred documentation in the working tree. Required Ruff and mypy checks passed, focused DB-free boundary tests passed, and focused notification database tests passed with approval. The required full `pytest -q tests` check remains blocked because sandboxed disposable PostgreSQL localhost binding fails and the escalated rerun was rejected by the environment usage limit.
 - 2026-07-01: Phase 07.5 integration hardening passed on retry. Replaced the brittle receipt-cleanup log-capture assertion with a direct service-logger assertion, reran required Ruff, format, mypy, and full pytest checks, and confirmed local development remains key-free with production provider choices deferred. The next allowed phase is 07.V.
 - 2026-07-01: Phase 07.V integration verification passed. Verified milestone 07 upload, notification, email adapter, and SSE scope; confirmed ignored local upload storage and tracked-secret posture; ran required Ruff, format, mypy, full pytest, and Alembic upgrade checks; and set the next allowed phase to 08.1 after permission to push the branch and begin milestone 08.
+- 2026-07-01: Phase 08.1 generated API contract passed. Added stable FastAPI OpenAPI export, generated and committed frontend OpenAPI JSON plus TypeScript API contracts with `openapi-typescript`, added contract drift checking for CI, ran required backend and frontend checks, and set the next allowed phase to 08.2.
