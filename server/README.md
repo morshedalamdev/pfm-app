@@ -84,9 +84,10 @@ python -m app.workers.recurring \
   --worker-id local-recurring-worker
 ```
 
-The durable outbox worker is imported by event-specific adapters. Until
-notification or email adapters are registered, there is no standalone generic
-outbox command because each event type needs an explicit handler.
+The durable outbox worker is imported by event-specific adapters. Notification
+email delivery registers a `notification.email.requested` handler through
+`app.workers.notifications`; there is no standalone generic outbox command
+because each event type needs an explicit handler.
 
 ## Worker environment
 
@@ -132,9 +133,10 @@ Email settings:
 | `EMAIL_FROM_ADDRESS` | `no-reply@localhost` | Sender address used by local email adapters. |
 
 Production storage and email providers should be added behind the same adapter
-contracts in `app.adapters.storage` and `app.adapters.email`. Provider API keys,
-SMTP credentials, bucket names, and endpoint URLs should stay optional until a
-provider backend is selected and should be represented only as environment
+contracts in `app.adapters.storage` and `app.adapters.email`. The notification
+email worker uses `EMAIL_BACKEND=console|local` until a real provider backend is
+selected. Provider API keys, SMTP credentials, bucket names, and endpoint URLs
+should stay optional until then and should be represented only as environment
 variables, never committed secrets.
 
 ## Health and observability

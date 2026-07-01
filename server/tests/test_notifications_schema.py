@@ -5,27 +5,17 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from alembic.config import Config
-from sqlalchemy import (
-    CheckConstraint,
-    ForeignKeyConstraint,
-    Index,
-    UniqueConstraint,
-    inspect,
-)
+from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index, inspect
 
 from alembic import command
 from app.core.database import Base, build_async_engine
-from app.modules.receipts.models import Receipt
+from app.modules.notifications.models import Notification
 
 
 def build_alembic_config(database_url: str) -> Config:
     config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url)
     return config
-
-
-def constraint_names(constraints: Sequence[UniqueConstraint]) -> set[str | None]:
-    return {constraint.name for constraint in constraints}
 
 
 def check_constraint_names(constraints: Sequence[CheckConstraint]) -> set[str | None]:
@@ -40,33 +30,41 @@ def index_names(indexes: set[Index]) -> set[str]:
     return {index.name for index in indexes if index.name is not None}
 
 
-def test_receipt_model_schema() -> None:
-    table = Receipt.__table__
+def test_notification_model_schema() -> None:
+    table = Notification.__table__
 
     assert table.metadata is Base.metadata
     assert set(table.columns.keys()) == {
         "id",
         "user_id",
-        "transaction_id",
-        "storage_backend",
-        "storage_key",
-        "original_filename",
-        "content_type",
-        "size_bytes",
-        "checksum_sha256",
-        "deleted_at",
+        "type",
+        "title",
+        "message",
+        "payload",
+        "read_at",
+        "email_delivery_status",
+        "email_requested_at",
+        "email_sent_at",
+        "email_adapter",
+        "email_provider_message_id",
+        "email_error",
         "created_at",
+        "updated_at",
     }
-    assert table.columns.storage_backend.type.length == 40
-    assert table.columns.storage_key.type.length == 500
-    assert table.columns.original_filename.type.length == 255
-    assert table.columns.content_type.type.length == 120
-    assert table.columns.checksum_sha256.type.length == 64
+    assert table.columns.type.type.length == 80
+    assert table.columns.title.type.length == 160
+    assert table.columns.email_delivery_status.type.length == 20
+    assert table.columns.email_adapter.type.length == 40
+    assert table.columns.email_provider_message_id.type.length == 255
     assert table.columns.created_at.type.timezone is True
-    assert table.columns.deleted_at.type.timezone is True
+    assert table.columns.updated_at.type.timezone is True
+    assert table.columns.read_at.type.timezone is True
+    assert table.columns.email_requested_at.type.timezone is True
+    assert table.columns.email_sent_at.type.timezone is True
     assert {
-        "ck_receipts_size_bytes_positive",
-        "ck_receipts_checksum_sha256_length",
+        "ck_notifications_email_delivery_status_supported",
+        "ck_notifications_email_sent_requires_request",
+        "ck_notifications_read_at_not_before_created_at",
     }.issubset(
         check_constraint_names(
             [
@@ -76,10 +74,7 @@ def test_receipt_model_schema() -> None:
             ]
         )
     )
-    assert {
-        "fk_receipts_user_id_users",
-        "fk_receipts_transaction_id_user_id_transactions",
-    }.issubset(
+    assert {"fk_notifications_user_id_users"}.issubset(
         foreign_key_names(
             [
                 constraint
@@ -89,38 +84,27 @@ def test_receipt_model_schema() -> None:
         )
     )
     assert {
-        "uq_receipts_id_user_id",
-        "uq_receipts_storage_key",
-    }.issubset(
-        constraint_names(
-            [
-                constraint
-                for constraint in table.constraints
-                if isinstance(constraint, UniqueConstraint)
-            ]
-        )
-    )
-    assert {
-        "ix_receipts_user_id_created_at",
-        "ix_receipts_user_id_transaction_id",
-        "ix_receipts_active_user_created_at",
+        "ix_notifications_user_id_created_at",
+        "ix_notifications_unread_user_created_at",
+        "ix_notifications_user_id_type",
+        "ix_notifications_email_delivery_status",
     }.issubset(index_names(table.indexes))
 
 
-def test_receipt_migration_up_down_up_table(
+def test_notification_migration_up_down_up_table(
     disposable_postgres_url: str,
 ) -> None:
     config = build_alembic_config(disposable_postgres_url)
 
     command.downgrade(config, "base")
-    command.upgrade(config, "202607010702")
-    assert asyncio.run(table_exists(disposable_postgres_url, "receipts"))
+    command.upgrade(config, "head")
+    assert asyncio.run(table_exists(disposable_postgres_url, "notifications"))
 
     command.downgrade(config, "-1")
-    assert not asyncio.run(table_exists(disposable_postgres_url, "receipts"))
+    assert not asyncio.run(table_exists(disposable_postgres_url, "notifications"))
 
-    command.upgrade(config, "202607010702")
-    assert asyncio.run(table_exists(disposable_postgres_url, "receipts"))
+    command.upgrade(config, "head")
+    assert asyncio.run(table_exists(disposable_postgres_url, "notifications"))
 
 
 async def table_exists(database_url: str, table_name: str) -> bool:

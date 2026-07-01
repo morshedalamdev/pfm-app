@@ -304,6 +304,15 @@ tests. Future object storage, SMTP, or transactional email providers should plug
 into these contracts without changing receipt or notification domain services.
 Provider credentials are intentionally not required for local development.
 
+Phase 07.3 implements notification persistence and local email delivery through
+the durable outbox path. Notification APIs expose owned list, unread count,
+single mark-read, and mark-all-read behavior. Domain services can create a
+notification and enqueue a `notification.email.requested` outbox event in the
+same database transaction; an event-specific worker handler sends through the
+configured console/local email adapter and records delivery metadata on the
+notification row. No SMTP or transactional email provider settings are required
+until a provider adapter is selected.
+
 ### Production
 
 ```mermaid

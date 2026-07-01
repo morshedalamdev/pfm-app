@@ -125,7 +125,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 06 | 06.V Worker verification | PASSED | verification commit created after this state update | Verified recurring/outbox schema, schedule constraints, worker row-locking, retry behavior, idempotency records, operational docs, full server quality suite, and disposable Alembic upgrade. |
 | 07 | 07.1 Adapter contracts | PASSED | phase commit created after this state update | Added storage/email adapter contracts, local filesystem and console/local implementations, key-free settings, docs, ignore rules, and unit tests. |
 | 07 | 07.2 Receipt upload | PASSED | phase commit created after this state update | Added authorized raw-byte receipt upload, metadata list/get/delete APIs, local storage-backed bytes, receipt schema migration, validation, ownership tests, and disposable migration smoke coverage. |
-| 07 | 07.3 Notifications and email | NOT_STARTED | — | — |
+| 07 | 07.3 Notifications and email | PASSED | phase commit created after this state update | Added notification persistence, authenticated list/unread/read APIs, email delivery outbox flow, local email handler, migration, docs, and tests. |
 | 07 | 07.4 SSE events | NOT_STARTED | — | — |
 | 07 | 07.5 Integration tests | NOT_STARTED | — | — |
 | 07 | 07.V Integration verification | NOT_STARTED | — | — |
@@ -568,6 +568,19 @@ Append only. Do not rewrite earlier records.
 - Added receipt schema and endpoint tests for model shape, migration smoke behavior, upload metadata, local storage side effects, pagination, delete, ownership, validation, and OpenAPI contract.
 - Required database-backed pytest and Alembic upgrade/downgrade/upgrade smoke checks passed on retry against disposable PostgreSQL.
 
+### Phase 07.3 notifications and email inventory
+
+- Added `server/app/modules/notifications/` with a user-owned `Notification` model, cursor pagination, repository, service, schemas, and router.
+- Notification rows store type, title, message, JSON payload, read state, created/updated timestamps, and email delivery metadata including status, requested/sent timestamps, adapter, provider message id, and error text.
+- Added authenticated notification endpoints for list, unread count, mark one read, and mark all read behavior.
+- Notification list supports `limit`, optional opaque cursor, `unread_only`, and optional `type` filtering while preserving user ownership boundaries.
+- Added internal notification creation service behavior that can create a notification and enqueue a `notification.email.requested` outbox event in the same database transaction.
+- Added `server/app/workers/notifications.py` with an event-specific notification email handler that sends through the configured email adapter and records successful delivery metadata on the notification row.
+- Local development continues to use `EMAIL_BACKEND=console` by default; `EMAIL_BACKEND=local` remains available for tests without third-party credentials.
+- Updated worker and adapter documentation to record the notification email outbox flow and to keep production provider credentials deferred until a real provider backend is selected.
+- Added notification schema, API lifecycle, ownership, OpenAPI, and outbox email handler tests.
+- Scoped the prior receipt migration smoke test to the receipt revision so it remains stable now that the notification migration is Alembic head.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -758,6 +771,8 @@ Phase 07.1 added no API endpoints. It added only infrastructure adapter contract
 
 Phase 07.2 added receipt endpoints: `POST /api/v1/receipts`, `GET /api/v1/receipts`, `GET /api/v1/receipts/{receipt_id}`, and `DELETE /api/v1/receipts/{receipt_id}`. Upload uses authenticated raw request bytes plus `Content-Type`, optional `X-Receipt-Filename`, and optional `transaction_id` query linkage; receipt bytes are stored through the configured storage adapter outside PostgreSQL blobs.
 
+Phase 07.3 added notification endpoints: `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`, `POST /api/v1/notifications/{notification_id}/read`, and `POST /api/v1/notifications/read-all`. List responses use cursor pagination and support `unread_only` and `type` filters; mutations are scoped to the authenticated owner.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -831,6 +846,8 @@ Phase 06.V created no migrations. Verification ran Alembic `upgrade head` agains
 Phase 07.1 created no migrations. Adapter contracts and local implementations do not change the database schema.
 
 Phase 07.2 created Alembic migration `202607010702_add_receipt_schema.py` for `receipts`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL.
+
+Phase 07.3 created Alembic migration `202607010703_add_notification_schema.py` for `notifications`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -978,6 +995,10 @@ Committed template: `server/.env.example`.
 |---|---|
 | `RECEIPT_MAX_UPLOAD_BYTES` | Maximum accepted receipt upload size in bytes. Defaults to `5242880`. |
 | `RECEIPT_ALLOWED_CONTENT_TYPES` | JSON array of accepted receipt MIME types. Defaults to PDF, JPEG, PNG, and WebP. |
+
+### Phase 07.3 notification and email variables
+
+- No new environment variables were added. Notification email delivery uses the existing `EMAIL_BACKEND` and `EMAIL_FROM_ADDRESS` adapter settings from phase 07.1.
 
 ## 12. Test command registry
 
@@ -1448,6 +1469,23 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | PASS with approval | Required migration downgrade check passed on retry, downgrading from `202607010702` to `202606210601`. |
 | `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Required final migration upgrade check passed on retry, upgrading from `202606210601` back to `202607010702`. |
 
+### Phase 07.3 notifications and email commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `integrations-notifications` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app/modules/notifications app/workers/notifications.py tests/test_notifications.py tests/test_notifications_schema.py alembic/versions/202607010703_add_notification_schema.py` | PASS after repair | Focused lint check. Initial run fixed import ordering in notification schemas. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS after repair | Focused/full type check. Initial run flagged SQLAlchemy `rowcount` typing in the new notification repository; repaired with a guarded `getattr`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_notifications_schema.py::test_notification_model_schema tests/test_adapters.py` | PASS | DB-free notification model and adapter regression coverage passed: 12 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_notifications.py tests/test_notifications_schema.py` | FAIL then PASS with approval | Focused notification database/API/worker coverage. Initial run used a worker timestamp before the outbox row was available; repaired the test timestamp. Final result: 6 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL then PASS with approval | Required full test suite. Initial run exposed the receipt migration test still assuming receipt was head; repaired by resetting to base and targeting `202607010702`. Final result: 134 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 140 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 101 source files. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Required migration upgrade check passed against disposable PostgreSQL, applying all migrations through `202607010703_add_notification_schema.py`. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | PASS with approval | Required migration downgrade check passed, downgrading from `202607010703` to `202607010702`. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Required final migration upgrade check passed, upgrading from `202607010702` back to `202607010703`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1487,6 +1525,7 @@ Record only active blockers or intentionally deferred decisions.
 - Milestone 06 is verified. Next allowed phase is 07.1, Adapter contracts, after user permission to push the `recurring-worker` branch and begin milestone 07. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 07.1 is passed. Next allowed phase is 07.2, Receipt upload, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 07.2 is passed. Next allowed phase is 07.3, Notifications and email, after user permission.
+- Phase 07.3 is passed. Next allowed phase is 07.4, Server-Sent Events, after user permission.
 
 ## 14. Progress log
 
@@ -1532,3 +1571,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 07.1 adapter contracts passed. Added storage and email adapter contracts, local filesystem storage, console/local email implementations, key-free adapter settings, Git ignore rules for local storage artifacts, provider extension documentation, and adapter unit tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 07.2.
 - 2026-07-01: Phase 07.2 receipt upload blocked. Implemented receipt metadata schema, raw-byte authorized upload behavior, local storage adapter usage, metadata list/get/delete behavior, validation, migration, and tests in the working tree. Static checks and DB-free focused tests passed, but required database-backed pytest and Alembic checks could not run because elevated approval was rejected by the environment usage limit; no local phase commit was created.
 - 2026-07-01: Phase 07.2 receipt upload passed on retry. Required full pytest and Alembic upgrade/downgrade/upgrade smoke checks passed against disposable PostgreSQL, confirming receipt migration, storage, validation, and ownership coverage. A local phase commit is being created, and the next allowed phase is 07.3.
+- 2026-07-01: Phase 07.3 notifications and email passed. Added notification persistence, authenticated notification list/unread/read endpoints, durable `notification.email.requested` outbox email flow, local/console email handler coverage, migration `202607010703`, docs updates, and test hardening. Required Ruff, mypy, full pytest, and Alembic upgrade/downgrade/upgrade checks passed, and the next allowed phase is 07.4.
