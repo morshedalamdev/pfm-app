@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     outbox_worker_lock_seconds: int = Field(default=60, gt=0, le=3600)
     outbox_worker_max_backoff_seconds: int = Field(default=300, gt=0, le=86400)
     outbox_worker_poll_seconds: float = Field(default=30.0, gt=0, le=3600)
+    storage_backend: Literal["local"] = "local"
+    local_storage_root: str = ".local/storage"
+    email_backend: Literal["console", "local"] = "console"
+    email_from_address: str = "no-reply@localhost"
 
     model_config = SettingsConfigDict(
         env_file=".env",

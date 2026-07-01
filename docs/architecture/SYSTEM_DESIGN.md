@@ -295,6 +295,15 @@ flowchart LR
 
 Local development should work without third-party credentials. `.env.example` will define required values as backend milestones add them.
 
+Phase 07.1 defines infrastructure adapter contracts before provider
+integration. `app.adapters.storage` exposes save, metadata lookup, and delete
+operations with a local filesystem implementation that writes stored bytes and a
+metadata sidecar under `LOCAL_STORAGE_ROOT`. `app.adapters.email` exposes an
+email send contract with console/local implementations for development and
+tests. Future object storage, SMTP, or transactional email providers should plug
+into these contracts without changing receipt or notification domain services.
+Provider credentials are intentionally not required for local development.
+
 ### Production
 
 ```mermaid

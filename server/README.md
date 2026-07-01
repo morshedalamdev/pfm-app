@@ -111,6 +111,32 @@ Outbox worker settings used by event-specific worker registrations:
 | `OUTBOX_WORKER_MAX_BACKOFF_SECONDS` | `300` | Maximum retry backoff delay for retryable outbox failures. |
 | `OUTBOX_WORKER_POLL_SECONDS` | `30` | Sleep interval between polling ticks. |
 
+## Adapter configuration
+
+Local development uses key-free infrastructure adapters. Receipt workflows use
+the storage adapter contract, and notification delivery uses the email adapter
+contract.
+
+Storage settings:
+
+| Variable | Default | Description |
+|---|---:|---|
+| `STORAGE_BACKEND` | `local` | Storage adapter backend. Only local filesystem storage is implemented in this phase. |
+| `LOCAL_STORAGE_ROOT` | `.local/storage` | Local filesystem root for stored objects and metadata sidecars. This path is ignored by Git. |
+
+Email settings:
+
+| Variable | Default | Description |
+|---|---:|---|
+| `EMAIL_BACKEND` | `console` | Email adapter backend. `console` logs deliveries; `local` also keeps an in-memory copy for local tests. |
+| `EMAIL_FROM_ADDRESS` | `no-reply@localhost` | Sender address used by local email adapters. |
+
+Production storage and email providers should be added behind the same adapter
+contracts in `app.adapters.storage` and `app.adapters.email`. Provider API keys,
+SMTP credentials, bucket names, and endpoint URLs should stay optional until a
+provider backend is selected and should be represented only as environment
+variables, never committed secrets.
+
 ## Health and observability
 
 Use `GET /api/v1/health/live` to confirm the API process is running and

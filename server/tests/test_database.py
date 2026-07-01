@@ -29,6 +29,10 @@ def test_database_settings_defaults_are_safe_local_values() -> None:
     assert settings.outbox_worker_lock_seconds == 60
     assert settings.outbox_worker_max_backoff_seconds == 300
     assert settings.outbox_worker_poll_seconds == 30
+    assert settings.storage_backend == "local"
+    assert settings.local_storage_root == ".local/storage"
+    assert settings.email_backend == "console"
+    assert settings.email_from_address == "no-reply@localhost"
 
 
 def test_base_metadata_uses_naming_convention() -> None:

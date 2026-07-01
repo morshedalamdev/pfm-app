@@ -123,7 +123,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 06 | 06.4 Retry and idempotency | PASSED | phase commit created after this state update | Added outbox retry/backoff processing, terminal failure metadata, event-type scoped claims, and recurring due-run idempotency protections. |
 | 06 | 06.5 Worker operational checks | PASSED | phase commit created after this state update | Documented local API and worker operation, added worker runtime environment settings, and verified API readiness plus worker execution against disposable PostgreSQL. |
 | 06 | 06.V Worker verification | PASSED | verification commit created after this state update | Verified recurring/outbox schema, schedule constraints, worker row-locking, retry behavior, idempotency records, operational docs, full server quality suite, and disposable Alembic upgrade. |
-| 07 | 07.1 Adapter contracts | NOT_STARTED | — | — |
+| 07 | 07.1 Adapter contracts | PASSED | phase commit created after this state update | Added storage/email adapter contracts, local filesystem and console/local implementations, key-free settings, docs, ignore rules, and unit tests. |
 | 07 | 07.2 Receipt upload | NOT_STARTED | — | — |
 | 07 | 07.3 Notifications and email | NOT_STARTED | — | — |
 | 07 | 07.4 SSE events | NOT_STARTED | — | — |
@@ -544,6 +544,17 @@ Append only. Do not rewrite earlier records.
 - Ran the required milestone 06 verification checks: Ruff lint, Ruff format check, mypy, full pytest, and Alembic `upgrade head` against disposable PostgreSQL.
 - No code behavior, API endpoints, migrations, frontend integration, notification/email adapters, or production deployment files were added in phase 06.V.
 
+### Phase 07.1 adapter contracts inventory
+
+- Created `server/app/adapters/` with explicit storage and email adapter contracts.
+- Added `LocalStorageAdapter` for local filesystem storage, including safe relative key validation, stored bytes, metadata sidecar persistence, metadata lookup, SHA-256 checksums, and delete behavior.
+- Added `ConsoleEmailAdapter` and `LocalEmailAdapter` for key-free local email delivery behavior. Console delivery returns a provider-style local message id; local delivery also keeps an in-memory copy for tests and development-only inspection.
+- Added adapter factories driven by typed settings: `STORAGE_BACKEND`, `LOCAL_STORAGE_ROOT`, `EMAIL_BACKEND`, and `EMAIL_FROM_ADDRESS`.
+- Updated `.gitignore` and `server/.gitignore` so `.local/` storage artifacts stay out of Git.
+- Documented adapter extension points in `server/README.md` and `docs/architecture/SYSTEM_DESIGN.md` without adding production provider SDKs or requiring provider API keys.
+- Added `server/tests/test_adapters.py` and extended configuration default tests for adapter settings.
+- No receipt persistence, upload endpoints, notification persistence, email worker flow, SSE endpoint, migrations, production storage provider, or production email provider was added in phase 07.1.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -730,6 +741,8 @@ Phase 06.5 added no API endpoints. It documented use of the existing `GET /api/v
 
 Phase 06.V added no API endpoints. Verification confirmed the milestone 06 endpoint set remains the recurring-rule API from phase 06.2 plus the existing health endpoints used for operational checks.
 
+Phase 07.1 added no API endpoints. It added only infrastructure adapter contracts, local storage/email implementations, configuration, documentation, and unit tests.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -799,6 +812,8 @@ Phase 06.4 created no migrations. It uses the existing outbox retry columns, loc
 Phase 06.5 created no migrations. It added only worker runtime settings, operational documentation, and tests against the existing recurring/outbox schema.
 
 Phase 06.V created no migrations. Verification ran Alembic `upgrade head` against disposable PostgreSQL through `202606210601_add_recurring_outbox_schema.py`.
+
+Phase 07.1 created no migrations. Adapter contracts and local implementations do not change the database schema.
 
 ## 11. Environment variables
 
@@ -930,6 +945,15 @@ Committed template: `server/.env.example`.
 ### Phase 06.V worker verification variables
 
 - No new environment variables were added.
+
+### Phase 07.1 adapter variables
+
+| Variable | Description |
+|---|---|
+| `STORAGE_BACKEND` | Storage adapter backend. Defaults to `local`; only local filesystem storage is implemented in this phase. |
+| `LOCAL_STORAGE_ROOT` | Local filesystem root for stored object bytes and metadata sidecars. Defaults to `.local/storage` and is ignored by Git. |
+| `EMAIL_BACKEND` | Email adapter backend. Defaults to `console`; `local` also keeps an in-memory copy for local tests. |
+| `EMAIL_FROM_ADDRESS` | Sender address used by local email adapters. Defaults to `no-reply@localhost`. |
 
 ## 12. Test command registry
 
@@ -1368,6 +1392,18 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required full server test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 42 passed, 69 errors. Approved rerun passed: 111 passed, 1 Starlette/httpx dependency warning. |
 | `cd server && tmpdir=$(mktemp -d) && port=$(PATH="$PWD/.venv/bin:$PATH" python -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()') && initdb_bin="$(pg_config --bindir)/initdb" && pg_ctl_bin="$(pg_config --bindir)/pg_ctl" && "$initdb_bin" -D "$tmpdir/data" -A trust -U pfm_test >/dev/null && "$pg_ctl_bin" -D "$tmpdir/data" -l "$tmpdir/postgres.log" -o "-F -h 127.0.0.1 -p $port" -w start >/dev/null && DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:$port/postgres" PATH="$PWD/.venv/bin:$PATH" alembic upgrade head; exit_code=$?; "$pg_ctl_bin" -D "$tmpdir/data" -m fast -w stop >/dev/null 2>&1 || true; exit $exit_code` | FAIL in sandbox, PASS with approval | Required Alembic upgrade check against disposable PostgreSQL. Sandboxed run could not bind localhost; approved run applied all migrations through `202606210601_add_recurring_outbox_schema.py`. |
 
+### Phase 07.1 adapter contract commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `recurring-worker` before creating the milestone 07 branch. |
+| `git switch -c integrations-notifications` | PASS with approval | Created the required milestone 07 branch. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_adapters.py` | PASS after repair | Focused adapter unit tests. Initial run exposed `PurePosixPath` collapsing `.` segments before validation; repaired key validation. Final focused result: 11 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 119 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 86 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL then PASS with approval | Required test suite. First approved run found an adapter test that depended on logger capture after app logging configuration; repaired the test to assert the delivery result contract. Final approved rerun passed: 122 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1405,6 +1441,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 06.4 is passed. Next allowed phase is 06.5, Worker operational checks, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.5 is passed. Next allowed phase is 06.V, Worker verification, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Milestone 06 is verified. Next allowed phase is 07.1, Adapter contracts, after user permission to push the `recurring-worker` branch and begin milestone 07. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 07.1 is passed. Next allowed phase is 07.2, Receipt upload, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1447,3 +1484,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 06.4 worker retries and idempotency passed. Added event-type scoped outbox processing with bounded retries, exponential backoff, terminal failure metadata, handler rollback protection, and recurring due-run duplicate suppression through deterministic outbox idempotency keys. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.5.
 - 2026-07-01: Phase 06.5 worker operational checks passed. Added local API and recurring worker run commands, typed worker environment variables, worker health and logging notes, recurring worker CLI defaults from settings, and operational integration coverage proving API readiness and worker execution against the same disposable PostgreSQL database. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.V.
 - 2026-07-01: Phase 06.V recurring worker verification passed. Verified recurring constraints, row-lock strategy, retry behavior, due-run idempotency records, worker operations documentation, full server quality suite, and Alembic upgrade to head against disposable PostgreSQL. No new endpoints or migrations were added, and the next allowed phase is 07.1 after permission to push the branch and begin milestone 07.
+- 2026-07-01: Phase 07.1 adapter contracts passed. Added storage and email adapter contracts, local filesystem storage, console/local email implementations, key-free adapter settings, Git ignore rules for local storage artifacts, provider extension documentation, and adapter unit tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 07.2.
