@@ -1,258 +1,274 @@
-# 💰 Personal Finance Management App
+# Personal Finance Management App
 
-A full-stack personal finance tracker that helps users monitor income, expenses, and savings with insightful reports and analytics.
+A full-stack personal finance tracker for monitoring income, expenses, savings, budgets, recurring transactions, and financial analytics.
 
-## 🚀 Live Demo
+The frontend UI is currently implemented with **Next.js**. The backend is being redesigned and implemented with **Python FastAPI** and **PostgreSQL**.
+
+## Live Demo
 
 - **Frontend**: [https://pfm.morshedalam.dev](https://pfm.morshedalam.dev)
-- **API**:  Hosted on Netlify
+- **API**: Hosted on Render
 
-## 📋 Features
+## Project Status
 
-- ✅ Track income and expenses with custom categories
-- ✅ Set and monitor savings goals with visual progress
-- ✅ Create and manage monthly budgets
-- ✅ Generate financial reports with interactive charts
-- ✅ Automated recurring transaction management
-- ✅ Multi-period analysis (daily/weekly/monthly/yearly)
-- ✅ Secure JWT authentication with bcrypt encryption
-- ✅ Fully responsive design optimized for mobile and desktop
-- ✅ File upload support for receipts and documents
-- ✅ Email notifications for important events
-- ✅ Real-time data synchronization
+This project is under active development.
 
-## 🛠️ Tech Stack
+- Frontend UI: completed with Next.js and responsive dashboard screens.
+- Backend: being migrated from the original Node/Nest.js plan to Python FastAPI.
+- Database: PostgreSQL.
+- Development workflow: milestone-based implementation with Codex agents.
+- Current priority: build the FastAPI backend first, then connect the existing frontend UI to live server data.
 
-### Frontend (Client)
-- **Framework**: Next.js
-- **Language**: TypeScript
-- **UI Library**: React
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand
-- **Validation**:  Zod
-- **HTTP Client**: Axios
-- **Date Handling**: date-fns
-- **Icons**:  Lucide React
-- **Utilities**: clsx, tailwind-merge, class-variance-authority
+## Project Ownership and Development Approach
 
-### Backend (Server)
-- **Runtime**: Node.js
-- **Framework**: Nest.js
-- **Language**: TypeScript
-- **Database**: PostgreSQL (Neon)
-- **ORM**: TypeORM
-- **Authentication**: JWT
-- **Password Hashing**: bcrypt
-- **Validation**: Class validatior, class-transformer
-- **Testing**: Jest
-- **Security**: Helmet, CORS
-- **File Upload**:  Multer + Cloudinary
-- **Email**: Nodemailer
-- **Job Scheduling**: node-cron
-- **Logging**: Winston + Morgan
-- **Performance**:  Compression
+The project idea, product direction, system design, planning, architecture, data model decisions, and milestone strategy are designed by **Myself**.
 
-## 🔧 Prerequisites
+**Codex** is used as an AI development assistant to execute the implementation in controlled phases. Codex is not used to blindly generate the whole system at once. Each milestone is broken into smaller phases where the agent must:
 
-Before running this application, ensure you have: 
+1. Study the existing project state.
+2. Think through the assigned phase.
+3. Execute only the requested scope.
+4. Run tests.
+5. Fix bugs if tests fail.
+6. Update the project state documentation.
+7. Stop and ask for approval before continuing.
 
-- **Node.js**:  v18.0.0 or higher ([Download](https://nodejs.org/))
-- **npm**: v9.0.0 or higher (comes with Node.js)
-- **PostgreSQL**: Local instance or [Neon](https://neon.tech) account
-- **Git**: For cloning the repository
+This workflow keeps the project architecture intentional, reviewable, and easier to maintain.
 
-## 🚀 Getting Started
+## Core Features
 
-### 1. Clone Repository
+Planned and in-progress features include:
+
+- User registration, login, JWT authentication, and refresh-token rotation.
+- Account management for cash, bank, card, wallet, and savings accounts.
+- Income, expense, and transfer tracking.
+- Custom transaction categories.
+- Monthly and custom-period budgets.
+- Savings goals and contribution tracking.
+- Dashboard summaries for income, expenses, balance, savings, and cash flow.
+- Reports and analytics with charts and date-range filtering.
+- Recurring transactions with background worker execution.
+- Receipt upload support.
+- Notification and email adapter support.
+- Server-Sent Events for one-way real-time update signals where useful.
+- Responsive frontend integration with live backend data.
+
+## System Design
+
+The application is designed as a **modular monolith**. This keeps the system simple enough for fast development while still enforcing clean boundaries between domains.
+
+```text
+pfm-app
+├── client/                  # Next.js frontend
+│   ├── app/                 # App Router pages and layouts
+│   ├── components/          # UI and feature components
+│   ├── lib/                 # Frontend utilities and API client layer
+│   └── public/              # Static assets
+└── server/                  # Python FastAPI backend
+    ├── app/
+    │   ├── api/             # Versioned API routers
+    │   ├── core/            # Config, security, logging, app setup
+    │   ├── db/              # Database session, migrations, base models
+    │   ├── modules/         # Domain modules
+    │   │   ├── auth/
+    │   │   ├── users/
+    │   │   ├── accounts/
+    │   │   ├── transactions/
+    │   │   ├── budgets/
+    │   │   ├── savings/
+    │   │   ├── reports/
+    │   │   └── notifications/
+    │   ├── workers/         # Background worker logic
+    │   └── main.py          # FastAPI entrypoint
+    ├── alembic/             # Database migrations
+    └── tests/               # Backend tests
+```
+
+## Backend Architecture
+
+The backend target architecture uses:
+
+- **Python FastAPI** for API development.
+- **PostgreSQL** as the primary database.
+- **SQLAlchemy 2.x async ORM** for persistence.
+- **Alembic** for schema migrations.
+- **Pydantic** for request validation, response schemas, and settings.
+- **JWT access tokens** with refresh-token rotation.
+- **Argon2 password hashing** for secure password storage.
+- **OpenAPI-generated TypeScript contracts** for frontend/backend type safety.
+- **Background worker process** for recurring transactions and deferred jobs.
+- **Outbox event table** for reliable internal event handling.
+- **Adapter pattern** for email and file storage providers.
+- **Server-Sent Events** only for one-way server-to-client notifications or refresh signals.
+
+The backend is not designed as only a collection of CRUD endpoints. It is planned around finance-domain behavior, including balance consistency, transaction atomicity, idempotency, recurring rule execution, reporting queries, and frontend contract stability.
+
+## Frontend Architecture
+
+The frontend is built with:
+
+- **Next.js**
+- **React**
+- **TypeScript**
+- **Tailwind CSS**
+- **Zustand** for client state where needed
+- **Zod** for validation
+- **Axios** for HTTP requests
+- **Recharts** for financial charts
+- **Lucide React** for icons
+- **date-fns** for date handling
+
+The current frontend UI is treated as the visual foundation. Backend integration will replace mock/static data with typed API responses while preserving the existing responsive design.
+
+## Planned Data Domains
+
+The backend is organized around the following domains:
+
+- **Auth and Users**: identity, credentials, sessions, authorization.
+- **Accounts**: user-owned financial accounts and balances.
+- **Categories**: income and expense classification.
+- **Transactions**: income, expense, and transfer records.
+- **Budgets**: budget periods, limits, and category spending progress.
+- **Savings Goals**: targets, contributions, and progress tracking.
+- **Reports**: dashboard summaries, category breakdowns, cash-flow trends, and savings analytics.
+- **Recurring Rules**: recurring income/expense generation.
+- **Notifications**: persisted user notifications and optional delivery adapters.
+- **Receipts**: file metadata and storage-provider abstraction.
+
+## Prerequisites
+
+Recommended local tools:
+
+- Git
+- Node.js 18+ or newer
+- npm or pnpm
+- Python 3.11+
+- PostgreSQL
+- Docker, optional but recommended for later deployment and integration testing
+
+## Getting Started
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/morshedalamdev/pfm-app.git
 cd pfm-app
 ```
 
----
-
-## 🖥️ Backend Setup (Server)
-
-### Navigate to Server Directory
-
-```bash
-cd server
-```
-
-### Install Dependencies
-
-```bash
-npm install
-```
-
-### Start Backend Server
-
-```bash
-# Development mode (with auto-reload)
-npm run dev
-
-# Production build
-npm run build
-
-# Production mode
-npm start
-```
-
-Backend API runs at: **http://localhost:5000/v[]/**
-
----
-
-## 🎨 Frontend Setup (Client)
-
-### Navigate to Client Directory
-
-Open a **new terminal** window: 
+### 2. Run the Frontend
 
 ```bash
 cd client
-```
-
-### Install Dependencies
-
-```bash
 npm install
-```
-
-### Start Frontend Development Server
-
-```bash
-# Development mode
 npm run dev
-
-# Production build
-npm run build
-
-# Production mode
-npm start
 ```
 
-Frontend runs at: **http://localhost:3000**
+Frontend runs at:
 
----
+```text
+http://localhost:3000
+```
 
-## 🎯 Running Both Servers
+### 3. Backend Development Direction
 
-### Option 1: Multiple Terminals
+The backend is being implemented in Python FastAPI under the `server/` directory. The final commands will be confirmed as the FastAPI foundation milestone is completed.
 
-**Terminal 1 - Backend:**
+Expected development flow:
+
 ```bash
 cd server
-npm run dev
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 ```
 
-**Terminal 2 - Frontend:**
-```bash
-cd client
-npm run dev
+Expected backend URL:
+
+```text
+http://localhost:8000
 ```
 
-### Option 2: Using Concurrently (Root Level)
+Expected API documentation URL:
 
-Install concurrently in project root:
-
-```bash
-# In pfm-app root directory
-npm init -y
-npm install concurrently --save-dev
+```text
+http://localhost:8000/docs
 ```
 
-Add scripts to root `package.json`:
+## Environment Variables
 
-```json
-{
-  "scripts": {
-    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "dev:server": "npm run dev --prefix server",
-    "dev:client": "npm run dev --prefix client",
-    "build":  "concurrently \"npm run build --prefix server\" \"npm run build --prefix client\"",
-    "start": "concurrently \"npm start --prefix server\" \"npm start --prefix client\""
-  }
-}
+The final `.env.example` will be maintained during backend implementation. Expected backend variables include:
+
+```env
+APP_ENV=development
+APP_NAME=pfm-api
+API_V1_PREFIX=/api/v1
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/pfm_app
+JWT_SECRET_KEY=replace-with-local-secret
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-Then run from root: 
+Expected frontend variable:
 
-```bash
-npm run dev
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
----
+## Security Goals
 
-## 📝 Available Scripts
+Security requirements include:
 
-### Server Scripts
+- Strong password hashing with Argon2.
+- Short-lived JWT access tokens.
+- Refresh-token rotation and revocation.
+- User-scoped authorization for all finance resources.
+- Validation for all API inputs.
+- Monetary values handled with decimal precision.
+- Idempotency protection for transaction creation.
+- CORS configured through environment variables.
+- No secrets committed to the repository.
 
-```bash
-npm run dev                # Start development server with ts-node-dev
-npm run build              # Compile TypeScript to JavaScript
-npm start                  # Start production server
-npm run prisma:generate    # Generate Prisma Client
-npm run prisma:migrate     # Run database migrations
-npm run prisma:studio      # Open Prisma Studio GUI
-npm test                   # Run tests in watch mode
-npm run test:ci            # Run tests once (CI environment)
-```
+## Testing Strategy
 
-### Client Scripts
+The project will use phase-level and milestone-level tests.
 
-```bash
-npm run dev          # Start Next.js development server
-npm run build        # Build optimized production bundle
-npm start            # Start Next.js production server
-```
+Backend testing targets:
 
----
+- Unit tests for domain services.
+- Integration tests for API endpoints.
+- Migration tests for Alembic schema changes.
+- Authentication and authorization tests.
+- Balance consistency and transfer atomicity tests.
+- Reporting correctness tests.
+- Worker idempotency and retry tests.
 
-## 🔒 Security Features
+Frontend testing targets:
 
-- ✅ **JWT Authentication**: Secure token-based authentication with jose and jsonwebtoken
-- ✅ **Password Hashing**: bcrypt with salt rounds for secure password storage
-- ✅ **Rate Limiting**: express-rate-limit to prevent API abuse
-- ✅ **CORS Protection**: Configured CORS for allowed origins
-- ✅ **Helmet**: Security headers for Express. js
-- ✅ **Input Validation**: Zod schemas and express-validator
-- ✅ **SQL Injection Prevention**: Prisma ORM with parameterized queries
-- ✅ **XSS Protection**: Sanitized inputs and outputs
-- ✅ **Cookie Security**: Secure cookie-parser configuration
+- Build validation.
+- Type checking.
+- API client contract validation.
+- Loading, empty, error, and success states.
+- Responsive layout checks.
+- Full frontend/backend integration smoke tests.
 
----
+## Current Development Principle
 
-## 📄 License
+The goal is to build a production-quality personal finance system gradually instead of rushing a single large implementation. Every milestone must leave the repository in a working, testable state.
 
-This project is licensed under the ISC License.
-
----
-
-## 👤 Author
+## Author
 
 **Morshed Alam**
 
 - Website: [morshedalam.dev](https://morshedalam.dev)
 - GitHub: [@morshedalamdev](https://github.com/morshedalamdev)
-- Project:  [pfm. morshedalam.dev](https://pfm.morshedalam.dev)
+- Live Project: [pfm.morshedalam.dev](https://pfm.morshedalam.dev)
+
+## License
+
+This project is licensed under the ISC License.
 
 ---
 
-## 📞 Support
-
-For issues, questions, or suggestions: 
-
-- 📧 Email: Contact via [morshedalam.dev](https://morshedalam.dev)
-- 🐛 Issues: [GitHub Issues](https://github.com/morshedalamdev/pfm-app/issues)
-- 📖 Docs: Check this README and inline code comments
-
----
-
-## 🌟 Star History
-
-If you find this project useful, please consider giving it a ⭐ on GitHub! 
-
----
-
-**Made with ❤️ by Morshed Alam**
+Built and architected by **Morshed Alam**. Implementation is developed through a controlled milestone-based workflow with Codex assistance.
