@@ -122,7 +122,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 06 | 06.3 Worker process | PASSED | phase commit created after this state update | Added separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claims, atomic scheduled transaction creation, outbox emission, rule advancement, and duplicate-execution tests. |
 | 06 | 06.4 Retry and idempotency | PASSED | phase commit created after this state update | Added outbox retry/backoff processing, terminal failure metadata, event-type scoped claims, and recurring due-run idempotency protections. |
 | 06 | 06.5 Worker operational checks | PASSED | phase commit created after this state update | Documented local API and worker operation, added worker runtime environment settings, and verified API readiness plus worker execution against disposable PostgreSQL. |
-| 06 | 06.V Worker verification | NOT_STARTED | — | — |
+| 06 | 06.V Worker verification | PASSED | verification commit created after this state update | Verified recurring/outbox schema, schedule constraints, worker row-locking, retry behavior, idempotency records, operational docs, full server quality suite, and disposable Alembic upgrade. |
 | 07 | 07.1 Adapter contracts | NOT_STARTED | — | — |
 | 07 | 07.2 Receipt upload | NOT_STARTED | — | — |
 | 07 | 07.3 Notifications and email | NOT_STARTED | — | — |
@@ -532,6 +532,18 @@ Append only. Do not rewrite earlier records.
 - The API health surface remains `GET /api/v1/health/live` and `GET /api/v1/health/ready`; workers do not expose a separate HTTP endpoint and are observed through `recurring_worker_tick`, `recurring_worker_once_complete`, and `outbox_worker_tick` logs.
 - No API endpoints, migrations, frontend integration, notification/email adapters, or generic standalone outbox command were added in phase 06.5.
 
+### Phase 06.V recurring worker verification inventory
+
+- Verified milestone 06 scope remains limited to recurring rule APIs, recurring/outbox persistence, PostgreSQL-coordinated worker execution, outbox retry handling, idempotency protection, worker runtime settings, and operational documentation.
+- Reviewed recurring schedule constraints in `server/app/modules/recurring/schedule.py`, including timezone validation, UTC normalization, supported `daily|weekly|monthly|yearly` frequencies, positive intervals, month-end clamping, and end-bound validation.
+- Reviewed recurring/outbox schema constraints and migration `202606210601_add_recurring_outbox_schema.py`, including recurring rule ownership references, due-rule and lock indexes, outbox status/attempt/error fields, `event_type + idempotency_key` uniqueness, and outbox lock indexes.
+- Reviewed the recurring worker row-lock strategy in `server/app/workers/recurring.py`: due active rules are selected with `FOR UPDATE SKIP LOCKED`, locked with worker metadata, processed in one transaction, and cleared after success.
+- Reviewed retry behavior in `server/app/workers/outbox.py`: available events are claimed with `FOR UPDATE SKIP LOCKED`, attempts increment on claim, failed handlers roll back their writes, retryable failures reset to `pending` with bounded exponential `available_at` backoff, terminal failures become `failed`, and error metadata is recorded.
+- Reviewed idempotency records for recurring due-runs: `recurring.transaction.created` outbox events use deterministic keys shaped as `recurring-rule:{rule_id}:due-at:{timestamp}`, and stale due-rule retries advance without creating duplicate transaction source rows.
+- Verified worker operational docs in `server/README.md` and architecture notes in `docs/architecture/SYSTEM_DESIGN.md`, including local API/worker commands, worker environment variables, observable log events, and operational recovery steps.
+- Ran the required milestone 06 verification checks: Ruff lint, Ruff format check, mypy, full pytest, and Alembic `upgrade head` against disposable PostgreSQL.
+- No code behavior, API endpoints, migrations, frontend integration, notification/email adapters, or production deployment files were added in phase 06.V.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -716,6 +728,8 @@ Phase 06.4 added no API endpoints. It hardened the existing recurring worker pat
 
 Phase 06.5 added no API endpoints. It documented use of the existing `GET /api/v1/health/live` and `GET /api/v1/health/ready` endpoints for API and database readiness while keeping worker observability in process logs.
 
+Phase 06.V added no API endpoints. Verification confirmed the milestone 06 endpoint set remains the recurring-rule API from phase 06.2 plus the existing health endpoints used for operational checks.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -783,6 +797,8 @@ Phase 06.3 created no migrations. It uses the existing `recurring_rules`, `trans
 Phase 06.4 created no migrations. It uses the existing outbox retry columns, lock columns, idempotency key constraint, and recurring rule run metadata.
 
 Phase 06.5 created no migrations. It added only worker runtime settings, operational documentation, and tests against the existing recurring/outbox schema.
+
+Phase 06.V created no migrations. Verification ran Alembic `upgrade head` against disposable PostgreSQL through `202606210601_add_recurring_outbox_schema.py`.
 
 ## 11. Environment variables
 
@@ -910,6 +926,10 @@ Committed template: `server/.env.example`.
 | `OUTBOX_WORKER_LOCK_SECONDS` | Outbox event claim lease duration before stale work may be reclaimed. Defaults to `60`. |
 | `OUTBOX_WORKER_MAX_BACKOFF_SECONDS` | Maximum retry backoff delay for retryable outbox failures. Defaults to `300`. |
 | `OUTBOX_WORKER_POLL_SECONDS` | Outbox worker sleep interval between polling ticks. Defaults to `30`. |
+
+### Phase 06.V worker verification variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -1337,6 +1357,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 83 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 42 passed, 69 errors. Approved rerun passed: 111 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 06.V worker verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `recurring-worker` and clean worktree before verification edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 115 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 83 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required full server test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 42 passed, 69 errors. Approved rerun passed: 111 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && tmpdir=$(mktemp -d) && port=$(PATH="$PWD/.venv/bin:$PATH" python -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()') && initdb_bin="$(pg_config --bindir)/initdb" && pg_ctl_bin="$(pg_config --bindir)/pg_ctl" && "$initdb_bin" -D "$tmpdir/data" -A trust -U pfm_test >/dev/null && "$pg_ctl_bin" -D "$tmpdir/data" -l "$tmpdir/postgres.log" -o "-F -h 127.0.0.1 -p $port" -w start >/dev/null && DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:$port/postgres" PATH="$PWD/.venv/bin:$PATH" alembic upgrade head; exit_code=$?; "$pg_ctl_bin" -D "$tmpdir/data" -m fast -w stop >/dev/null 2>&1 || true; exit $exit_code` | FAIL in sandbox, PASS with approval | Required Alembic upgrade check against disposable PostgreSQL. Sandboxed run could not bind localhost; approved run applied all migrations through `202606210601_add_recurring_outbox_schema.py`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1373,6 +1404,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 06.3 is passed. Next allowed phase is 06.4, Retries and idempotency, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.4 is passed. Next allowed phase is 06.5, Worker operational checks, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.5 is passed. Next allowed phase is 06.V, Worker verification, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Milestone 06 is verified. Next allowed phase is 07.1, Adapter contracts, after user permission to push the `recurring-worker` branch and begin milestone 07. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1414,3 +1446,4 @@ Append a dated entry after every completed phase.
 - 2026-06-21: Phase 06.3 PostgreSQL coordinated worker passed. Added a separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claiming, atomic scheduled transaction creation, recurring rule advancement, completed-work outbox event emission, and duplicate-execution tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.4.
 - 2026-07-01: Phase 06.4 worker retries and idempotency passed. Added event-type scoped outbox processing with bounded retries, exponential backoff, terminal failure metadata, handler rollback protection, and recurring due-run duplicate suppression through deterministic outbox idempotency keys. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.5.
 - 2026-07-01: Phase 06.5 worker operational checks passed. Added local API and recurring worker run commands, typed worker environment variables, worker health and logging notes, recurring worker CLI defaults from settings, and operational integration coverage proving API readiness and worker execution against the same disposable PostgreSQL database. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.V.
+- 2026-07-01: Phase 06.V recurring worker verification passed. Verified recurring constraints, row-lock strategy, retry behavior, due-run idempotency records, worker operations documentation, full server quality suite, and Alembic upgrade to head against disposable PostgreSQL. No new endpoints or migrations were added, and the next allowed phase is 07.1 after permission to push the branch and begin milestone 07.
