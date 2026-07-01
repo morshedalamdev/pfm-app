@@ -124,7 +124,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 06 | 06.5 Worker operational checks | PASSED | phase commit created after this state update | Documented local API and worker operation, added worker runtime environment settings, and verified API readiness plus worker execution against disposable PostgreSQL. |
 | 06 | 06.V Worker verification | PASSED | verification commit created after this state update | Verified recurring/outbox schema, schedule constraints, worker row-locking, retry behavior, idempotency records, operational docs, full server quality suite, and disposable Alembic upgrade. |
 | 07 | 07.1 Adapter contracts | PASSED | phase commit created after this state update | Added storage/email adapter contracts, local filesystem and console/local implementations, key-free settings, docs, ignore rules, and unit tests. |
-| 07 | 07.2 Receipt upload | NOT_STARTED | — | — |
+| 07 | 07.2 Receipt upload | PASSED | phase commit created after this state update | Added authorized raw-byte receipt upload, metadata list/get/delete APIs, local storage-backed bytes, receipt schema migration, validation, ownership tests, and disposable migration smoke coverage. |
 | 07 | 07.3 Notifications and email | NOT_STARTED | — | — |
 | 07 | 07.4 SSE events | NOT_STARTED | — | — |
 | 07 | 07.5 Integration tests | NOT_STARTED | — | — |
@@ -555,6 +555,19 @@ Append only. Do not rewrite earlier records.
 - Added `server/tests/test_adapters.py` and extended configuration default tests for adapter settings.
 - No receipt persistence, upload endpoints, notification persistence, email worker flow, SSE endpoint, migrations, production storage provider, or production email provider was added in phase 07.1.
 
+### Phase 07.2 receipt upload inventory
+
+- Added a receipt metadata model under `server/app/modules/receipts/` with user ownership, optional transaction linkage through a composite transaction/user foreign key, local storage metadata, content type, size, checksum, soft delete timestamp, and created timestamp.
+- Added receipt cursor pagination, repository, service, schemas, and router.
+- Implemented authenticated raw-byte receipt upload at `POST /api/v1/receipts` using request body bytes plus `Content-Type`, optional `X-Receipt-Filename`, and optional `transaction_id` query parameter.
+- Implemented authenticated `GET /api/v1/receipts`, `GET /api/v1/receipts/{receipt_id}`, and `DELETE /api/v1/receipts/{receipt_id}` behavior.
+- Receipt upload validates non-empty content, maximum size, allowed content type, sanitized filename, and transaction ownership before writing bytes through the storage adapter.
+- Uploaded bytes are stored through the local storage adapter under ignored `.local/` storage roots, not in PostgreSQL blobs.
+- Added receipt migration `202607010702_add_receipt_schema.py` and Alembic metadata imports.
+- Added receipt environment settings `RECEIPT_MAX_UPLOAD_BYTES` and `RECEIPT_ALLOWED_CONTENT_TYPES`.
+- Added receipt schema and endpoint tests for model shape, migration smoke behavior, upload metadata, local storage side effects, pagination, delete, ownership, validation, and OpenAPI contract.
+- Required database-backed pytest and Alembic upgrade/downgrade/upgrade smoke checks passed on retry against disposable PostgreSQL.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -743,6 +756,8 @@ Phase 06.V added no API endpoints. Verification confirmed the milestone 06 endpo
 
 Phase 07.1 added no API endpoints. It added only infrastructure adapter contracts, local storage/email implementations, configuration, documentation, and unit tests.
 
+Phase 07.2 added receipt endpoints: `POST /api/v1/receipts`, `GET /api/v1/receipts`, `GET /api/v1/receipts/{receipt_id}`, and `DELETE /api/v1/receipts/{receipt_id}`. Upload uses authenticated raw request bytes plus `Content-Type`, optional `X-Receipt-Filename`, and optional `transaction_id` query linkage; receipt bytes are stored through the configured storage adapter outside PostgreSQL blobs.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -814,6 +829,8 @@ Phase 06.5 created no migrations. It added only worker runtime settings, operati
 Phase 06.V created no migrations. Verification ran Alembic `upgrade head` against disposable PostgreSQL through `202606210601_add_recurring_outbox_schema.py`.
 
 Phase 07.1 created no migrations. Adapter contracts and local implementations do not change the database schema.
+
+Phase 07.2 created Alembic migration `202607010702_add_receipt_schema.py` for `receipts`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -954,6 +971,13 @@ Committed template: `server/.env.example`.
 | `LOCAL_STORAGE_ROOT` | Local filesystem root for stored object bytes and metadata sidecars. Defaults to `.local/storage` and is ignored by Git. |
 | `EMAIL_BACKEND` | Email adapter backend. Defaults to `console`; `local` also keeps an in-memory copy for local tests. |
 | `EMAIL_FROM_ADDRESS` | Sender address used by local email adapters. Defaults to `no-reply@localhost`. |
+
+### Phase 07.2 receipt variables
+
+| Variable | Description |
+|---|---|
+| `RECEIPT_MAX_UPLOAD_BYTES` | Maximum accepted receipt upload size in bytes. Defaults to `5242880`. |
+| `RECEIPT_ALLOWED_CONTENT_TYPES` | JSON array of accepted receipt MIME types. Defaults to PDF, JPEG, PNG, and WebP. |
 
 ## 12. Test command registry
 
@@ -1404,6 +1428,26 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 86 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL then PASS with approval | Required test suite. First approved run found an adapter test that depended on logger capture after app logging configuration; repaired the test to assert the delivery result contract. Final approved rerun passed: 122 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 07.2 receipt upload commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `integrations-notifications` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" python -m pip install -e '.[dev,test]'` | BLOCKED | Attempted after initially adding `python-multipart` for multipart uploads; elevated approval was rejected because the environment reported the usage limit was reached. The dependency was removed and the upload endpoint was implemented as raw-byte upload without new runtime dependencies. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 129 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 93 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_receipts_schema.py::test_receipt_model_schema tests/test_adapters.py` | PASS | DB-free focused coverage passed: 12 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_receipts.py tests/test_receipts_schema.py` | BLOCKED | Required focused receipt database tests could not run because elevated approval for disposable PostgreSQL localhost binding was rejected by the environment usage limit. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | NOT RUN / BLOCKED | Required full test suite needs disposable PostgreSQL localhost binding; approval is unavailable due the environment usage limit. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | NOT RUN / BLOCKED | Required migration check needs disposable PostgreSQL; approval is unavailable due the environment usage limit. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | NOT RUN / BLOCKED | Required migration check needs disposable PostgreSQL; approval is unavailable due the environment usage limit. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | NOT RUN / BLOCKED | Required final migration check needs disposable PostgreSQL; approval is unavailable due the environment usage limit. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full test suite passed on retry against disposable PostgreSQL: 128 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Required migration upgrade check passed on retry against disposable PostgreSQL, applying all migrations through `202607010702_add_receipt_schema.py`. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | PASS with approval | Required migration downgrade check passed on retry, downgrading from `202607010702` to `202606210601`. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Required final migration upgrade check passed on retry, upgrading from `202606210601` back to `202607010702`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1442,6 +1486,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 06.5 is passed. Next allowed phase is 06.V, Worker verification, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Milestone 06 is verified. Next allowed phase is 07.1, Adapter contracts, after user permission to push the `recurring-worker` branch and begin milestone 07. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 07.1 is passed. Next allowed phase is 07.2, Receipt upload, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 07.2 is passed. Next allowed phase is 07.3, Notifications and email, after user permission.
 
 ## 14. Progress log
 
@@ -1485,3 +1530,5 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 06.5 worker operational checks passed. Added local API and recurring worker run commands, typed worker environment variables, worker health and logging notes, recurring worker CLI defaults from settings, and operational integration coverage proving API readiness and worker execution against the same disposable PostgreSQL database. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.V.
 - 2026-07-01: Phase 06.V recurring worker verification passed. Verified recurring constraints, row-lock strategy, retry behavior, due-run idempotency records, worker operations documentation, full server quality suite, and Alembic upgrade to head against disposable PostgreSQL. No new endpoints or migrations were added, and the next allowed phase is 07.1 after permission to push the branch and begin milestone 07.
 - 2026-07-01: Phase 07.1 adapter contracts passed. Added storage and email adapter contracts, local filesystem storage, console/local email implementations, key-free adapter settings, Git ignore rules for local storage artifacts, provider extension documentation, and adapter unit tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 07.2.
+- 2026-07-01: Phase 07.2 receipt upload blocked. Implemented receipt metadata schema, raw-byte authorized upload behavior, local storage adapter usage, metadata list/get/delete behavior, validation, migration, and tests in the working tree. Static checks and DB-free focused tests passed, but required database-backed pytest and Alembic checks could not run because elevated approval was rejected by the environment usage limit; no local phase commit was created.
+- 2026-07-01: Phase 07.2 receipt upload passed on retry. Required full pytest and Alembic upgrade/downgrade/upgrade smoke checks passed against disposable PostgreSQL, confirming receipt migration, storage, validation, and ownership coverage. A local phase commit is being created, and the next allowed phase is 07.3.

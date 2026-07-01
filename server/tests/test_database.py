@@ -33,6 +33,13 @@ def test_database_settings_defaults_are_safe_local_values() -> None:
     assert settings.local_storage_root == ".local/storage"
     assert settings.email_backend == "console"
     assert settings.email_from_address == "no-reply@localhost"
+    assert settings.receipt_max_upload_bytes == 5 * 1024 * 1024
+    assert settings.receipt_allowed_content_types == [
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    ]
 
 
 def test_base_metadata_uses_naming_convention() -> None:

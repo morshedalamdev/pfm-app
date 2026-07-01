@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     local_storage_root: str = ".local/storage"
     email_backend: Literal["console", "local"] = "console"
     email_from_address: str = "no-reply@localhost"
+    receipt_max_upload_bytes: int = Field(default=5 * 1024 * 1024, gt=0)
+    receipt_allowed_content_types: list[str] = Field(
+        default_factory=lambda: [
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+        ]
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
