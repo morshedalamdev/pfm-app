@@ -120,7 +120,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 06 | 06.1 Recurring and outbox schema | PASSED | phase commit created after this state update | Added recurring rule and durable outbox persistence, worker coordination fields, migration, schema tests, and recurrence limitations documentation. |
 | 06 | 06.2 Scheduling rules | PASSED | phase commit created after this state update | Added recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic UTC schedule calculation, ownership validation, and tests. |
 | 06 | 06.3 Worker process | PASSED | phase commit created after this state update | Added separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claims, atomic scheduled transaction creation, outbox emission, rule advancement, and duplicate-execution tests. |
-| 06 | 06.4 Retry and idempotency | NOT_STARTED | — | — |
+| 06 | 06.4 Retry and idempotency | PASSED | phase commit created after this state update | Added outbox retry/backoff processing, terminal failure metadata, event-type scoped claims, and recurring due-run idempotency protections. |
 | 06 | 06.5 Worker tests | NOT_STARTED | — | — |
 | 06 | 06.V Worker verification | NOT_STARTED | — | — |
 | 07 | 07.1 Adapter contracts | NOT_STARTED | — | — |
@@ -513,6 +513,15 @@ Append only. Do not rewrite earlier records.
 - Added `server/tests/test_recurring_worker.py` proving `SKIP LOCKED` prevents a second worker from claiming a currently locked due rule and concurrent worker executions create only one scheduled transaction for the same due rule.
 - No API endpoints, migrations, retry backoff, terminal failure handling, outbox processing, frontend integration, or operational documentation was added in phase 06.3.
 
+### Phase 06.4 worker retry and idempotency inventory
+
+- Added `server/app/workers/outbox.py` with `OutboxWorker`, event-type scoped PostgreSQL claims, bounded attempts, exponential `available_at` backoff, processing success handling, retryable failure handling, terminal `failed` state, lock cleanup, and exception metadata capture.
+- Extended `server/app/modules/outbox/repositories.py` with outbox lookup by event idempotency key, locked event lookup, and `FOR UPDATE SKIP LOCKED` claiming for pending or expired-processing events.
+- Hardened `server/app/workers/recurring.py` so recurring due-run transaction creation is idempotent by checking the deterministic `recurring.transaction.created` outbox idempotency key before inserting a transaction. Stale due rules with an existing due-run event are advanced without creating duplicate source records.
+- Extended `server/tests/test_recurring_worker.py` with failure-injection coverage for handler rollback, retry backoff, retry success, duplicate due-run suppression, event-type scoped claims, and terminal failure metadata.
+- Updated `docs/architecture/SYSTEM_DESIGN.md` with worker retry semantics and operational recovery steps for failed outbox rows, stale locks, manual requeue, and duplicate due-run evidence.
+- No API endpoints, migrations, new environment variables, frontend integration, notification/email adapters, or production deployment commands were added in phase 06.4.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -693,6 +702,8 @@ Phase 06.2 added recurring rule endpoints: `POST /api/v1/recurring-rules`, `GET 
 
 Phase 06.3 added no API endpoints. It added a separate recurring worker process path under `server/app/workers/recurring.py`.
 
+Phase 06.4 added no API endpoints. It hardened the existing recurring worker path and added an outbox worker module for processing durable side-effect events.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -756,6 +767,8 @@ Phase 06.1 created Alembic migration `202606210601_add_recurring_outbox_schema.p
 Phase 06.2 created no migrations. It uses the existing recurring and outbox schema from migration `202606210601`.
 
 Phase 06.3 created no migrations. It uses the existing `recurring_rules`, `transactions`, and `outbox_events` tables.
+
+Phase 06.4 created no migrations. It uses the existing outbox retry columns, lock columns, idempotency key constraint, and recurring rule run metadata.
 
 ## 11. Environment variables
 
@@ -867,6 +880,10 @@ Committed template: `server/.env.example`.
 ### Phase 06.3 recurring worker variables
 
 - No new environment variables were added. The worker uses the existing application database settings.
+
+### Phase 06.4 worker retry variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -1271,6 +1288,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 82 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 40 passed, 66 errors. Approved rerun passed: 106 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 06.4 worker retry and idempotency commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `recurring-worker` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_recurring_worker.py` | FAIL in sandbox, PASS after repair with approval | Focused worker failure/idempotency tests. Sandboxed run could not bind localhost for disposable PostgreSQL; approved run exposed that a generic outbox worker should be event-type scoped when handlers are specific. After repair, focused tests passed: 4 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 115 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 83 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 40 passed, 68 errors. Approved rerun passed: 108 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1305,6 +1333,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 06.1 is passed. Next allowed phase is 06.2, Scheduling rules, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.2 is passed. Next allowed phase is 06.3, Worker process, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.3 is passed. Next allowed phase is 06.4, Retries and idempotency, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 06.4 is passed. Next allowed phase is 06.5, Worker operational checks, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1344,3 +1373,4 @@ Append a dated entry after every completed phase.
 - 2026-06-21: Phase 06.1 recurring and outbox schema passed. Added recurring income/expense rule persistence, durable outbox event persistence, worker locking and idempotency fields, migration `202606210601`, schema/migration tests, and recurrence limitation documentation. Required Ruff, mypy, pytest, and Alembic upgrade/downgrade/upgrade checks passed, and the next allowed phase is 06.2.
 - 2026-06-21: Phase 06.2 recurring schedule rules passed. Added authenticated recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic daily/weekly/monthly/yearly next-run calculation with UTC normalization and timezone-aware month-end handling, ownership/reference validation, OpenAPI coverage, and integration tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.3.
 - 2026-06-21: Phase 06.3 PostgreSQL coordinated worker passed. Added a separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claiming, atomic scheduled transaction creation, recurring rule advancement, completed-work outbox event emission, and duplicate-execution tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.4.
+- 2026-07-01: Phase 06.4 worker retries and idempotency passed. Added event-type scoped outbox processing with bounded retries, exponential backoff, terminal failure metadata, handler rollback protection, and recurring due-run duplicate suppression through deterministic outbox idempotency keys. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.5.

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from alembic import command
 from app.core.config import Settings
@@ -26,7 +27,12 @@ from app.main import create_app
 from app.modules.outbox.models import OutboxEvent
 from app.modules.recurring.models import RecurringRule
 from app.modules.transactions.models import Transaction
-from app.workers.recurring import RecurringWorker, claim_due_recurring_rules
+from app.workers.outbox import OutboxEventHandler, OutboxWorker, OutboxWorkerResult
+from app.workers.recurring import (
+    RecurringWorker,
+    RecurringWorkerResult,
+    claim_due_recurring_rules,
+)
 
 
 @dataclass(frozen=True)
@@ -225,6 +231,149 @@ def test_recurring_worker_concurrent_runs_create_one_transaction(
     assert outbox.payload["recurring_rule_id"] == rule["id"]
     assert outbox.payload["transaction_id"] == str(transaction.id)
 
+    duplicate_result = asyncio.run(reset_rule_and_rerun_worker(context, rule["id"]))
+    assert duplicate_result.claimed == 1
+    assert duplicate_result.created == 0
+    assert duplicate_result.skipped == 1
+
+    duplicate_count, duplicate_rule, duplicate_outbox_count = asyncio.run(
+        load_duplicate_effects(context, account["id"], rule["id"])
+    )
+    assert duplicate_count == 1
+    assert duplicate_rule.run_count == 1
+    assert duplicate_rule.next_run_at == datetime(2026, 2, 28, 14, tzinfo=UTC)
+    assert duplicate_outbox_count == 1
+
+
+def test_outbox_worker_retries_with_rollback_then_processes(
+    worker_context: WorkerTestContext,
+) -> None:
+    context = worker_context
+    now = datetime(2026, 3, 1, tzinfo=UTC)
+    event_id = asyncio.run(
+        create_outbox_event(
+            context,
+            event_type="test.rollback",
+            idempotency_key="rollback-retry",
+            now=now,
+            max_attempts=3,
+        )
+    )
+
+    async def failing_handler(session: AsyncSession, event: OutboxEvent) -> None:
+        session.add(
+            OutboxEvent(
+                event_type="test.rollback.marker",
+                idempotency_key=f"marker-{event.id}",
+                payload={},
+                status="pending",
+                available_at=now,
+            )
+        )
+        raise RuntimeError("simulated side effect failure")
+
+    first_result = asyncio.run(
+        run_outbox_worker(
+            context,
+            failing_handler,
+            now=now,
+            worker_id="retry-one",
+            event_type="test.rollback",
+        )
+    )
+    assert first_result.claimed == 1
+    assert first_result.processed == 0
+    assert first_result.retried == 1
+    assert first_result.failed == 0
+
+    first_event = asyncio.run(load_outbox_event(context, event_id))
+    assert first_event.status == "pending"
+    assert first_event.attempts == 1
+    assert first_event.available_at == now + timedelta(seconds=1)
+    assert first_event.error_type == "RuntimeError"
+    assert first_event.error_message == "simulated side effect failure"
+    assert first_event.locked_by is None
+    assert asyncio.run(count_outbox_events(context, "test.rollback.marker")) == 0
+
+    async def successful_handler(session: AsyncSession, event: OutboxEvent) -> None:
+        return None
+
+    second_result = asyncio.run(
+        run_outbox_worker(
+            context,
+            successful_handler,
+            now=now + timedelta(seconds=1),
+            worker_id="retry-two",
+            event_type="test.rollback",
+        )
+    )
+    assert second_result.claimed == 1
+    assert second_result.processed == 1
+    assert second_result.retried == 0
+    assert second_result.failed == 0
+
+    second_event = asyncio.run(load_outbox_event(context, event_id))
+    assert second_event.status == "processed"
+    assert second_event.attempts == 2
+    assert second_event.processed_at == now + timedelta(seconds=1)
+    assert second_event.error_type is None
+    assert second_event.error_message is None
+    assert second_event.locked_until is None
+
+
+def test_outbox_worker_terminal_failure_after_bounded_retries(
+    worker_context: WorkerTestContext,
+) -> None:
+    context = worker_context
+    now = datetime(2026, 4, 1, tzinfo=UTC)
+    event_id = asyncio.run(
+        create_outbox_event(
+            context,
+            event_type="test.terminal",
+            idempotency_key="terminal-failure",
+            now=now,
+            max_attempts=2,
+        )
+    )
+
+    async def failing_handler(session: AsyncSession, event: OutboxEvent) -> None:
+        raise ValueError("permanent failure")
+
+    first_result = asyncio.run(
+        run_outbox_worker(
+            context,
+            failing_handler,
+            now=now,
+            worker_id="terminal-one",
+            event_type="test.terminal",
+        )
+    )
+    assert first_result.retried == 1
+    assert first_result.failed == 0
+
+    second_result = asyncio.run(
+        run_outbox_worker(
+            context,
+            failing_handler,
+            now=now + timedelta(seconds=1),
+            worker_id="terminal-two",
+            event_type="test.terminal",
+        )
+    )
+    assert second_result.claimed == 1
+    assert second_result.processed == 0
+    assert second_result.retried == 0
+    assert second_result.failed == 1
+
+    event = asyncio.run(load_outbox_event(context, event_id))
+    assert event.status == "failed"
+    assert event.attempts == 2
+    assert event.available_at == now + timedelta(seconds=1)
+    assert event.error_type == "ValueError"
+    assert event.error_message == "permanent failure"
+    assert event.locked_by is None
+    assert event.locked_until is None
+
 
 def auth_headers(context: WorkerTestContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
@@ -257,6 +406,148 @@ def create_account(
     )
     assert response.status_code == 201
     return dict(response.json())
+
+
+async def reset_rule_and_rerun_worker(
+    context: WorkerTestContext,
+    rule_id: object,
+) -> RecurringWorkerResult:
+    worker_engine = build_async_engine(context.database_url)
+    worker_session_factory = build_session_factory(worker_engine)
+    try:
+        async with worker_session_factory() as session:
+            rule_result = await session.execute(
+                select(RecurringRule).where(RecurringRule.id == rule_id)
+            )
+            rule = rule_result.scalar_one()
+            rule.next_run_at = rule.last_run_at
+            rule.status = "active"
+            rule.archived_at = None
+            await session.commit()
+
+        worker = RecurringWorker(
+            worker_session_factory,
+            worker_id="duplicate-worker",
+            batch_size=10,
+        )
+        return await worker.run_once(now=datetime(2026, 2, 1, 15, tzinfo=UTC))
+    finally:
+        await worker_engine.dispose()
+
+
+async def load_duplicate_effects(
+    context: WorkerTestContext,
+    account_id: object,
+    rule_id: object,
+) -> tuple[int, RecurringRule, int]:
+    worker_engine = build_async_engine(context.database_url)
+    worker_session_factory = build_session_factory(worker_engine)
+    try:
+        async with worker_session_factory() as session:
+            transaction_count_result = await session.execute(
+                select(func.count(Transaction.id)).where(
+                    Transaction.account_id == account_id
+                )
+            )
+            rule_result = await session.execute(
+                select(RecurringRule).where(RecurringRule.id == rule_id)
+            )
+            outbox_count_result = await session.execute(
+                select(func.count(OutboxEvent.id)).where(
+                    OutboxEvent.event_type == "recurring.transaction.created",
+                    OutboxEvent.payload["recurring_rule_id"].astext == str(rule_id),
+                )
+            )
+            return (
+                int(transaction_count_result.scalar_one()),
+                rule_result.scalar_one(),
+                int(outbox_count_result.scalar_one()),
+            )
+    finally:
+        await worker_engine.dispose()
+
+
+async def create_outbox_event(
+    context: WorkerTestContext,
+    *,
+    event_type: str,
+    idempotency_key: str,
+    now: datetime,
+    max_attempts: int,
+) -> uuid.UUID:
+    worker_engine = build_async_engine(context.database_url)
+    worker_session_factory = build_session_factory(worker_engine)
+    try:
+        async with worker_session_factory() as session:
+            event = OutboxEvent(
+                event_type=event_type,
+                idempotency_key=idempotency_key,
+                payload={},
+                status="pending",
+                max_attempts=max_attempts,
+                available_at=now,
+            )
+            session.add(event)
+            await session.flush()
+            event_id = event.id
+            await session.commit()
+            return event_id
+    finally:
+        await worker_engine.dispose()
+
+
+async def run_outbox_worker(
+    context: WorkerTestContext,
+    handler: OutboxEventHandler,
+    *,
+    now: datetime,
+    worker_id: str,
+    event_type: str,
+) -> OutboxWorkerResult:
+    worker_engine = build_async_engine(context.database_url)
+    worker_session_factory = build_session_factory(worker_engine)
+    try:
+        worker = OutboxWorker(
+            worker_session_factory,
+            handler=handler,
+            worker_id=worker_id,
+            batch_size=10,
+            event_types={event_type},
+        )
+        return await worker.run_once(now=now)
+    finally:
+        await worker_engine.dispose()
+
+
+async def load_outbox_event(
+    context: WorkerTestContext,
+    event_id: object,
+) -> OutboxEvent:
+    worker_engine = build_async_engine(context.database_url)
+    worker_session_factory = build_session_factory(worker_engine)
+    try:
+        async with worker_session_factory() as session:
+            result = await session.execute(
+                select(OutboxEvent).where(OutboxEvent.id == event_id)
+            )
+            return result.scalar_one()
+    finally:
+        await worker_engine.dispose()
+
+
+async def count_outbox_events(context: WorkerTestContext, event_type: str) -> int:
+    worker_engine = build_async_engine(context.database_url)
+    worker_session_factory = build_session_factory(worker_engine)
+    try:
+        async with worker_session_factory() as session:
+            result = await session.execute(
+                select(func.count(OutboxEvent.id)).where(
+                    OutboxEvent.event_type == event_type
+                )
+            )
+            return int(result.scalar_one())
+    finally:
+        await worker_engine.dispose()
 
 
 def create_category(

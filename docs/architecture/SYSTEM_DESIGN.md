@@ -74,6 +74,8 @@ sequenceDiagram
 
 Recurring transactions, notification delivery, receipt processing, and other deferred or retryable work belong in a separate worker path. Durable scheduled work should not run inside request handlers.
 
+Phase 06.4 hardens the worker path with PostgreSQL-backed retries. Outbox processing claims `pending` or expired `processing` rows with `FOR UPDATE SKIP LOCKED`, increments the attempt count when work is claimed, rolls back handler writes on failure, and then records either a retryable `pending` row with exponential `available_at` backoff or a terminal `failed` row once `attempts >= max_attempts`. Error metadata records the exception type and message, and locks are cleared after success, retry scheduling, or terminal failure.
+
 ## Authentication Flow
 
 ```mermaid
@@ -234,6 +236,10 @@ The intentional MVP limitations are: recurring templates create only income or e
 `outbox_events` stores durable side-effect work with `event_type`, optional user and aggregate references, JSONB payload, unique event idempotency key, status, attempt counters, availability time, processed time, error metadata, and worker lock fields. Workers should claim pending rows with PostgreSQL row locking in later phases and use the event type plus idempotency key to avoid duplicate side effects.
 
 Phase 06.2 implements authenticated recurring-rule CRUD under `/api/v1/recurring-rules`, including list, retrieve, update, pause, resume, and archive behavior. Schedule calculation is deterministic from `start_at`, `frequency`, `interval_count`, and `timezone`; API timestamps are normalized to UTC, while monthly and yearly recurrence preserve the original local wall-clock time and clamp month-end days when the target month is shorter. Archived rules are hidden from the default list and cannot be updated, paused, or resumed. Worker execution and transaction creation from due rules remain later milestone 06 work.
+
+Phase 06.3 adds a separately runnable recurring worker that claims due active rules with PostgreSQL `FOR UPDATE SKIP LOCKED`, creates the due income or expense source transaction, advances the recurring rule, and emits `recurring.transaction.created` outbox events in one database transaction. Phase 06.4 makes due-run creation idempotent by checking the deterministic outbox idempotency key (`recurring-rule:{rule_id}:due-at:{timestamp}`) before inserting another transaction; if a stale due rule is retried after the event exists, the worker advances the rule without creating duplicate source records.
+
+Operational recovery for recurring and outbox work should start with `outbox_events` rows where `status='failed'` or `status='pending' AND available_at <= now()`, then inspect `event_type`, `idempotency_key`, `attempts`, `max_attempts`, `error_type`, and `error_message`. Stale worker claims can be identified with `locked_until < now()` on either `recurring_rules` or `outbox_events`; workers are allowed to reclaim expired locks. Manual requeue should set an outbox event back to `pending`, clear lock fields, and set `available_at` to a deliberate retry time after the underlying adapter or data issue is corrected.
 
 ## Transaction Flow
 

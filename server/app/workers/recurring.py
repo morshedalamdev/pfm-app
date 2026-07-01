@@ -33,6 +33,7 @@ DEFAULT_POLL_SECONDS = 30.0
 class RecurringWorkerResult:
     claimed: int
     created: int
+    skipped: int
 
 
 class RecurringWorker:
@@ -63,19 +64,27 @@ class RecurringWorker:
             try:
                 transactions = TransactionRepository(session)
                 outbox = OutboxEventRepository(session)
+                skipped = 0
                 for rule in claimed_rules:
-                    await process_claimed_rule(
+                    transaction = await process_claimed_rule(
                         rule,
                         now=effective_now,
                         transactions=transactions,
                         outbox=outbox,
                     )
-                    created += 1
+                    if transaction is None:
+                        skipped += 1
+                    else:
+                        created += 1
                 await session.commit()
             except Exception:
                 await session.rollback()
                 raise
-        return RecurringWorkerResult(claimed=len(claimed_rules), created=created)
+        return RecurringWorkerResult(
+            claimed=len(claimed_rules),
+            created=created,
+            skipped=skipped,
+        )
 
     async def poll_forever(
         self,
@@ -90,6 +99,7 @@ class RecurringWorker:
                     "worker_id": self.worker_id,
                     "claimed": result.claimed,
                     "created": result.created,
+                    "skipped": result.skipped,
                 },
             )
             await asyncio.sleep(poll_seconds)
@@ -135,9 +145,17 @@ async def process_claimed_rule(
     now: datetime,
     transactions: TransactionRepository,
     outbox: OutboxEventRepository,
-) -> Transaction:
+) -> Transaction | None:
     due_at = normalize_utc(rule.next_run_at)
     run_key = build_run_key(rule, due_at)
+    existing_event = await outbox.get_by_event_key(
+        event_type="recurring.transaction.created",
+        idempotency_key=run_key,
+    )
+    if existing_event is not None:
+        advance_rule_after_success(rule, due_at=due_at, run_key=run_key, now=now)
+        return None
+
     transaction = Transaction(
         user_id=rule.user_id,
         account_id=rule.account_id,
@@ -149,29 +167,7 @@ async def process_claimed_rule(
         description=rule.description,
     )
     await transactions.create(transaction)
-    next_run_at = calculate_next_run_after(
-        start_at=rule.start_at,
-        frequency=rule.frequency,
-        interval_count=rule.interval_count,
-        timezone=rule.timezone,
-        after_at=due_at,
-    )
-    if rule.end_at is not None and next_run_at >= normalize_utc(rule.end_at):
-        rule.status = "archived"
-        rule.archived_at = now
-    else:
-        validate_schedule_bounds(
-            start_at=rule.start_at,
-            end_at=rule.end_at,
-            next_run_at=next_run_at,
-        )
-        rule.next_run_at = next_run_at
-    rule.last_run_at = due_at
-    rule.last_run_key = run_key
-    rule.run_count += 1
-    rule.locked_by = None
-    rule.locked_at = None
-    rule.locked_until = None
+    advance_rule_after_success(rule, due_at=due_at, run_key=run_key, now=now)
 
     await outbox.create(
         OutboxEvent(
@@ -190,6 +186,43 @@ async def process_claimed_rule(
         )
     )
     return transaction
+
+
+def advance_rule_after_success(
+    rule: RecurringRule,
+    *,
+    due_at: datetime,
+    run_key: str,
+    now: datetime,
+) -> None:
+    next_run_at = calculate_next_run_after(
+        start_at=rule.start_at,
+        frequency=rule.frequency,
+        interval_count=rule.interval_count,
+        timezone=rule.timezone,
+        after_at=due_at,
+    )
+    if rule.end_at is not None and next_run_at >= normalize_utc(rule.end_at):
+        rule.status = "archived"
+        rule.archived_at = now
+    else:
+        validate_schedule_bounds(
+            start_at=rule.start_at,
+            end_at=rule.end_at,
+            next_run_at=next_run_at,
+        )
+        rule.next_run_at = next_run_at
+    rule.last_run_at = due_at
+    if rule.last_run_key != run_key:
+        rule.last_run_key = run_key
+        rule.run_count += 1
+    clear_rule_lock(rule)
+
+
+def clear_rule_lock(rule: RecurringRule) -> None:
+    rule.locked_by = None
+    rule.locked_at = None
+    rule.locked_until = None
 
 
 def build_run_key(rule: RecurringRule, due_at: datetime) -> str:
