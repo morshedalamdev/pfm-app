@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth/tokenStorage";
 import type { components, paths } from "@/generated/api-types";
 
-type ApiPath = keyof paths;
+export type ApiPath = keyof paths;
 type RefreshRequest = components["schemas"]["RefreshTokenRequest"];
 type RefreshResponse = components["schemas"]["AccessTokenResponse"];
 
@@ -82,6 +82,31 @@ export async function apiPost<TBody, TResponse>(
 ): Promise<TResponse> {
   try {
     const response = await apiClient.post(path, body, config);
+    return response.data;
+  } catch (error) {
+    throw mapApiError(error);
+  }
+}
+
+export async function apiPatch<TBody, TResponse>(
+  path: ApiPath,
+  body: TBody,
+  config?: AxiosRequestConfig,
+): Promise<TResponse> {
+  try {
+    const response = await apiClient.patch(path, body, config);
+    return response.data;
+  } catch (error) {
+    throw mapApiError(error);
+  }
+}
+
+export async function apiDelete<TResponse>(
+  path: ApiPath,
+  config?: AxiosRequestConfig,
+): Promise<TResponse> {
+  try {
+    const response = await apiClient.delete(path, config);
     return response.data;
   } catch (error) {
     throw mapApiError(error);

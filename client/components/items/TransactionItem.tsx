@@ -24,8 +24,11 @@ type TransactionItemProps = {
   amount: number;
   category: string;
   date: string;
+  deleteError?: string | null;
   editHref?: string;
+  isDeleting?: boolean;
   note: string;
+  onDelete?: () => void;
   recurringLabel?: string;
   transactionDate?: string;
   type: string;
@@ -35,8 +38,11 @@ export default function TransactionItem({
   amount,
   category,
   date,
+  deleteError,
   editHref = "/transaction/edit",
+  isDeleting = false,
   note,
+  onDelete,
   recurringLabel = "Daily",
   transactionDate = "12/01/2026",
   type,
@@ -117,10 +123,17 @@ export default function TransactionItem({
               </AlertDialogTitle>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction>Delete</AlertDialogAction>
+                <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          {deleteError && (
+            <p className="text-destructive text-sm text-center">
+              {deleteError}
+            </p>
+          )}
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

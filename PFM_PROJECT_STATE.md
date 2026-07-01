@@ -132,7 +132,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 08 | 08.1 Generated API contract | PASSED | phase commit created after this state update | Added stable FastAPI OpenAPI export, committed generated frontend OpenAPI JSON and TypeScript contracts, and added API contract generation/drift-check scripts. |
 | 08 | 08.2 Frontend API and auth layer | PASSED | phase commit created after this state update | Added typed frontend API base layer, auth token/session store, login/register/logout integration, refresh behavior, and protected dashboard route guard. |
 | 08 | 08.3 Dashboard integration | PASSED | phase commit created after this state update | Replaced dashboard summary, chart, recent transaction, and unread notification indicator fixtures with typed server-backed queries plus loading, empty, error, and retry states. |
-| 08 | 08.4 CRUD screen integration | NOT_STARTED | — | — |
+| 08 | 08.4 CRUD screen integration | PASSED | phase commit created after this state update | Connected transaction, transfer, recurring, budget, savings, account selector, and category selector/list surfaces to typed server API calls with loading, empty, error, retry, idempotency, and mutation states. |
 | 08 | 08.5 Loading and error states | NOT_STARTED | — | — |
 | 08 | 08.6 Responsive and E2E checks | NOT_STARTED | — | — |
 | 08 | 08.V Frontend verification | NOT_STARTED | — | — |
@@ -643,6 +643,21 @@ Append only. Do not rewrite earlier records.
 - Browser smoke-tested the dashboard at mobile `390x844` and desktop `1280x800` against a local stub API that authenticated `/users/me`, returned an unread count, and forced dashboard data endpoints to return backend errors. The smoke confirmed visible retry/error states, unread badge rendering, and no horizontal overflow at desktop width.
 - No backend endpoint behavior, migrations, environment variables, finance CRUD screen integration, analytics screen integration, receipt UI, notification list UI, or SSE subscription behavior was added in phase 08.3.
 
+### Phase 08.4 CRUD screen integration inventory
+
+- Added `client/lib/finance/api.ts` and `client/lib/finance/format.ts` to centralize typed finance API calls, dynamic `/api/v1` paths, idempotency-key generation, decimal formatting, month bounds, and date serialization.
+- Extended `client/lib/api/client.ts` with typed `apiPatch` and `apiDelete` helpers so existing CRUD screens can use the same auth refresh and error-mapping path as GET/POST requests.
+- Connected `client/app/(dashboard)/transaction/page.tsx` to server-backed transaction, account, and category data with search, duration/date/type filters, grouped live rows, delete mutation behavior, loading, empty, error, and retry states.
+- Connected `client/app/(dashboard)/transaction/[id]/page.tsx` to account and category selectors, transaction create/update, transfer create, and recurring-rule create flows. One-time transaction and transfer creates send `Idempotency-Key` headers through the finance API helper.
+- Relaxed `TransactionInput` props and wired `FilterMenu` and `DateFilter` for controlled usage while preserving existing component layout and compatible default behavior.
+- Updated `TransactionItem`, `BudgetItem`, and `SavingsItem` to accept live record props and mutation callbacks for edit links, deletes, savings contributions, and progress display.
+- Connected `client/app/(dashboard)/budget/page.tsx` to `GET /api/v1/budgets?month=YYYY-MM`, live progress totals, delete behavior, month selection, loading, empty, error, and retry states.
+- Connected `client/app/(dashboard)/budget/setup/page.tsx` to expense category lists and `POST /api/v1/budgets` for monthly category budget creation while retaining the existing default/custom tab layout.
+- Connected `client/app/(dashboard)/savings/page.tsx` to savings goal list filters, progress totals, contribution creation, delete/archive behavior, loading, empty, error, and retry states.
+- Connected `client/app/(dashboard)/savings/[id]/page.tsx` to savings goal create/update behavior with target amount, monthly target, note, and target date fields.
+- Existing receipt upload/list UI and notification list/read UI surfaces were not present in `client/`; no new receipt or notification route was invented in this phase. The existing notification unread badge remains connected from phase 08.3.
+- No backend endpoint behavior, migrations, environment variables, analytics screen integration, loan screen integration, SSE subscription behavior, or new UI redesign was added in phase 08.4.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -735,6 +750,14 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 - Dashboard recent transactions now consume `GET /api/v1/transactions?limit=6` and hydrate visible category labels through `GET /api/v1/categories?limit=200`.
 - The footer profile/more control now consumes `GET /api/v1/notifications/unread-count` for a live unread badge indicator.
 - The dashboard has section-level skeletons, empty recent-transaction state, zero-activity chart copy, and independent retry/error states for report/chart and recent transaction failures.
+
+### Phase 08.4 CRUD integration update
+
+- Transaction list and form surfaces now consume `GET/POST/PATCH/DELETE /api/v1/transactions`, `POST /api/v1/transactions/transfers`, `GET /api/v1/accounts`, `GET /api/v1/categories`, and `POST /api/v1/recurring-rules`.
+- Budget list/setup surfaces now consume `GET/POST/DELETE /api/v1/budgets` and `GET /api/v1/categories?kind=expense`.
+- Savings goal list/detail surfaces now consume `GET/POST/PATCH/DELETE /api/v1/savings-goals` and `POST /api/v1/savings-goals/{goal_id}/contributions`.
+- Existing CRUD screens now use server data for account/category selectors, transaction rows/forms, transfers, recurring templates, budget progress/setup, savings goals, and savings contributions.
+- Receipt upload/list and notification list/read actions remain deferred because no visible existing UI surface for them is present beyond the already connected unread-count badge.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -867,6 +890,8 @@ Phase 08.2 added no backend endpoints. The frontend auth layer now consumes the 
 
 Phase 08.3 added no backend endpoints. The frontend dashboard now consumes the existing `GET /api/v1/reports/dashboard`, `GET /api/v1/transactions?limit=6`, `GET /api/v1/categories?limit=200`, and `GET /api/v1/notifications/unread-count` endpoints.
 
+Phase 08.4 added no backend endpoints. The frontend CRUD screens now consume the existing account, category, transaction, transfer, recurring-rule, budget, savings-goal, and savings-contribution endpoints from milestones 03, 04, and 06.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -954,6 +979,8 @@ Phase 08.1 created no migrations. It only exported the existing OpenAPI schema a
 Phase 08.2 created no migrations.
 
 Phase 08.3 created no migrations.
+
+Phase 08.4 created no migrations.
 
 ## 11. Environment variables
 
@@ -1129,6 +1156,10 @@ Committed template: `server/.env.example`.
 | `NEXT_PUBLIC_API_BASE_URL` | Browser-visible FastAPI origin used by the frontend Axios client. `client/.env.example` defaults to `http://localhost:8000`; an empty value falls back to same-origin requests. |
 
 ### Phase 08.3 dashboard integration variables
+
+- No new environment variables were added.
+
+### Phase 08.4 CRUD screen integration variables
 
 - No new environment variables were added.
 
@@ -1704,6 +1735,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787 npm run dev -- --hostname 127.0.0.1 --port 3000` | FAIL in sandbox, PASS with approval | Browser smoke setup. Sandboxed local bind to `127.0.0.1:3000` was blocked; approved Next dev server started for in-app browser checks. |
 | In-app browser smoke at `390x844` and `1280x800` against the local stub API | PASS | Mobile smoke confirmed dashboard backend error text, retry controls, and unread-count badge. Desktop smoke confirmed the same error/retry state and no horizontal overflow. Temporary viewport was reset and local servers were stopped. |
 
+### Phase 08.4 CRUD screen integration commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `frontend-integration` and inspected the existing uncommitted 08.4 retry worktree before checks. |
+| `cd client && npx tsc --noEmit` | PASS / diagnostic only | Verified the 08.4 CRUD wiring and the `TransactionInput` prop relaxation are type-clean. This command is not part of the phase required checks and `next.config.ts` still skips TypeScript validation during build. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Required build check. Sandboxed run failed fetching Google Fonts Urbanist from `fonts.googleapis.com`; approved network rerun passed. Next.js still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1750,6 +1791,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 08.1 is passed. Next allowed phase is 08.2, Frontend API and auth layer, after user permission.
 - Phase 08.2 is passed. Next allowed phase is 08.3, Dashboard integration, after user permission.
 - Phase 08.3 is passed. Next allowed phase is 08.4, CRUD screen integration, after user permission.
+- Phase 08.4 is passed. Next allowed phase is 08.5, Fixture removal and resilience states, after user permission.
 
 ## 14. Progress log
 
@@ -1803,3 +1845,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 08.1 generated API contract passed. Added stable FastAPI OpenAPI export, generated and committed frontend OpenAPI JSON plus TypeScript API contracts with `openapi-typescript`, added contract drift checking for CI, ran required backend and frontend checks, and set the next allowed phase to 08.2.
 - 2026-07-01: Phase 08.2 frontend API and auth layer passed. Added the typed Axios API foundation, API error mapping, JSON-token auth store, protected dashboard guard, real login/register/logout flows, frontend API environment template, and required frontend checks; set the next allowed phase to 08.3.
 - 2026-07-01: Phase 08.3 dashboard integration passed. Replaced dashboard fixture summary cards, RootChart arrays, and recent transactions with server-backed dashboard report, transaction, category, and unread notification count queries; added loading, empty, error, retry, and responsive smoke coverage; set the next allowed phase to 08.4.
+- 2026-07-02: Phase 08.4 CRUD screen integration passed on retry. Connected existing transaction, transfer, recurring, budget, savings, account-selector, and category-selector/list surfaces to typed server data and mutations; verified required frontend checks with approved network access for the Google Fonts production build; set the next allowed phase to 08.5.

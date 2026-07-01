@@ -12,9 +12,33 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 
-export default function FilterMenu() {
-  const [sortBy, setSortBy] = useState("all");
+type FilterMenuProps = {
+  duration?: string;
+  onDurationChange?: (value: string) => void;
+  onTypeChange?: (value: string) => void;
+  type?: string;
+};
+
+export default function FilterMenu({
+  duration: controlledDuration,
+  onDurationChange,
+  onTypeChange,
+  type,
+}: FilterMenuProps) {
+  const [localType, setLocalType] = useState("all");
   const [duration, setDuration] = useState("day");
+  const activeDuration = controlledDuration ?? duration;
+  const activeType = type ?? localType;
+
+  function handleTypeChange(value: string) {
+    setLocalType(value);
+    onTypeChange?.(value);
+  }
+
+  function handleDurationChange(value: string) {
+    setDuration(value);
+    onDurationChange?.(value);
+  }
 
   return (
     <DropdownMenu>
@@ -25,13 +49,17 @@ export default function FilterMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Filter:</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}>
+        <DropdownMenuRadioGroup value={activeType} onValueChange={handleTypeChange}>
           <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="expense">Expense</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="income">Income</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="transfer">Transfer</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuLabel>Duration</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={duration} onValueChange={setDuration}>
+        <DropdownMenuRadioGroup
+          value={activeDuration}
+          onValueChange={handleDurationChange}
+        >
           <DropdownMenuRadioItem value="day">Day</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="week">Week</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="month">Month</DropdownMenuRadioItem>

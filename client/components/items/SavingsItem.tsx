@@ -1,4 +1,4 @@
-import { Coins, HandCoins, Plus, SquarePen, Target, User } from "lucide-react";
+import { Coins, SquarePen, Target } from "lucide-react";
 import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import {
@@ -28,8 +28,54 @@ import {
   InputGroupTextarea,
 } from "../ui/input-group";
 import { Calendar } from "../ui/calendar";
+import { FormEvent, useState } from "react";
 
-export default function SavingsItem() {
+type SavingsItemProps = {
+  contributionError?: string | null;
+  editHref: string;
+  id: string;
+  isContributing?: boolean;
+  isDeleting?: boolean;
+  monthlyTarget: string;
+  name: string;
+  note?: string | null;
+  onAddContribution?: (amount: string, date: Date, note: string) => Promise<void>;
+  onDelete?: () => void;
+  percentComplete: number;
+  savedAmount: string;
+  targetAmount: string;
+  targetDate: string;
+};
+
+export default function SavingsItem({
+  contributionError,
+  editHref,
+  isContributing = false,
+  isDeleting = false,
+  monthlyTarget,
+  name,
+  note,
+  onAddContribution,
+  onDelete,
+  percentComplete,
+  savedAmount,
+  targetAmount,
+  targetDate,
+}: SavingsItemProps) {
+  const [amount, setAmount] = useState("");
+  const [contributedAt, setContributedAt] = useState<Date | undefined>(
+    new Date(),
+  );
+  const [contributionNote, setContributionNote] = useState("");
+
+  async function handleContribution(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!onAddContribution || !contributedAt) return;
+    await onAddContribution(amount, contributedAt, contributionNote);
+    setAmount("");
+    setContributionNote("");
+  }
+
   return (
     <Drawer>
       <DrawerTrigger asChild>
@@ -37,23 +83,23 @@ export default function SavingsItem() {
           <div className="flex flex-wrap">
             <Button variant="secondary" size="icon"><Coins /></Button>
             <h3 className="flex-1 px-2 font-bold text-base line-clamp-1">
-              Vacation Fund
+              {name}
             </h3>
             <div className="text-end">
-              <h4 className="font-bold text-base">$250.00</h4>
-              <h6 className="text-input">of $2000.00</h6>
+              <h4 className="font-bold text-base">{savedAmount}</h4>
+              <h6 className="text-input">of {targetAmount}</h6>
             </div>
           </div>
           <div className="space-y-1">
-            <p>40% saved</p>
-            <Progress value={40} />
+            <p>{Math.round(percentComplete)}% saved</p>
+            <Progress value={Math.min(percentComplete, 100)} />
           </div>
           <div className="flex items-center justify-between text-input">
             <div className="flex items-center gap-1">
               <Target className="size-2.5" />
-              Dec 2026
+              {targetDate}
             </div>
-            <p>Monthly: $250.00</p>
+            <p>Monthly: {monthlyTarget}</p>
           </div>
         </div>
       </DrawerTrigger>
@@ -64,23 +110,24 @@ export default function SavingsItem() {
         <div className="px-3">
           <div className="flex gap-1">
             <h3 className="flex-1 font-bold text-lg line-clamp-1 capitalize">
-              Vacation Fund
+              {name}
             </h3>
-            <Link href="/savings/edit">
+            <Link href={editHref}>
               <SquarePen className="size-4 text-secondary/80" />
             </Link>
           </div>
-          <p className="text-secondary/80">49% saved</p>
+          <p className="text-secondary/80">{Math.round(percentComplete)}% saved</p>
+          {note && <p className="text-secondary/80">{note}</p>}
           <div className="flex items-center justify-between my-2">
-            <p className="font-bold text-3xl">$250.00</p>
-            <p>of $2000.00</p>
+            <p className="font-bold text-3xl">{savedAmount}</p>
+            <p>of {targetAmount}</p>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 text-secondary/80">
               <Target className="size-3" />
-              Dec 2026
+              {targetDate}
             </div>
-            <p>Monthly: $250.00</p>
+            <p>Monthly: {monthlyTarget}</p>
           </div>
         </div>
         <DrawerFooter>
@@ -89,19 +136,32 @@ export default function SavingsItem() {
               <Button variant="outline">Add Money</Button>
             </DrawerTrigger>
             <DrawerContent>
-              <form action="">
+              <form onSubmit={handleContribution}>
                 <DrawerHeader>
-                  <DrawerTitle>Add Money to Vacation Fund</DrawerTitle>
+                  <DrawerTitle>Add Money to {name}</DrawerTitle>
                 </DrawerHeader>
                 <div className="p-2">
                   <FieldSet className="gap-2">
                     <Field className="max-w-xs mx-auto">
-                      <Calendar mode="single" className="w-full text-black" />
+                      <Calendar
+                        mode="single"
+                        selected={contributedAt}
+                        onSelect={setContributedAt}
+                        className="w-full text-black"
+                      />
                       <FieldError />
                     </Field>
                     <Field>
                       <InputGroup className="border-border">
-                        <InputGroupInput placeholder="$0.00" />
+                        <InputGroupInput
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={amount}
+                          onChange={(event) => setAmount(event.target.value)}
+                          placeholder="$0.00"
+                          required
+                        />
                         <InputGroupAddon className="text-primary-foreground">
                           Amount
                         </InputGroupAddon>
@@ -112,6 +172,10 @@ export default function SavingsItem() {
                       <Field>
                         <InputGroup className="border-border">
                           <InputGroupTextarea
+                            value={contributionNote}
+                            onChange={(event) =>
+                              setContributionNote(event.target.value)
+                            }
                             placeholder="Type here.."
                             className="pt-0"
                           />
@@ -130,9 +194,14 @@ export default function SavingsItem() {
                 <DrawerFooter>
                   <DrawerClose asChild>
                     <Button type="submit" variant="reverse">
-                      Add Money
+                      {isContributing ? "Adding..." : "Add Money"}
                     </Button>
                   </DrawerClose>
+                  {contributionError && (
+                    <p className="text-destructive text-sm text-center">
+                      {contributionError}
+                    </p>
+                  )}
                 </DrawerFooter>
               </form>
             </DrawerContent>
@@ -143,11 +212,13 @@ export default function SavingsItem() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogTitle>
-                Are you sure you want to delete this transaction?
+                Are you sure you want to delete this savings goal?
               </AlertDialogTitle>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction>Delete</AlertDialogAction>
+                <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
