@@ -42,3 +42,90 @@ Run Alembic from `server/` with a PostgreSQL `DATABASE_URL`:
 alembic upgrade head
 alembic downgrade base
 ```
+
+## Running locally
+
+Start the API and the recurring worker as separate processes that point at the
+same PostgreSQL database.
+
+Terminal 1:
+
+```bash
+cd server
+source .venv/bin/activate
+export DATABASE_URL=postgresql+asyncpg://pfm_app@localhost:5432/pfm_app
+alembic upgrade head
+uvicorn app.main:app --reload
+```
+
+Terminal 2:
+
+```bash
+cd server
+source .venv/bin/activate
+export DATABASE_URL=postgresql+asyncpg://pfm_app@localhost:5432/pfm_app
+python -m app.workers.recurring
+```
+
+For a one-shot local tick, use:
+
+```bash
+python -m app.workers.recurring --once
+```
+
+The recurring worker also accepts CLI overrides for local checks:
+
+```bash
+python -m app.workers.recurring \
+  --once \
+  --batch-size 10 \
+  --lock-seconds 60 \
+  --poll-seconds 5 \
+  --worker-id local-recurring-worker
+```
+
+The durable outbox worker is imported by event-specific adapters. Until
+notification or email adapters are registered, there is no standalone generic
+outbox command because each event type needs an explicit handler.
+
+## Worker environment
+
+The API and workers share the normal application settings, especially
+`DATABASE_URL`, `DATABASE_ECHO`, `DATABASE_POOL_SIZE`, and
+`DATABASE_MAX_OVERFLOW`.
+
+Recurring worker settings:
+
+| Variable | Default | Description |
+|---|---:|---|
+| `RECURRING_WORKER_BATCH_SIZE` | `25` | Maximum due recurring rules claimed per tick. |
+| `RECURRING_WORKER_LOCK_SECONDS` | `60` | Claim lease duration before another worker may reclaim stale work. |
+| `RECURRING_WORKER_POLL_SECONDS` | `30` | Sleep interval between polling ticks. |
+
+Outbox worker settings used by event-specific worker registrations:
+
+| Variable | Default | Description |
+|---|---:|---|
+| `OUTBOX_WORKER_BATCH_SIZE` | `25` | Maximum available outbox events claimed per tick. |
+| `OUTBOX_WORKER_LOCK_SECONDS` | `60` | Claim lease duration before another outbox worker may reclaim stale work. |
+| `OUTBOX_WORKER_MAX_BACKOFF_SECONDS` | `300` | Maximum retry backoff delay for retryable outbox failures. |
+| `OUTBOX_WORKER_POLL_SECONDS` | `30` | Sleep interval between polling ticks. |
+
+## Health and observability
+
+Use `GET /api/v1/health/live` to confirm the API process is running and
+`GET /api/v1/health/ready` to confirm it can reach PostgreSQL.
+
+Workers do not expose an HTTP health endpoint. They run as separate processes
+and report observable progress through structured log events:
+
+- `recurring_worker_tick` includes `worker_id`, `claimed`, `created`, and
+  `skipped`.
+- `recurring_worker_once_complete` includes `claimed`, `created`, and `skipped`.
+- `outbox_worker_tick` includes `worker_id`, `claimed`, `processed`,
+  `retried`, and `failed`.
+
+Operational recovery should inspect `recurring_rules.locked_until` and
+`outbox_events.locked_until` for stale claims, and inspect failed outbox rows by
+`event_type`, `idempotency_key`, `attempts`, `max_attempts`, `error_type`, and
+`error_message` before manually requeueing.

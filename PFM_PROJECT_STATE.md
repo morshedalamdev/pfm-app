@@ -121,7 +121,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 06 | 06.2 Scheduling rules | PASSED | phase commit created after this state update | Added recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic UTC schedule calculation, ownership validation, and tests. |
 | 06 | 06.3 Worker process | PASSED | phase commit created after this state update | Added separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claims, atomic scheduled transaction creation, outbox emission, rule advancement, and duplicate-execution tests. |
 | 06 | 06.4 Retry and idempotency | PASSED | phase commit created after this state update | Added outbox retry/backoff processing, terminal failure metadata, event-type scoped claims, and recurring due-run idempotency protections. |
-| 06 | 06.5 Worker tests | NOT_STARTED | — | — |
+| 06 | 06.5 Worker operational checks | PASSED | phase commit created after this state update | Documented local API and worker operation, added worker runtime environment settings, and verified API readiness plus worker execution against disposable PostgreSQL. |
 | 06 | 06.V Worker verification | NOT_STARTED | — | — |
 | 07 | 07.1 Adapter contracts | NOT_STARTED | — | — |
 | 07 | 07.2 Receipt upload | NOT_STARTED | — | — |
@@ -522,6 +522,16 @@ Append only. Do not rewrite earlier records.
 - Updated `docs/architecture/SYSTEM_DESIGN.md` with worker retry semantics and operational recovery steps for failed outbox rows, stale locks, manual requeue, and duplicate due-run evidence.
 - No API endpoints, migrations, new environment variables, frontend integration, notification/email adapters, or production deployment commands were added in phase 06.4.
 
+### Phase 06.5 worker operational checks inventory
+
+- Added typed worker runtime settings in `server/app/core/config.py` for recurring worker batch size, lock duration, and poll interval, plus outbox worker batch size, lock duration, retry backoff cap, and poll interval.
+- Extended `server/.env.example` with the worker environment variables using safe local defaults and no secrets.
+- Updated `server/app/workers/recurring.py` so the runnable recurring worker CLI defaults come from typed settings while preserving CLI overrides for one-shot checks, batch size, lock seconds, poll seconds, and worker id.
+- Updated `server/README.md` with local commands for running the API and recurring worker together against the same PostgreSQL database, one-shot worker execution, worker environment variables, API health checks, worker log event names, and operational recovery inspection points.
+- Added worker operational tests proving recurring worker CLI defaults and overrides use typed settings, and proving API readiness plus a recurring worker tick operate against the same disposable PostgreSQL database.
+- The API health surface remains `GET /api/v1/health/live` and `GET /api/v1/health/ready`; workers do not expose a separate HTTP endpoint and are observed through `recurring_worker_tick`, `recurring_worker_once_complete`, and `outbox_worker_tick` logs.
+- No API endpoints, migrations, frontend integration, notification/email adapters, or generic standalone outbox command were added in phase 06.5.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -704,6 +714,8 @@ Phase 06.3 added no API endpoints. It added a separate recurring worker process 
 
 Phase 06.4 added no API endpoints. It hardened the existing recurring worker path and added an outbox worker module for processing durable side-effect events.
 
+Phase 06.5 added no API endpoints. It documented use of the existing `GET /api/v1/health/live` and `GET /api/v1/health/ready` endpoints for API and database readiness while keeping worker observability in process logs.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -769,6 +781,8 @@ Phase 06.2 created no migrations. It uses the existing recurring and outbox sche
 Phase 06.3 created no migrations. It uses the existing `recurring_rules`, `transactions`, and `outbox_events` tables.
 
 Phase 06.4 created no migrations. It uses the existing outbox retry columns, lock columns, idempotency key constraint, and recurring rule run metadata.
+
+Phase 06.5 created no migrations. It added only worker runtime settings, operational documentation, and tests against the existing recurring/outbox schema.
 
 ## 11. Environment variables
 
@@ -884,6 +898,18 @@ Committed template: `server/.env.example`.
 ### Phase 06.4 worker retry variables
 
 - No new environment variables were added.
+
+### Phase 06.5 worker operational variables
+
+| Variable | Description |
+|---|---|
+| `RECURRING_WORKER_BATCH_SIZE` | Maximum due recurring rules claimed per worker tick. Defaults to `25`. |
+| `RECURRING_WORKER_LOCK_SECONDS` | Recurring rule claim lease duration before stale work may be reclaimed. Defaults to `60`. |
+| `RECURRING_WORKER_POLL_SECONDS` | Recurring worker sleep interval between polling ticks. Defaults to `30`. |
+| `OUTBOX_WORKER_BATCH_SIZE` | Maximum available outbox events claimed per worker tick by event-specific outbox worker registrations. Defaults to `25`. |
+| `OUTBOX_WORKER_LOCK_SECONDS` | Outbox event claim lease duration before stale work may be reclaimed. Defaults to `60`. |
+| `OUTBOX_WORKER_MAX_BACKOFF_SECONDS` | Maximum retry backoff delay for retryable outbox failures. Defaults to `300`. |
+| `OUTBOX_WORKER_POLL_SECONDS` | Outbox worker sleep interval between polling ticks. Defaults to `30`. |
 
 ## 12. Test command registry
 
@@ -1299,6 +1325,18 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 83 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 40 passed, 68 errors. Approved rerun passed: 108 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 06.5 worker operational checks commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `recurring-worker` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format app/core/config.py app/workers/recurring.py tests/test_database.py tests/test_recurring_worker.py` | PASS | Formatted the touched Python files; all four were already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_recurring_worker.py` | FAIL in sandbox, PASS after repair with approval | Focused worker operational and integration tests. Sandboxed run could not bind localhost for disposable PostgreSQL; approved runs exposed and repaired the readiness dependency override and shared due-rule state in the new operational test. Final focused result: 7 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 115 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 83 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | FAIL in sandbox, PASS with approval | Required test suite. Sandboxed run could not bind localhost for disposable PostgreSQL and stopped with 42 passed, 69 errors. Approved rerun passed: 111 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1334,6 +1372,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 06.2 is passed. Next allowed phase is 06.3, Worker process, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.3 is passed. Next allowed phase is 06.4, Retries and idempotency, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 06.4 is passed. Next allowed phase is 06.5, Worker operational checks, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
+- Phase 06.5 is passed. Next allowed phase is 06.V, Worker verification, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 
 ## 14. Progress log
 
@@ -1374,3 +1413,4 @@ Append a dated entry after every completed phase.
 - 2026-06-21: Phase 06.2 recurring schedule rules passed. Added authenticated recurring-rule CRUD/list/update/pause/resume/archive APIs, deterministic daily/weekly/monthly/yearly next-run calculation with UTC normalization and timezone-aware month-end handling, ownership/reference validation, OpenAPI coverage, and integration tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.3.
 - 2026-06-21: Phase 06.3 PostgreSQL coordinated worker passed. Added a separately runnable recurring worker, PostgreSQL `FOR UPDATE SKIP LOCKED` due-rule claiming, atomic scheduled transaction creation, recurring rule advancement, completed-work outbox event emission, and duplicate-execution tests. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.4.
 - 2026-07-01: Phase 06.4 worker retries and idempotency passed. Added event-type scoped outbox processing with bounded retries, exponential backoff, terminal failure metadata, handler rollback protection, and recurring due-run duplicate suppression through deterministic outbox idempotency keys. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.5.
+- 2026-07-01: Phase 06.5 worker operational checks passed. Added local API and recurring worker run commands, typed worker environment variables, worker health and logging notes, recurring worker CLI defaults from settings, and operational integration coverage proving API readiness and worker execution against the same disposable PostgreSQL database. Required Ruff, mypy, and pytest checks passed, and the next allowed phase is 06.V.

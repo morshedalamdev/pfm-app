@@ -16,10 +16,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from alembic import command
+from app.api.v1.health import database_is_ready
 from app.core.config import Settings
 from app.core.database import (
     build_async_engine,
     build_session_factory,
+    check_database_connection,
     get_session,
     get_session_from_factory,
 )
@@ -32,6 +34,7 @@ from app.workers.recurring import (
     RecurringWorker,
     RecurringWorkerResult,
     claim_due_recurring_rules,
+    parse_args,
 )
 
 
@@ -72,7 +75,15 @@ def worker_context(disposable_postgres_url: str) -> Iterator[WorkerTestContext]:
         async for session in get_session_from_factory(session_factory):
             yield session
 
+    async def test_database_is_ready() -> bool:
+        readiness_engine = build_async_engine(disposable_postgres_url)
+        try:
+            return await check_database_connection(readiness_engine)
+        finally:
+            await readiness_engine.dispose()
+
     app.dependency_overrides[get_session] = test_session
+    app.dependency_overrides[database_is_ready] = test_database_is_ready
 
     try:
         with TestClient(app) as client:
@@ -373,6 +384,82 @@ def test_outbox_worker_terminal_failure_after_bounded_retries(
     assert event.error_message == "permanent failure"
     assert event.locked_by is None
     assert event.locked_until is None
+
+
+def test_recurring_worker_cli_defaults_use_settings() -> None:
+    settings = Settings(
+        app_env="test",
+        recurring_worker_batch_size=7,
+        recurring_worker_lock_seconds=45,
+        recurring_worker_poll_seconds=2.5,
+    )
+
+    args = parse_args([], settings=settings)
+
+    assert args.batch_size == 7
+    assert args.lock_seconds == 45
+    assert args.poll_seconds == 2.5
+    assert args.worker_id is None
+
+
+def test_recurring_worker_cli_overrides_settings() -> None:
+    settings = Settings(
+        app_env="test",
+        recurring_worker_batch_size=7,
+        recurring_worker_lock_seconds=45,
+        recurring_worker_poll_seconds=2.5,
+    )
+
+    args = parse_args(
+        [
+            "--once",
+            "--batch-size",
+            "3",
+            "--lock-seconds",
+            "9",
+            "--poll-seconds",
+            "1",
+            "--worker-id",
+            "cli-worker",
+        ],
+        settings=settings,
+    )
+
+    assert args.once is True
+    assert args.batch_size == 3
+    assert args.lock_seconds == 9
+    assert args.poll_seconds == 1
+    assert args.worker_id == "cli-worker"
+
+
+def test_api_readiness_and_worker_share_disposable_postgres(
+    worker_context: WorkerTestContext,
+) -> None:
+    context = worker_context
+
+    ready_response = context.client.get("/api/v1/health/ready")
+    assert ready_response.status_code == 200
+    assert ready_response.json() == {"status": "ok", "database": "ready"}
+
+    async def run_empty_worker_tick() -> RecurringWorkerResult:
+        worker_engine = build_async_engine(context.database_url)
+        worker_session_factory = build_session_factory(worker_engine)
+        worker = RecurringWorker(
+            worker_session_factory,
+            worker_id="operational-check-worker",
+            batch_size=2,
+            lock_seconds=30,
+        )
+        try:
+            return await worker.run_once(now=datetime(2025, 1, 1, tzinfo=UTC))
+        finally:
+            await worker_engine.dispose()
+
+    result = asyncio.run(run_empty_worker_tick())
+
+    assert result.claimed == 0
+    assert result.created == 0
+    assert result.skipped == 0
 
 
 def auth_headers(context: WorkerTestContext, email: str) -> dict[str, str]:

@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Select, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.config import Settings, get_settings
 from app.core.database import async_session_factory
 from app.core.logging import configure_logging
 from app.modules.outbox.models import OutboxEvent
@@ -239,23 +240,41 @@ def build_worker_id() -> str:
     return f"{socket.gethostname()}:recurring-worker"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(
+    argv: Sequence[str] | None = None,
+    *,
+    settings: Settings | None = None,
+) -> argparse.Namespace:
+    worker_settings = settings or get_settings()
     parser = argparse.ArgumentParser(
         description="Run the recurring transaction worker."
     )
     parser.add_argument(
         "--once", action="store_true", help="Run one worker tick and exit."
     )
-    parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
-    parser.add_argument("--lock-seconds", type=int, default=DEFAULT_LOCK_SECONDS)
-    parser.add_argument("--poll-seconds", type=float, default=DEFAULT_POLL_SECONDS)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=worker_settings.recurring_worker_batch_size,
+    )
+    parser.add_argument(
+        "--lock-seconds",
+        type=int,
+        default=worker_settings.recurring_worker_lock_seconds,
+    )
+    parser.add_argument(
+        "--poll-seconds",
+        type=float,
+        default=worker_settings.recurring_worker_poll_seconds,
+    )
     parser.add_argument("--worker-id", type=str, default=None)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-async def amain() -> None:
-    configure_logging()
-    args = parse_args()
+async def amain(settings: Settings | None = None) -> None:
+    worker_settings = settings or get_settings()
+    configure_logging(debug=worker_settings.debug)
+    args = parse_args(settings=worker_settings)
     worker = RecurringWorker(
         async_session_factory,
         worker_id=args.worker_id,
@@ -266,7 +285,11 @@ async def amain() -> None:
         result = await worker.run_once()
         LOGGER.info(
             "recurring_worker_once_complete",
-            extra={"claimed": result.claimed, "created": result.created},
+            extra={
+                "claimed": result.claimed,
+                "created": result.created,
+                "skipped": result.skipped,
+            },
         )
         return
     await worker.poll_forever(poll_seconds=args.poll_seconds)

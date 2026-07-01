@@ -24,6 +24,13 @@ class Settings(BaseSettings):
         "local-development-refresh-token-secret-change-me",
     )
     refresh_token_expire_days: int = Field(default=30, gt=0, le=365)
+    recurring_worker_batch_size: int = Field(default=25, gt=0, le=1000)
+    recurring_worker_lock_seconds: int = Field(default=60, gt=0, le=3600)
+    recurring_worker_poll_seconds: float = Field(default=30.0, gt=0, le=3600)
+    outbox_worker_batch_size: int = Field(default=25, gt=0, le=1000)
+    outbox_worker_lock_seconds: int = Field(default=60, gt=0, le=3600)
+    outbox_worker_max_backoff_seconds: int = Field(default=300, gt=0, le=86400)
+    outbox_worker_poll_seconds: float = Field(default=30.0, gt=0, le=3600)
 
     model_config = SettingsConfigDict(
         env_file=".env",

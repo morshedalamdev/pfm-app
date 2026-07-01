@@ -22,6 +22,13 @@ def test_database_settings_defaults_are_safe_local_values() -> None:
     assert settings.database_echo is False
     assert settings.database_pool_size == 5
     assert settings.database_max_overflow == 10
+    assert settings.recurring_worker_batch_size == 25
+    assert settings.recurring_worker_lock_seconds == 60
+    assert settings.recurring_worker_poll_seconds == 30
+    assert settings.outbox_worker_batch_size == 25
+    assert settings.outbox_worker_lock_seconds == 60
+    assert settings.outbox_worker_max_backoff_seconds == 300
+    assert settings.outbox_worker_poll_seconds == 30
 
 
 def test_base_metadata_uses_naming_convention() -> None:
