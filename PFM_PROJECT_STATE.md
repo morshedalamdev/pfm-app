@@ -126,7 +126,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 07 | 07.1 Adapter contracts | PASSED | phase commit created after this state update | Added storage/email adapter contracts, local filesystem and console/local implementations, key-free settings, docs, ignore rules, and unit tests. |
 | 07 | 07.2 Receipt upload | PASSED | phase commit created after this state update | Added authorized raw-byte receipt upload, metadata list/get/delete APIs, local storage-backed bytes, receipt schema migration, validation, ownership tests, and disposable migration smoke coverage. |
 | 07 | 07.3 Notifications and email | PASSED | phase commit created after this state update | Added notification persistence, authenticated list/unread/read APIs, email delivery outbox flow, local email handler, migration, docs, and tests. |
-| 07 | 07.4 SSE events | NOT_STARTED | — | — |
+| 07 | 07.4 SSE events | PASSED | phase commit created after this state update | Added authenticated notification SSE stream, event serialization helpers, disconnect handling, frontend integration expectations, and tests. |
 | 07 | 07.5 Integration tests | NOT_STARTED | — | — |
 | 07 | 07.V Integration verification | NOT_STARTED | — | — |
 | 08 | 08.1 Generated API contract | NOT_STARTED | — | — |
@@ -581,6 +581,15 @@ Append only. Do not rewrite earlier records.
 - Added notification schema, API lifecycle, ownership, OpenAPI, and outbox email handler tests.
 - Scoped the prior receipt migration smoke test to the receipt revision so it remains stable now that the notification migration is Alembic head.
 
+### Phase 07.4 server-sent events inventory
+
+- Added `server/app/modules/notifications/sse.py` with SSE event name constants, compact JSON event serialization, authenticated stream generation, initial snapshot events, unread notification events, heartbeat events, retry interval metadata, polling for newly visible unread notifications, and disconnect cleanup checks.
+- Added authenticated `GET /api/v1/notifications/stream` returning `text/event-stream` with no-cache, keepalive, and proxy-buffering-disabled headers.
+- SSE event names are `notification.snapshot`, `notification.created`, and `heartbeat`. Snapshot events include unread count plus a refresh hint for notifications; notification events include the owned notification payload and use the notification id as the SSE event id.
+- SSE uses the existing bearer-token current-user dependency and existing notification repository. It does not add WebSockets, Redis, a new broker, or a new durable worker path.
+- Documented milestone 08 frontend expectations: consume the stream with authenticated `fetch` streaming, refetch notification list/unread-count REST endpoints after snapshot or created hints, tolerate heartbeats, reconnect after the advertised retry interval, and avoid WebSockets for this UI surface.
+- Added notification SSE tests for missing auth, OpenAPI bearer security, event serialization, retry metadata, user isolation, and disconnect cleanup.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -773,6 +782,8 @@ Phase 07.2 added receipt endpoints: `POST /api/v1/receipts`, `GET /api/v1/receip
 
 Phase 07.3 added notification endpoints: `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`, `POST /api/v1/notifications/{notification_id}/read`, and `POST /api/v1/notifications/read-all`. List responses use cursor pagination and support `unread_only` and `type` filters; mutations are scoped to the authenticated owner.
 
+Phase 07.4 added `GET /api/v1/notifications/stream`, an authenticated `text/event-stream` endpoint for one-way notification and refresh-hint events. It emits `notification.snapshot`, `notification.created`, and `heartbeat` events, uses bearer-token user isolation, advertises a 15-second retry interval, and intentionally avoids WebSockets.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -848,6 +859,8 @@ Phase 07.1 created no migrations. Adapter contracts and local implementations do
 Phase 07.2 created Alembic migration `202607010702_add_receipt_schema.py` for `receipts`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL.
 
 Phase 07.3 created Alembic migration `202607010703_add_notification_schema.py` for `notifications`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL.
+
+Phase 07.4 created no migrations. It uses the existing notification schema from migration `202607010703`.
 
 ## 11. Environment variables
 
@@ -999,6 +1012,10 @@ Committed template: `server/.env.example`.
 ### Phase 07.3 notification and email variables
 
 - No new environment variables were added. Notification email delivery uses the existing `EMAIL_BACKEND` and `EMAIL_FROM_ADDRESS` adapter settings from phase 07.1.
+
+### Phase 07.4 SSE variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -1486,6 +1503,19 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | PASS with approval | Required migration downgrade check passed, downgrading from `202607010703` to `202607010702`. |
 | `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Required final migration upgrade check passed, upgrading from `202607010702` back to `202607010703`. |
 
+### Phase 07.4 server-sent events commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `integrations-notifications` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app/modules/notifications tests/test_notifications.py` | PASS | Focused lint check for notification SSE implementation and tests. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Focused/full app type check before required suite. Result: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_notifications.py` | FAIL then PASS with approval | Initial sandboxed run failed because disposable PostgreSQL could not bind localhost. Approved rerun passed: 7 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required format check. Result: 141 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | PASS with approval | Required full test suite passed against disposable PostgreSQL: 137 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1526,6 +1556,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 07.1 is passed. Next allowed phase is 07.2, Receipt upload, after user permission. Milestone 03.V and 04.V remain not started in this state file because later milestone phases were explicitly requested by the user.
 - Phase 07.2 is passed. Next allowed phase is 07.3, Notifications and email, after user permission.
 - Phase 07.3 is passed. Next allowed phase is 07.4, Server-Sent Events, after user permission.
+- Phase 07.4 is passed. Next allowed phase is 07.5, Integration tests, after user permission.
 
 ## 14. Progress log
 
@@ -1572,3 +1603,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 07.2 receipt upload blocked. Implemented receipt metadata schema, raw-byte authorized upload behavior, local storage adapter usage, metadata list/get/delete behavior, validation, migration, and tests in the working tree. Static checks and DB-free focused tests passed, but required database-backed pytest and Alembic checks could not run because elevated approval was rejected by the environment usage limit; no local phase commit was created.
 - 2026-07-01: Phase 07.2 receipt upload passed on retry. Required full pytest and Alembic upgrade/downgrade/upgrade smoke checks passed against disposable PostgreSQL, confirming receipt migration, storage, validation, and ownership coverage. A local phase commit is being created, and the next allowed phase is 07.3.
 - 2026-07-01: Phase 07.3 notifications and email passed. Added notification persistence, authenticated notification list/unread/read endpoints, durable `notification.email.requested` outbox email flow, local/console email handler coverage, migration `202607010703`, docs updates, and test hardening. Required Ruff, mypy, full pytest, and Alembic upgrade/downgrade/upgrade checks passed, and the next allowed phase is 07.4.
+- 2026-07-01: Phase 07.4 server-sent events passed. Added authenticated `GET /api/v1/notifications/stream`, SSE serialization helpers, snapshot/notification/heartbeat event behavior, retry and disconnect expectations, user-isolation coverage, and milestone 08 frontend stream guidance. Required Ruff, mypy, and full pytest checks passed, and the next allowed phase is 07.5.

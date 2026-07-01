@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -31,8 +32,17 @@ from app.modules.notifications.services import (
     NOTIFICATION_EMAIL_REQUESTED_EVENT,
     NotificationService,
 )
+from app.modules.notifications.sse import (
+    NOTIFICATION_CREATED_EVENT,
+    NOTIFICATION_HEARTBEAT_EVENT,
+    NOTIFICATION_SNAPSHOT_EVENT,
+    NOTIFICATION_STREAM_RETRY_MS,
+    format_sse_event,
+    notification_sse_stream,
+)
 from app.modules.outbox.models import OutboxEvent
 from app.modules.outbox.repositories import OutboxEventRepository
+from app.modules.users.models import User
 from app.workers.notifications import NotificationEmailHandler
 from app.workers.outbox import OutboxWorker
 
@@ -49,6 +59,20 @@ class AuthenticatedUser:
     headers: dict[str, str]
     user_id: str
     email: str
+
+
+class FakeSseRequest:
+    def __init__(self, *, disconnect_after_checks: int | None = None) -> None:
+        self.disconnect_after_checks = disconnect_after_checks
+        self.checks = 0
+
+    async def is_disconnected(self) -> bool:
+        disconnected = (
+            self.disconnect_after_checks is not None
+            and self.checks >= self.disconnect_after_checks
+        )
+        self.checks += 1
+        return disconnected
 
 
 def build_alembic_config(database_url: str) -> Config:
@@ -274,6 +298,95 @@ def test_notifications_openapi_contract(
     assert schema["paths"]["/api/v1/notifications"]["get"]["parameters"]
 
 
+def test_notification_sse_requires_auth_and_openapi_contract(
+    notification_context: NotificationApiContext,
+) -> None:
+    response = notification_context.client.get("/api/v1/notifications/stream")
+    assert response.status_code == 401
+
+    schema = notification_context.client.get("/openapi.json").json()
+    stream_contract = schema["paths"]["/api/v1/notifications/stream"]["get"]
+    assert stream_contract["security"] == [{"HTTPBearer": []}]
+    assert stream_contract["responses"]["200"]["description"] == "Successful Response"
+
+
+def test_notification_sse_format_and_user_isolation(
+    notification_context: NotificationApiContext,
+) -> None:
+    context = notification_context
+    owner = register_and_login(context, "notifications-sse-owner@example.com")
+    other = register_and_login(context, "notifications-sse-other@example.com")
+    first = create_notification(
+        context,
+        owner.user_id,
+        notification_type="budget.alert",
+        title="Dining budget",
+        payload={"budget_id": "budget-1"},
+    )
+    second = create_notification(
+        context,
+        owner.user_id,
+        notification_type="receipt.uploaded",
+        title="Receipt uploaded",
+    )
+    create_notification(context, other.user_id, title="Other user's alert")
+
+    events = collect_notification_sse_events(
+        context,
+        owner.user_id,
+        request=FakeSseRequest(),
+        max_events=3,
+    )
+
+    snapshot = parse_sse_event(events[0])
+    assert snapshot["event"] == NOTIFICATION_SNAPSHOT_EVENT
+    assert snapshot["retry"] == str(NOTIFICATION_STREAM_RETRY_MS)
+    assert snapshot["data"]["unread_count"] == 2
+    assert snapshot["data"]["refresh"] == {
+        "resource": "notifications",
+        "reason": "connected",
+    }
+
+    notification_events = [parse_sse_event(event) for event in events[1:]]
+    assert {event["event"] for event in notification_events} == {
+        NOTIFICATION_CREATED_EVENT
+    }
+    assert {event["id"] for event in notification_events} == {
+        first["id"],
+        second["id"],
+    }
+    assert {event["data"]["user_id"] for event in notification_events} == {
+        owner.user_id
+    }
+
+    formatted = format_sse_event(
+        event=NOTIFICATION_HEARTBEAT_EVENT,
+        event_id="heartbeat-1",
+        retry_ms=1000,
+        data={"ok": True},
+    )
+    assert formatted == (
+        'id: heartbeat-1\nevent: heartbeat\nretry: 1000\ndata: {"ok":true}\n\n'
+    )
+
+
+def test_notification_sse_disconnect_stops_stream(
+    notification_context: NotificationApiContext,
+) -> None:
+    context = notification_context
+    owner = register_and_login(context, "notifications-sse-disconnect@example.com")
+    create_notification(context, owner.user_id, title="Should not stream")
+
+    events = collect_notification_sse_events(
+        context,
+        owner.user_id,
+        request=FakeSseRequest(disconnect_after_checks=0),
+        max_events=1,
+    )
+
+    assert events == []
+
+
 def register_and_login(
     context: NotificationApiContext,
     email: str,
@@ -348,6 +461,63 @@ async def create_notification_async(
             return response.model_dump(mode="json")
     finally:
         await engine.dispose()
+
+
+def collect_notification_sse_events(
+    context: NotificationApiContext,
+    user_id: str,
+    *,
+    request: FakeSseRequest,
+    max_events: int,
+) -> list[str]:
+    return asyncio.run(
+        collect_notification_sse_events_async(
+            context,
+            user_id,
+            request=request,
+            max_events=max_events,
+        )
+    )
+
+
+async def collect_notification_sse_events_async(
+    context: NotificationApiContext,
+    user_id: str,
+    *,
+    request: FakeSseRequest,
+    max_events: int,
+) -> list[str]:
+    engine = build_async_engine(context.database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            user_result = await session.execute(
+                select(User).where(User.id == uuid.UUID(user_id))
+            )
+            user = user_result.scalar_one()
+            stream = notification_sse_stream(
+                request=request,
+                current_user=user,
+                notifications=NotificationRepository(session),
+                heartbeat_seconds=0,
+                max_events=max_events,
+            )
+            return [event async for event in stream]
+    finally:
+        await engine.dispose()
+
+
+def parse_sse_event(raw_event: str) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    data_lines: list[str] = []
+    for line in raw_event.strip().splitlines():
+        field, value = line.split(": ", 1)
+        if field == "data":
+            data_lines.append(value)
+        else:
+            parsed[field] = value
+    parsed["data"] = json.loads("\n".join(data_lines))
+    return parsed
 
 
 def run_notification_email_worker(

@@ -144,4 +144,12 @@ Milestone 08 must replace these runtime placeholders with server-backed data or 
 - Replace generic create/edit links such as `/transaction/create`, `/transaction/edit`, `/savings/create`, `/savings/edit`, `/loan/create`, and `/loan/edit` with route behavior that passes a real mode or record id.
 - Give drawer actions real record ids and mutation handlers.
 - Preserve visual layout and component styling while adding data behavior.
-- Keep social OAuth, support/legal content, settings, receipt upload, notifications, and SSE out of MVP UI integration unless a later phase explicitly scopes them.
+- Keep social OAuth, support/legal content, settings, receipt upload,
+  notifications, and SSE out of MVP UI integration unless a later phase
+  explicitly scopes them.
+- When a later integration phase scopes notifications, consume
+  `GET /api/v1/notifications/stream` with authenticated `fetch` streaming,
+  listen for `notification.snapshot` and `notification.created` hints, refetch
+  the notification list/unread-count REST endpoints for source-of-truth state,
+  tolerate `heartbeat` keepalives, and reconnect after the advertised SSE
+  retry interval. Do not add WebSockets for this UI surface.

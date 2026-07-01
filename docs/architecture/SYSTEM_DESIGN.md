@@ -267,7 +267,7 @@ Transfers must be atomic: both sides of the transfer and the transfer linkage co
 ```mermaid
 sequenceDiagram
   participant UI as Next.js UI
-  participant API as /api/v1/events/stream
+  participant API as /api/v1/notifications/stream
   participant DB as PostgreSQL
   participant Worker as Worker process
 
@@ -278,7 +278,27 @@ sequenceDiagram
   UI->>API: Refetch affected REST resource
 ```
 
-SSE is for one-way notifications and refresh hints only. The client should refetch REST resources after receiving a hint. WebSockets remain out of scope until a concrete bidirectional requirement exists.
+SSE is for one-way notifications and refresh hints only. Phase 07.4 exposes
+`GET /api/v1/notifications/stream` as an authenticated
+`text/event-stream` endpoint using the same bearer access-token dependency as
+the notification REST endpoints. It emits:
+
+- `notification.snapshot` with the current unread count and a refresh hint for
+  the notifications resource.
+- `notification.created` with an owned unread notification payload and an event
+  id equal to the notification id.
+- `heartbeat` keepalive events when no new visible notification is available.
+
+The stream sends `retry: 15000` on the initial snapshot. Clients should treat
+SSE messages as hints and refetch `GET /api/v1/notifications` and
+`GET /api/v1/notifications/unread-count` for source-of-truth state after
+`notification.snapshot` or `notification.created`. Milestone 08 frontend
+integration should consume the stream with authenticated `fetch` streaming so
+the `Authorization: Bearer <access-token>` header can be sent; native
+`EventSource` cannot set custom authorization headers unless a later deployment
+phase changes token transport. On disconnect, the browser should reconnect
+after the advertised retry interval and refetch notification state. WebSockets
+remain out of scope until a concrete bidirectional requirement exists.
 
 ## Deployment Topology
 

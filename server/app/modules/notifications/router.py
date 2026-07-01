@@ -3,7 +3,8 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -20,6 +21,7 @@ from app.modules.notifications.services import (
     NotificationNotFoundError,
     NotificationService,
 )
+from app.modules.notifications.sse import notification_sse_stream
 from app.modules.outbox.repositories import OutboxEventRepository
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -60,6 +62,27 @@ async def unread_count(
     session: SessionDependency,
 ) -> NotificationUnreadCountResponse:
     return await build_notification_service(session).unread_count(current_user)
+
+
+@router.get("/stream", response_class=StreamingResponse)
+async def stream_notifications(
+    request: Request,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> StreamingResponse:
+    return StreamingResponse(
+        notification_sse_stream(
+            request=request,
+            current_user=current_user,
+            notifications=NotificationRepository(session),
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/{notification_id}/read", response_model=NotificationResponse)
