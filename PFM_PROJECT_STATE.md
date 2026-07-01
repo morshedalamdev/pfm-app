@@ -131,7 +131,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 07 | 07.V Integration verification | PASSED | verification commit created after this state update | Verified uploads, notifications, email adapter flow, SSE, migrations, ignored local storage, and tracked-secret posture for milestone 07. |
 | 08 | 08.1 Generated API contract | PASSED | phase commit created after this state update | Added stable FastAPI OpenAPI export, committed generated frontend OpenAPI JSON and TypeScript contracts, and added API contract generation/drift-check scripts. |
 | 08 | 08.2 Frontend API and auth layer | PASSED | phase commit created after this state update | Added typed frontend API base layer, auth token/session store, login/register/logout integration, refresh behavior, and protected dashboard route guard. |
-| 08 | 08.3 Dashboard integration | NOT_STARTED | — | — |
+| 08 | 08.3 Dashboard integration | PASSED | phase commit created after this state update | Replaced dashboard summary, chart, recent transaction, and unread notification indicator fixtures with typed server-backed queries plus loading, empty, error, and retry states. |
 | 08 | 08.4 CRUD screen integration | NOT_STARTED | — | — |
 | 08 | 08.5 Loading and error states | NOT_STARTED | — | — |
 | 08 | 08.6 Responsive and E2E checks | NOT_STARTED | — | — |
@@ -632,6 +632,17 @@ Append only. Do not rewrite earlier records.
 - Added `client/.env.example` with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` for local/deployed frontend-to-API topology without secrets.
 - No dashboard data replacement, finance CRUD integration, receipt/notification UI integration, backend endpoint behavior, migrations, or production cookie transport hardening was added in phase 08.2.
 
+### Phase 08.3 dashboard integration inventory
+
+- Converted `client/app/(dashboard)/page.tsx` to a client dashboard that consumes typed live server queries instead of embedded summary, chart, and recent-transaction fixtures.
+- Added `client/lib/dashboard/useDashboardData.ts` to fetch `GET /api/v1/reports/dashboard`, `GET /api/v1/transactions?limit=6`, and `GET /api/v1/categories?limit=200`, mapping decimal-string report values and transaction rows into dashboard-friendly state.
+- Updated `client/components/charts/RootChart.tsx` so the existing type dropdown and week/month/year controls drive server-backed dashboard report queries while preserving the current chart layout, colors, and tab behavior.
+- Added dashboard loading skeletons, zero/empty states, and independent error/retry states for report/chart and recent transaction data.
+- Updated `client/components/items/TransactionItem.tsx` with optional live-data fields for edit links, transaction dates, recurring labels, transfer styling, and fallback category icons while preserving existing fixture callers for later 08.4 integration.
+- Updated `client/components/Footer.tsx` to fetch `GET /api/v1/notifications/unread-count` and show a small unread-count badge on the existing more/profile control.
+- Browser smoke-tested the dashboard at mobile `390x844` and desktop `1280x800` against a local stub API that authenticated `/users/me`, returned an unread count, and forced dashboard data endpoints to return backend errors. The smoke confirmed visible retry/error states, unread badge rendering, and no horizontal overflow at desktop width.
+- No backend endpoint behavior, migrations, environment variables, finance CRUD screen integration, analytics screen integration, receipt UI, notification list UI, or SSE subscription behavior was added in phase 08.3.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -717,6 +728,13 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 - Dashboard routes now require an authenticated user loaded from `GET /api/v1/users/me`; unauthenticated users are redirected to `/auth/login`.
 - Frontend refresh behavior follows the milestone 02 JSON transport decision: refresh tokens are posted to `/api/v1/auth/refresh`, rotated responses replace stored tokens, and invalid refresh clears local session state.
 - Logout now calls `/api/v1/auth/logout` when a refresh token exists and then clears local session state.
+
+### Phase 08.3 dashboard integration update
+
+- Dashboard summary cards, available balance, and RootChart now consume `GET /api/v1/reports/dashboard` through generated API response types.
+- Dashboard recent transactions now consume `GET /api/v1/transactions?limit=6` and hydrate visible category labels through `GET /api/v1/categories?limit=200`.
+- The footer profile/more control now consumes `GET /api/v1/notifications/unread-count` for a live unread badge indicator.
+- The dashboard has section-level skeletons, empty recent-transaction state, zero-activity chart copy, and independent retry/error states for report/chart and recent transaction failures.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -847,6 +865,8 @@ Phase 08.1 added no endpoints. It generated frontend OpenAPI JSON and TypeScript
 
 Phase 08.2 added no backend endpoints. The frontend auth layer now consumes the existing `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/users/me` endpoints.
 
+Phase 08.3 added no backend endpoints. The frontend dashboard now consumes the existing `GET /api/v1/reports/dashboard`, `GET /api/v1/transactions?limit=6`, `GET /api/v1/categories?limit=200`, and `GET /api/v1/notifications/unread-count` endpoints.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -932,6 +952,8 @@ Phase 07.V created no migrations. Verification ran Alembic `upgrade head` agains
 Phase 08.1 created no migrations. It only exported the existing OpenAPI schema and generated frontend TypeScript contracts.
 
 Phase 08.2 created no migrations.
+
+Phase 08.3 created no migrations.
 
 ## 11. Environment variables
 
@@ -1105,6 +1127,10 @@ Committed template: `server/.env.example`.
 | Variable | Description |
 |---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | Browser-visible FastAPI origin used by the frontend Axios client. `client/.env.example` defaults to `http://localhost:8000`; an empty value falls back to same-origin requests. |
+
+### Phase 08.3 dashboard integration variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -1665,6 +1691,19 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
 | `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
 
+### Phase 08.3 dashboard integration commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `frontend-integration` before phase edits. |
+| `cd client && npx tsc --noEmit` | FAIL / diagnostic only | Final run reported only the pre-existing `TransactionInputProps` errors in loan, savings, and transaction edit routes already recorded in phase 08.2. No new dashboard, chart, footer, or API-hook type errors appeared. This command is not a required phase check and `next.config.ts` still skips TypeScript validation during build. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Required build check. Sandboxed run failed fetching Google Fonts Urbanist; approved network rerun passed. Next.js still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `node -e '<local stub API for /api/v1/auth/login, /api/v1/users/me, /api/v1/notifications/unread-count, and forced 500 dashboard data responses>'` | FAIL in sandbox, PASS with approval | Browser smoke setup. Sandboxed local bind to `127.0.0.1:8787` was blocked; approved local stub API served login/current-user/unread-count and backend error responses for dashboard data endpoints. |
+| `cd client && NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787 npm run dev -- --hostname 127.0.0.1 --port 3000` | FAIL in sandbox, PASS with approval | Browser smoke setup. Sandboxed local bind to `127.0.0.1:3000` was blocked; approved Next dev server started for in-app browser checks. |
+| In-app browser smoke at `390x844` and `1280x800` against the local stub API | PASS | Mobile smoke confirmed dashboard backend error text, retry controls, and unread-count badge. Desktop smoke confirmed the same error/retry state and no horizontal overflow. Temporary viewport was reset and local servers were stopped. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1710,6 +1749,7 @@ Record only active blockers or intentionally deferred decisions.
 - Milestone 07 is verified. Next allowed phase is 08.1, Generated API contract, after user permission to push the `integrations-notifications` branch and begin milestone 08.
 - Phase 08.1 is passed. Next allowed phase is 08.2, Frontend API and auth layer, after user permission.
 - Phase 08.2 is passed. Next allowed phase is 08.3, Dashboard integration, after user permission.
+- Phase 08.3 is passed. Next allowed phase is 08.4, CRUD screen integration, after user permission.
 
 ## 14. Progress log
 
@@ -1762,3 +1802,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 07.V integration verification passed. Verified milestone 07 upload, notification, email adapter, and SSE scope; confirmed ignored local upload storage and tracked-secret posture; ran required Ruff, format, mypy, full pytest, and Alembic upgrade checks; and set the next allowed phase to 08.1 after permission to push the branch and begin milestone 08.
 - 2026-07-01: Phase 08.1 generated API contract passed. Added stable FastAPI OpenAPI export, generated and committed frontend OpenAPI JSON plus TypeScript API contracts with `openapi-typescript`, added contract drift checking for CI, ran required backend and frontend checks, and set the next allowed phase to 08.2.
 - 2026-07-01: Phase 08.2 frontend API and auth layer passed. Added the typed Axios API foundation, API error mapping, JSON-token auth store, protected dashboard guard, real login/register/logout flows, frontend API environment template, and required frontend checks; set the next allowed phase to 08.3.
+- 2026-07-01: Phase 08.3 dashboard integration passed. Replaced dashboard fixture summary cards, RootChart arrays, and recent transactions with server-backed dashboard report, transaction, category, and unread notification count queries; added loading, empty, error, retry, and responsive smoke coverage; set the next allowed phase to 08.4.
