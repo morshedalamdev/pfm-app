@@ -1,4 +1,5 @@
 import Footer from "@/components/Footer";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import React, { Fragment } from "react";
 
 export default function DashboardLayout({
@@ -7,9 +8,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <Fragment>
+    <AuthGuard>
       {children}
       <Footer />
-    </Fragment>
+    </AuthGuard>
   );
 }

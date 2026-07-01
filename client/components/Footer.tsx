@@ -21,8 +21,10 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "./ui/sheet";
 import { Skeleton } from "./ui/skeleton";
+import { useAuthStore } from "@/lib/auth/store";
 
 const LIST = [
   { href: "/analytics", icon: <ChartNoAxesColumnIcon />, label: "Income" },
@@ -34,6 +36,18 @@ const MAIN_ROUTES = ["/", "/analytics", "/transaction", "/loan"];
 
 export default function Footer() {
   const pathname = usePathname();
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const status = useAuthStore((state) => state.status);
+  const logout = useAuthStore((state) => state.logout);
+
+  const displayName = user?.email?.split("@")[0] ?? "Profile";
+  const displayEmail = user?.email ?? "Not signed in";
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/auth/login");
+  };
 
   if (!MAIN_ROUTES.includes(pathname)) {
     return null;
@@ -66,14 +80,16 @@ export default function Footer() {
               <div className="p-3">
                 <Skeleton className="size-15 rounded-full" />
                 <div className="flex items-center gap-3 mt-3">
-                  <h2 className="font-bold text-xl">Chief Dodson</h2>
+                  <h2 className="font-bold text-xl capitalize">
+                    {displayName}
+                  </h2>
                   <Link href="/profile">
                     <Button variant="ghost" size="icon-sm">
                       <SquarePenIcon className="size-3" />
                     </Button>
                   </Link>
                 </div>
-                <p className="text-input">test@example.com</p>
+                <p className="text-input">{displayEmail}</p>
               </div>
               <div className="relative h-[calc(100svh-236px)] bg-linear-to-t from-accent/50 to-secondary rounded-t-3xl px-3 pt-3 pb-[68px] overflow-y-auto">
                 <p className="text-xs font-black tracking-wide text-input uppercase">
@@ -164,8 +180,12 @@ export default function Footer() {
                   Delete Account
                 </Button>
                 <div className="absolute bottom-0 left-0 w-full p-3">
-                  <Button variant="destructive">
-                    Logout
+                  <Button
+                    variant="destructive"
+                    onClick={handleLogout}
+                    disabled={status === "loading"}
+                  >
+                    {status === "loading" ? "Logging out..." : "Logout"}
                   </Button>
                 </div>
               </div>

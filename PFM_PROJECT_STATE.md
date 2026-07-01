@@ -130,7 +130,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 07 | 07.5 Integration tests | PASSED | phase commit created after this state update | Hardened adapter/provider boundaries, receipt cleanup resilience, notification email retry coverage, docs, and tests; full backend suite passed on retry. |
 | 07 | 07.V Integration verification | PASSED | verification commit created after this state update | Verified uploads, notifications, email adapter flow, SSE, migrations, ignored local storage, and tracked-secret posture for milestone 07. |
 | 08 | 08.1 Generated API contract | PASSED | phase commit created after this state update | Added stable FastAPI OpenAPI export, committed generated frontend OpenAPI JSON and TypeScript contracts, and added API contract generation/drift-check scripts. |
-| 08 | 08.2 Frontend API and auth layer | NOT_STARTED | — | — |
+| 08 | 08.2 Frontend API and auth layer | PASSED | phase commit created after this state update | Added typed frontend API base layer, auth token/session store, login/register/logout integration, refresh behavior, and protected dashboard route guard. |
 | 08 | 08.3 Dashboard integration | NOT_STARTED | — | — |
 | 08 | 08.4 CRUD screen integration | NOT_STARTED | — | — |
 | 08 | 08.5 Loading and error states | NOT_STARTED | — | — |
@@ -619,6 +619,19 @@ Append only. Do not rewrite earlier records.
 - Verified the generated contract includes the implemented `/api/v1` backend surface through milestone 07, including auth, users, accounts, categories, transactions, transfers, budgets, savings goals, recurring rules, receipts, notifications, notification SSE, health, and reports.
 - No runtime frontend data layer, authentication behavior, fixture replacement, UI changes, endpoint behavior, migrations, or environment variables were added in phase 08.1.
 
+### Phase 08.2 frontend API and auth layer inventory
+
+- Added a dedicated frontend API foundation under `client/lib/api/` using Axios and generated OpenAPI schema types for request/response payloads.
+- Added consistent frontend API error mapping for validation, unauthorized, conflict, network, server, and unknown failures.
+- Added frontend token storage under `client/lib/auth/tokenStorage.ts` using the milestone 02 JSON token transport decision: access and refresh tokens are stored client-side and sent in JSON request bodies for refresh/logout.
+- Added a Zustand auth store under `client/lib/auth/store.ts` for session hydration, login, registration, logout, refresh-backed request retry, current-user loading, and local token cleanup.
+- Added `client/components/auth/AuthGuard.tsx` and wrapped dashboard routes with it so protected UI checks the existing `GET /api/v1/users/me` contract and redirects unauthenticated users to `/auth/login`.
+- Connected `client/app/auth/login/page.tsx` to `POST /api/v1/auth/login`, `GET /api/v1/users/me`, loading states, invalid-credential messaging, network/API error messaging, and safe post-login `next` redirects.
+- Connected `client/app/auth/register/page.tsx` to `POST /api/v1/auth/register` followed by login/current-user hydration, loading states, duplicate-registration messaging, password confirmation handling, and network/API error messaging.
+- Connected the footer profile sheet to current authenticated user email data and `POST /api/v1/auth/logout` for refresh-session revocation plus local session cleanup.
+- Added `client/.env.example` with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` for local/deployed frontend-to-API topology without secrets.
+- No dashboard data replacement, finance CRUD integration, receipt/notification UI integration, backend endpoint behavior, migrations, or production cookie transport hardening was added in phase 08.2.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -697,6 +710,13 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 - Frontend API contracts are generated from the FastAPI OpenAPI schema through `client/generated/openapi.json` and `client/generated/api-types.ts`.
 - `client/generated/README.md` records that generated contract files must not be hand-edited.
 - `npm run api:generate` regenerates the schema and TypeScript contract; `npm run api:check` verifies contract drift for CI.
+
+### Phase 08.2 auth integration update
+
+- Login and registration screens now submit real backend contracts from generated API types while preserving the existing visual layout.
+- Dashboard routes now require an authenticated user loaded from `GET /api/v1/users/me`; unauthenticated users are redirected to `/auth/login`.
+- Frontend refresh behavior follows the milestone 02 JSON transport decision: refresh tokens are posted to `/api/v1/auth/refresh`, rotated responses replace stored tokens, and invalid refresh clears local session state.
+- Logout now calls `/api/v1/auth/logout` when a refresh token exists and then clears local session state.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -825,6 +845,8 @@ Phase 07.V added no endpoints. Verification confirmed the milestone 07 endpoint 
 
 Phase 08.1 added no endpoints. It generated frontend OpenAPI JSON and TypeScript API contracts from the existing FastAPI schema.
 
+Phase 08.2 added no backend endpoints. The frontend auth layer now consumes the existing `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/users/me` endpoints.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -908,6 +930,8 @@ Phase 07.5 created no migrations. It uses the existing receipt, notification, an
 Phase 07.V created no migrations. Verification ran Alembic `upgrade head` against disposable PostgreSQL through `202607010703_add_notification_schema.py`.
 
 Phase 08.1 created no migrations. It only exported the existing OpenAPI schema and generated frontend TypeScript contracts.
+
+Phase 08.2 created no migrations.
 
 ## 11. Environment variables
 
@@ -1075,6 +1099,12 @@ Committed template: `server/.env.example`.
 ### Phase 08.1 generated API contract variables
 
 - No new environment variables were added.
+
+### Phase 08.2 frontend API variables
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | Browser-visible FastAPI origin used by the frontend Axios client. `client/.env.example` defaults to `http://localhost:8000`; an empty value falls back to same-origin requests. |
 
 ## 12. Test command registry
 
@@ -1625,6 +1655,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
 | `cd client && npm run api:check` | PASS | Final drift check passed after generation and required frontend checks. |
 
+### Phase 08.2 frontend API and auth layer commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `frontend-integration` and clean worktree before phase edits. |
+| `cd client && npx tsc --noEmit` | FAIL / diagnostic only | Exposed pre-existing `TransactionInputProps` errors in loan, savings, and transaction edit routes. New API helper type errors found by the first run were repaired; final run only reported those pre-existing unrelated route errors. This command is not part of the phase required checks and `next.config.ts` still skips TypeScript validation during build. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Required build check. Sandboxed runs failed fetching Google Fonts Urbanist; approved rerun passed after final edits. Next.js still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1669,6 +1709,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 07.5 is passed. Next allowed phase is 07.V, Integration verification, after user permission.
 - Milestone 07 is verified. Next allowed phase is 08.1, Generated API contract, after user permission to push the `integrations-notifications` branch and begin milestone 08.
 - Phase 08.1 is passed. Next allowed phase is 08.2, Frontend API and auth layer, after user permission.
+- Phase 08.2 is passed. Next allowed phase is 08.3, Dashboard integration, after user permission.
 
 ## 14. Progress log
 
@@ -1720,3 +1761,4 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 07.5 integration hardening passed on retry. Replaced the brittle receipt-cleanup log-capture assertion with a direct service-logger assertion, reran required Ruff, format, mypy, and full pytest checks, and confirmed local development remains key-free with production provider choices deferred. The next allowed phase is 07.V.
 - 2026-07-01: Phase 07.V integration verification passed. Verified milestone 07 upload, notification, email adapter, and SSE scope; confirmed ignored local upload storage and tracked-secret posture; ran required Ruff, format, mypy, full pytest, and Alembic upgrade checks; and set the next allowed phase to 08.1 after permission to push the branch and begin milestone 08.
 - 2026-07-01: Phase 08.1 generated API contract passed. Added stable FastAPI OpenAPI export, generated and committed frontend OpenAPI JSON plus TypeScript API contracts with `openapi-typescript`, added contract drift checking for CI, ran required backend and frontend checks, and set the next allowed phase to 08.2.
+- 2026-07-01: Phase 08.2 frontend API and auth layer passed. Added the typed Axios API foundation, API error mapping, JSON-token auth store, protected dashboard guard, real login/register/logout flows, frontend API environment template, and required frontend checks; set the next allowed phase to 08.3.
