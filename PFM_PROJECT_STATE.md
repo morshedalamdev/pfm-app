@@ -127,7 +127,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 07 | 07.2 Receipt upload | PASSED | phase commit created after this state update | Added authorized raw-byte receipt upload, metadata list/get/delete APIs, local storage-backed bytes, receipt schema migration, validation, ownership tests, and disposable migration smoke coverage. |
 | 07 | 07.3 Notifications and email | PASSED | phase commit created after this state update | Added notification persistence, authenticated list/unread/read APIs, email delivery outbox flow, local email handler, migration, docs, and tests. |
 | 07 | 07.4 SSE events | PASSED | phase commit created after this state update | Added authenticated notification SSE stream, event serialization helpers, disconnect handling, frontend integration expectations, and tests. |
-| 07 | 07.5 Integration tests | NOT_STARTED | — | — |
+| 07 | 07.5 Integration tests | PASSED | phase commit created after this state update | Hardened adapter/provider boundaries, receipt cleanup resilience, notification email retry coverage, docs, and tests; full backend suite passed on retry. |
 | 07 | 07.V Integration verification | NOT_STARTED | — | — |
 | 08 | 08.1 Generated API contract | NOT_STARTED | — | — |
 | 08 | 08.2 Frontend API and auth layer | NOT_STARTED | — | — |
@@ -590,6 +590,16 @@ Append only. Do not rewrite earlier records.
 - Documented milestone 08 frontend expectations: consume the stream with authenticated `fetch` streaming, refetch notification list/unread-count REST endpoints after snapshot or created hints, tolerate heartbeats, reconnect after the advertised retry interval, and avoid WebSockets for this UI surface.
 - Added notification SSE tests for missing auth, OpenAPI bearer security, event serialization, retry metadata, user isolation, and disconnect cleanup.
 
+### Phase 07.5 integration hardening inventory
+
+- Reviewed receipt storage, notification email, durable outbox, SSE stream, adapter configuration, `.env.example`, README, and architecture notes for local key-free operation and boundary behavior.
+- Hardened receipt delete behavior so a committed receipt soft delete is returned even when storage cleanup fails; cleanup failure is logged with receipt/user/storage-key metadata for operational follow-up.
+- Added `server/tests/test_integration_boundaries.py` covering key-free local adapter configuration, absence of selected production-provider credentials in `.env.example`, receipt upload storage cleanup after database-create failure, and receipt soft-delete behavior when storage cleanup fails.
+- Extended notification integration tests to prove an email adapter failure is captured on the outbox row for retry while the notification remains pending/unsent.
+- Updated `server/.env.example`, `server/README.md`, and `docs/architecture/SYSTEM_DESIGN.md` to record that production object-storage, SMTP, or transactional-email provider variables remain deferred until a concrete provider adapter is selected.
+- No production provider SDKs, provider credentials, new endpoints, migrations, or frontend behavior were added.
+- Retry cleared the prior full-suite blocker. The required full backend test suite passed with approved disposable PostgreSQL access after replacing a brittle log-capture assertion with a direct service-logger boundary assertion.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -784,6 +794,8 @@ Phase 07.3 added notification endpoints: `GET /api/v1/notifications`, `GET /api/
 
 Phase 07.4 added `GET /api/v1/notifications/stream`, an authenticated `text/event-stream` endpoint for one-way notification and refresh-hint events. It emits `notification.snapshot`, `notification.created`, and `heartbeat` events, uses bearer-token user isolation, advertises a 15-second retry interval, and intentionally avoids WebSockets.
 
+Phase 07.5 added no endpoints. It only hardens and documents the existing receipt, notification email, outbox, adapter, and SSE integration boundaries.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -861,6 +873,8 @@ Phase 07.2 created Alembic migration `202607010702_add_receipt_schema.py` for `r
 Phase 07.3 created Alembic migration `202607010703_add_notification_schema.py` for `notifications`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL.
 
 Phase 07.4 created no migrations. It uses the existing notification schema from migration `202607010703`.
+
+Phase 07.5 created no migrations. It uses the existing receipt, notification, and outbox schemas.
 
 ## 11. Environment variables
 
@@ -1016,6 +1030,10 @@ Committed template: `server/.env.example`.
 ### Phase 07.4 SSE variables
 
 - No new environment variables were added.
+
+### Phase 07.5 integration hardening variables
+
+- No new environment variables were added. `server/.env.example` now explicitly notes that production object-storage, SMTP, and transactional-email provider variables are intentionally omitted until a provider adapter is selected.
 
 ## 12. Test command registry
 
@@ -1516,6 +1534,21 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 102 source files. |
 | `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | PASS with approval | Required full test suite passed against disposable PostgreSQL: 137 passed, 1 Starlette/httpx dependency warning. |
 
+### Phase 07.5 integration hardening commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `integrations-notifications` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app/modules/receipts/services.py tests/test_integration_boundaries.py tests/test_notifications.py` | FAIL then PASS | Initial run found one long test function name; after renaming, focused lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | App type check passed before and after focused repairs: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_integration_boundaries.py` | PASS | DB-free integration-boundary tests passed: 3 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_notifications.py` | PASS with approval | Focused notification database tests passed against disposable PostgreSQL: 8 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | FAIL then PASS | Required format check initially required formatting `tests/test_integration_boundaries.py`; after `ruff format tests/test_integration_boundaries.py`, result: 142 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required type check. Result: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests` | BLOCKED before retry | Original required full test suite could not be completed. Escalated run was rejected by the environment usage limit. Sandboxed run failed because disposable PostgreSQL could not bind `127.0.0.1`: 58 passed, 83 errors, 1 Starlette/httpx dependency warning. |
+| `cd server && .venv/bin/pytest -q tests` | FAIL then PASS with approval | Retry first exposed a brittle `caplog` assertion in `tests/test_integration_boundaries.py`; after replacing it with a direct service-logger assertion, the approved required full suite passed: 141 passed, 1 Starlette/httpx dependency warning. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1557,6 +1590,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 07.2 is passed. Next allowed phase is 07.3, Notifications and email, after user permission.
 - Phase 07.3 is passed. Next allowed phase is 07.4, Server-Sent Events, after user permission.
 - Phase 07.4 is passed. Next allowed phase is 07.5, Integration tests, after user permission.
+- Phase 07.5 is passed. Next allowed phase is 07.V, Integration verification, after user permission.
 
 ## 14. Progress log
 
@@ -1604,3 +1638,5 @@ Append a dated entry after every completed phase.
 - 2026-07-01: Phase 07.2 receipt upload passed on retry. Required full pytest and Alembic upgrade/downgrade/upgrade smoke checks passed against disposable PostgreSQL, confirming receipt migration, storage, validation, and ownership coverage. A local phase commit is being created, and the next allowed phase is 07.3.
 - 2026-07-01: Phase 07.3 notifications and email passed. Added notification persistence, authenticated notification list/unread/read endpoints, durable `notification.email.requested` outbox email flow, local/console email handler coverage, migration `202607010703`, docs updates, and test hardening. Required Ruff, mypy, full pytest, and Alembic upgrade/downgrade/upgrade checks passed, and the next allowed phase is 07.4.
 - 2026-07-01: Phase 07.4 server-sent events passed. Added authenticated `GET /api/v1/notifications/stream`, SSE serialization helpers, snapshot/notification/heartbeat event behavior, retry and disconnect expectations, user-isolation coverage, and milestone 08 frontend stream guidance. Required Ruff, mypy, and full pytest checks passed, and the next allowed phase is 07.5.
+- 2026-07-01: Phase 07.5 integration hardening blocked. Implemented receipt cleanup resilience, key-free provider configuration assertions, notification email adapter failure retry coverage, and provider-deferred documentation in the working tree. Required Ruff and mypy checks passed, focused DB-free boundary tests passed, and focused notification database tests passed with approval. The required full `pytest -q tests` check remains blocked because sandboxed disposable PostgreSQL localhost binding fails and the escalated rerun was rejected by the environment usage limit.
+- 2026-07-01: Phase 07.5 integration hardening passed on retry. Replaced the brittle receipt-cleanup log-capture assertion with a direct service-logger assertion, reran required Ruff, format, mypy, and full pytest checks, and confirmed local development remains key-free with production provider choices deferred. The next allowed phase is 07.V.

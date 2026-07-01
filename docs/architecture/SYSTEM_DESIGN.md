@@ -333,6 +333,16 @@ configured console/local email adapter and records delivery metadata on the
 notification row. No SMTP or transactional email provider settings are required
 until a provider adapter is selected.
 
+Phase 07.5 hardens the integration boundaries without selecting production
+providers. Local mode remains key-free: receipts use `STORAGE_BACKEND=local`,
+notification email uses `EMAIL_BACKEND=console|local`, and `.env.example`
+intentionally omits cloud bucket keys, SMTP passwords, and transactional-email
+API tokens until the provider adapter is chosen in a later deployment/provider
+phase. Receipt storage cleanup after a committed soft delete is best-effort and
+logged for operational follow-up if local or provider storage is unavailable;
+outbox email adapter failures are captured on the outbox row for retry while the
+notification remains unsent.
+
 ### Production
 
 ```mermaid

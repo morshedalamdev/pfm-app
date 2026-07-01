@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from datetime import UTC, datetime
@@ -31,6 +32,9 @@ class InvalidReceiptFileError(Exception):
 
 class InvalidReceiptTransactionError(Exception):
     pass
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ReceiptService:
@@ -158,7 +162,18 @@ class ReceiptService:
         response = ReceiptResponse.model_validate(receipt)
         receipt.deleted_at = datetime.now(UTC)
         await self.receipts.commit()
-        await self.storage.delete(receipt.storage_key)
+        try:
+            await self.storage.delete(receipt.storage_key)
+        except Exception:
+            LOGGER.warning(
+                "receipt_storage_delete_failed",
+                extra={
+                    "receipt_id": str(receipt.id),
+                    "user_id": str(current_user.id),
+                    "storage_key": receipt.storage_key,
+                },
+                exc_info=True,
+            )
         return response
 
     def validate_file(self, *, content: bytes, content_type: str) -> None:

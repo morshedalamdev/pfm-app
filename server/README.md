@@ -139,6 +139,11 @@ selected. Provider API keys, SMTP credentials, bucket names, and endpoint URLs
 should stay optional until then and should be represented only as environment
 variables, never committed secrets.
 
+The committed `.env.example` intentionally omits production provider variables
+until a concrete storage or email provider adapter is selected. Local
+development and tests should continue to run with `STORAGE_BACKEND=local` and
+`EMAIL_BACKEND=console|local` and no external API keys.
+
 ## Health and observability
 
 Use `GET /api/v1/health/live` to confirm the API process is running and

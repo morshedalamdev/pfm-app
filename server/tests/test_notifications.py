@@ -75,6 +75,11 @@ class FakeSseRequest:
         return disconnected
 
 
+class FailingEmailAdapter:
+    async def send(self, message: object) -> object:
+        raise RuntimeError("email provider unavailable")
+
+
 def build_alembic_config(database_url: str) -> Config:
     config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url)
@@ -281,6 +286,45 @@ def test_notification_email_outbox_handler_records_delivery(
     assert sent_notification.email_provider_message_id.startswith("console-")
     assert sent_notification.email_sent_at is not None
     assert processed_outbox.status == "processed"
+
+
+def test_notification_email_outbox_retry_records_adapter_failure(
+    notification_context: NotificationApiContext,
+) -> None:
+    context = notification_context
+    user = register_and_login(context, "notifications-email-fail@example.com")
+    notification = create_notification(
+        context,
+        user.user_id,
+        title="Email adapter failure",
+        message="This message should be retried.",
+        request_email=True,
+    )
+    now = datetime(2026, 7, 2, tzinfo=UTC)
+
+    result = run_notification_email_worker_with_handler(
+        context,
+        NotificationEmailHandler(FailingEmailAdapter()),
+        now=now,
+    )
+
+    assert result.claimed == 1
+    assert result.processed == 0
+    assert result.retried == 1
+    assert result.failed == 0
+    failed_notification, retried_outbox = load_notification_and_outbox(
+        context,
+        notification["id"],
+    )
+    assert failed_notification.email_delivery_status == "pending"
+    assert failed_notification.email_sent_at is None
+    assert retried_outbox.status == "pending"
+    assert retried_outbox.attempts == 1
+    assert retried_outbox.error_type == "RuntimeError"
+    assert retried_outbox.error_message == "email provider unavailable"
+    assert retried_outbox.locked_by is None
+    assert retried_outbox.locked_until is None
+    assert retried_outbox.available_at > now
 
 
 def test_notifications_openapi_contract(
@@ -524,24 +568,45 @@ def run_notification_email_worker(
     context: NotificationApiContext,
     adapter: LocalEmailAdapter,
 ) -> Any:
-    return asyncio.run(run_notification_email_worker_async(context, adapter))
+    return run_notification_email_worker_with_handler(
+        context,
+        NotificationEmailHandler(adapter),
+        now=datetime(2026, 7, 2, tzinfo=UTC),
+    )
 
 
-async def run_notification_email_worker_async(
+def run_notification_email_worker_with_handler(
     context: NotificationApiContext,
-    adapter: LocalEmailAdapter,
+    handler: NotificationEmailHandler,
+    *,
+    now: datetime,
+) -> Any:
+    return asyncio.run(
+        run_notification_email_worker_with_handler_async(
+            context,
+            handler,
+            now=now,
+        )
+    )
+
+
+async def run_notification_email_worker_with_handler_async(
+    context: NotificationApiContext,
+    handler: NotificationEmailHandler,
+    *,
+    now: datetime,
 ) -> Any:
     engine = build_async_engine(context.database_url)
     session_factory = build_session_factory(engine)
     try:
         worker = OutboxWorker(
             session_factory,
-            handler=NotificationEmailHandler(adapter),
+            handler=handler,
             worker_id="notification-email-test-worker",
             batch_size=10,
             event_types={NOTIFICATION_EMAIL_REQUESTED_EVENT},
         )
-        return await worker.run_once(now=datetime(2026, 7, 2, tzinfo=UTC))
+        return await worker.run_once(now=now)
     finally:
         await engine.dispose()
 
