@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - ci-docker-deploy
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: pfm_ci
+          POSTGRES_USER: pfm_ci
+          POSTGRES_PASSWORD: pfm_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pfm_ci -d pfm_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: server
+    env:
+      APP_ENV: test
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      DATABASE_URL: postgresql+asyncpg://pfm_ci:pfm_ci@127.0.0.1:5432/pfm_ci
+      ACCESS_TOKEN_SECRET_KEY: local-ci-access-token-secret-32-bytes
+      REFRESH_TOKEN_SECRET_KEY: local-ci-refresh-token-secret-32-bytes
+      EMAIL_BACKEND: local
+      LOCAL_STORAGE_ROOT: .local/storage-ci
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/pyproject.toml
+
+      - name: Install PostgreSQL server binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql
+          sudo service postgresql stop || true
+
+      - name: Install backend dependencies
+        run: python -m pip install -e ".[dev,test]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Mypy
+        run: mypy app
+
+      - name: Pytest
+        run: pytest -q
+
+      - name: Alembic upgrade
+        run: alembic upgrade head
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Optional lint
+        run: npm run lint --if-present
+
+      - name: Optional tests
+        run: npm run test --if-present
+
+  api-contract:
+    name: API contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/pyproject.toml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install backend runtime dependencies
+        working-directory: server
+        run: python -m pip install -e .
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Check generated API contract drift
+        run: npm run api:check

@@ -137,7 +137,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 08 | 08.6 Responsive and E2E checks | PASSED | phase commit created after this state update | Added documented full-stack Playwright E2E/responsive coverage, fixed integration defects found by E2E, and verified required backend/frontend checks. |
 | 08 | 08.V Frontend verification | PASSED | verification commit created after this state update | Verified milestone 08 frontend/server integration, contract drift, full backend/frontend checks, E2E coverage, mock-value removal, and preserved UI scope. |
 | 09 | 09.1 Docker and Compose | PASSED | phase commit created after this state update | Added production-oriented backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL/API/recurring worker/frontend, health checks, volumes, ignored build/runtime artifacts, and local Docker command docs. |
-| 09 | 09.2 CI checks | NOT_STARTED | — | — |
+| 09 | 09.2 CI checks | PASSED | phase commit created after this state update | Added GitHub Actions CI quality gates for backend lint/format/type/tests/migrations, frontend build/optional checks, and API contract drift, plus local CI command documentation. |
 | 09 | 09.3 Deployment configuration | NOT_STARTED | — | — |
 | 09 | 09.4 README update | NOT_STARTED | — | — |
 | 09 | 09.5 Deployment smoke test | NOT_STARTED | — | — |
@@ -701,6 +701,15 @@ Append only. Do not rewrite earlier records.
 - Updated `server/README.md` with local Docker Compose build, migrate, start, stop, reset, port override, and one-shot recurring worker commands.
 - No backend endpoint behavior, migrations, production deployment provider configuration, CI workflow, or root README rewrite was added in phase 09.1.
 
+### Phase 09.2 continuous integration inventory
+
+- Added `.github/workflows/ci.yml` with three GitHub Actions jobs: backend quality gates, frontend build/optional checks, and generated API contract drift checking.
+- Backend CI uses Python 3.12, pip dependency caching, a disposable PostgreSQL service with test-only credentials, locally installed PostgreSQL server binaries for the existing disposable PostgreSQL pytest fixture, and the existing backend commands: `ruff check .`, `ruff format --check .`, `mypy app`, `pytest -q`, and `alembic upgrade head`.
+- Frontend CI uses Node.js 24, npm dependency caching keyed by `client/package-lock.json`, `npm ci`, `npm run build`, `npm run lint --if-present`, and `npm run test --if-present`.
+- API contract CI installs backend runtime dependencies plus frontend dependencies, then runs `npm run api:check` so committed `client/generated/openapi.json` and `client/generated/api-types.ts` cannot drift from FastAPI OpenAPI.
+- Added `docs/development/CI.md` documenting the local backend, frontend, and API contract commands and clarifying that current frontend lint/test scripts are intentional no-ops until real scripts exist.
+- CI uses only local/test secrets and disposable service credentials. No production credentials, deployment provider configuration, endpoint behavior, migrations, Docker changes, or frontend UI changes were added in phase 09.2.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -963,6 +972,8 @@ Phase 08.V added no backend endpoints. Verification confirmed the milestone 08 f
 
 Phase 09.1 added no backend endpoints. It only added Dockerfiles, Compose orchestration, health checks, volumes, ignored build/runtime artifacts, and local Docker operation documentation.
 
+Phase 09.2 added no backend endpoints. It only added CI workflow configuration and local CI command documentation.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1060,6 +1071,8 @@ Phase 08.6 created no migrations.
 Phase 08.V created no migrations. Verification and E2E applied existing migrations through `202607010703_add_notification_schema.py` against disposable PostgreSQL.
 
 Phase 09.1 created no migrations. Compose migration execution uses the existing Alembic head through `docker compose run --rm api alembic upgrade head`.
+
+Phase 09.2 created no migrations. CI runs `alembic upgrade head` against a disposable PostgreSQL service using existing migrations through `202607010703_add_notification_schema.py`.
 
 ## 11. Environment variables
 
@@ -1260,6 +1273,12 @@ Committed template: `server/.env.example`.
 - Root `compose.yml` uses local-only interpolation defaults for `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `API_PORT`, `FRONTEND_PORT`, `DEBUG`, `ACCESS_TOKEN_SECRET_KEY`, `REFRESH_TOKEN_SECRET_KEY`, and `NEXT_PUBLIC_API_BASE_URL`.
 - Compose overrides `DATABASE_URL` to point API and worker containers at the `postgres` service and overrides `LOCAL_STORAGE_ROOT` to `/var/lib/pfm/storage`, backed by a named Docker volume.
 - Compose default token secret values and PostgreSQL password are development placeholders only; production secrets must be supplied by the deployment environment and not committed.
+
+### Phase 09.2 CI variables
+
+- No new committed application settings were added to `server/.env.example` or `client/.env.example`.
+- `.github/workflows/ci.yml` defines test-only CI values for `DATABASE_URL`, `ACCESS_TOKEN_SECRET_KEY`, `REFRESH_TOKEN_SECRET_KEY`, `CORS_ORIGINS`, `EMAIL_BACKEND`, `LOCAL_STORAGE_ROOT`, and `NEXT_PUBLIC_API_BASE_URL`.
+- CI PostgreSQL service credentials are disposable local test values (`pfm_ci`); no external credentials or production secrets are required.
 
 ## 12. Test command registry
 
@@ -1901,6 +1920,22 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `docker compose config` | PASS | Required Compose validation passed and rendered PostgreSQL, API, recurring worker, frontend, health checks, ports, environment, and named volumes. |
 | `docker compose build` | FAIL in sandbox, PASS with approval | Required image build. Sandboxed run could not write Docker buildx activity state under the user Docker home. Approved rerun built `pfm-app-api`, `pfm-app-worker`, and `pfm-app-frontend`; frontend build still reports `Skipping validation of types`, and npm reported the existing 6 audit findings. |
 
+### Phase 09.2 CI checks commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `ci-docker-deploy` and clean worktree before phase edits. |
+| `server/.venv/bin/python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('workflow yaml parsed')"` | PASS | Local workflow YAML syntax parse succeeded. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check. Result: 143 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check. Result: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Required backend test suite. Sandboxed run could not bind `127.0.0.1` for the disposable PostgreSQL fixture and stopped with 58 passed, 83 errors. Approved rerun passed: 141 passed, 1 Starlette/httpx warning. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | FAIL in sandbox, PASS with approval | Required Alembic upgrade check. Sandboxed disposable PostgreSQL setup could not bind `127.0.0.1`; approved rerun applied all migrations through `202607010703_add_notification_schema.py`. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Required frontend production build. Sandboxed run failed fetching Google Fonts Urbanist; approved network rerun passed. Next.js still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Required local API contract drift check passed; generated OpenAPI JSON and TypeScript contracts are up to date. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1952,6 +1987,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 08.6 is passed. Next allowed phase is 08.V, Frontend verification, after user permission.
 - Milestone 08 is verified. Next allowed phase is 09.1, Docker and Compose, after user permission to push the `frontend-integration` branch and begin milestone 09.
 - Phase 09.1 is passed. Next allowed phase is 09.2, Continuous integration, after user permission.
+- Phase 09.2 is passed. Next allowed phase is 09.3, Deployment configuration, after user permission.
 
 ## 14. Progress log
 
@@ -2010,3 +2046,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 08.6 responsive and E2E checks passed. Added a documented full-stack Playwright harness and integrated journey covering auth, finance records, budget, savings, analytics reports, unread notification behavior, logout, and mobile/tablet/desktop responsive checks; fixed E2E-discovered category limit, transaction date range, auth hydration, logout cleanup, mobile overflow, and notification outbox test timing defects; set the next allowed phase to 08.V.
 - 2026-07-02: Phase 08.V frontend verification passed. Verified the complete milestone 08 frontend/server integration with backend quality checks, frontend build and optional checks, contract drift check, full-stack E2E, mock-value searches, and preserved UI scope review; set the next allowed phase to 09.1 after permission to push the branch and begin milestone 09.
 - 2026-07-02: Phase 09.1 Docker and Compose passed. Added backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL, API, recurring worker, and frontend, service health checks, named volumes, Docker ignore files, and Docker lifecycle documentation. Required Compose validation passed, Docker image build passed with approval after sandboxed buildx state access was blocked, and the next allowed phase is 09.2.
+- 2026-07-02: Phase 09.2 continuous integration passed. Added GitHub Actions backend, frontend, and API-contract jobs with dependency caching, disposable PostgreSQL service credentials, local PostgreSQL binaries for database tests, and test-only secrets; documented local CI commands in `docs/development/CI.md`; ran the required backend, frontend, Alembic, and contract checks; and set the next allowed phase to 09.3.
