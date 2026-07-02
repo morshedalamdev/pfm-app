@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy.exc import IntegrityError
 
@@ -18,6 +19,7 @@ from app.modules.categories.schemas import (
     CategoryResponse,
     CategoryUpdateRequest,
 )
+from app.modules.finance_defaults import CategoryKind, ensure_default_categories
 from app.modules.users.models import User
 
 
@@ -70,6 +72,19 @@ class CategoryService:
             page_cursor = decode_cursor(cursor)
         except InvalidCursorError as exc:
             raise InvalidCategoryCursorError from exc
+
+        if cursor is None:
+            try:
+                defaults_created = await ensure_default_categories(
+                    self.categories,
+                    current_user.id,
+                    kind=cast(CategoryKind | None, kind),
+                )
+                if defaults_created:
+                    await self.categories.commit()
+            except IntegrityError as exc:
+                await self.categories.rollback()
+                raise DuplicateCategoryError from exc
 
         categories = await self.categories.list_owned(
             current_user.id,

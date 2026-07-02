@@ -61,16 +61,8 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     opening_balance: "100.00",
     type: "cash",
   });
-  const salary = await postJson(api, "/api/v1/categories", {
-    icon_key: "briefcase",
-    kind: "income",
-    name: "Salary",
-  });
-  const groceries = await postJson(api, "/api/v1/categories", {
-    icon_key: "shopping-cart",
-    kind: "expense",
-    name: "Groceries",
-  });
+  const salary = await getCategoryByName(api, "income", "Salary");
+  const groceries = await getCategoryByName(api, "expense", "Groceries");
 
   await postJson(api, "/api/v1/transactions", {
     account_id: checking.id,
@@ -131,6 +123,18 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   ]);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
+  await page.goto("/transaction/create");
+  await page.getByText("Account").click();
+  await expect(page.getByRole("button", { name: "Checking" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByText("Category").click();
+  await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto("/budget/setup");
+  await expect(page.getByText("Groceries")).toBeVisible();
+  await expect(page.getByText("Dining")).toBeVisible();
+
   await page.goto("/transaction");
   await expect(page.getByText("E2E income")).toBeVisible();
   await expect(page.getByText("E2E groceries")).toBeVisible();
@@ -185,6 +189,15 @@ async function postJson(api, path, body, headers = {}) {
   });
   expect(response.ok(), `${path} ${response.status()}`).toBe(true);
   return response.json();
+}
+
+async function getCategoryByName(api, kind, name) {
+  const response = await api.get(`/api/v1/categories?kind=${kind}&limit=100`);
+  expect(response.ok(), `categories ${kind} ${response.status()}`).toBe(true);
+  const body = await response.json();
+  const category = body.items.find((item) => item.name === name);
+  expect(category, `${kind} category ${name}`).toBeTruthy();
+  return category;
 }
 
 const routeText = {

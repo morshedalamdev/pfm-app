@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Select, and_, desc, or_, select
+from sqlalchemy import Select, and_, desc, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.accounts.pagination import PageCursor
@@ -33,6 +33,12 @@ class CategoryRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def has_any_owned_kind(self, user_id: uuid.UUID, kind: str) -> bool:
+        result = await self._session.execute(
+            select(exists().where(Category.user_id == user_id, Category.kind == kind))
+        )
+        return bool(result.scalar())
 
     async def list_owned(
         self,

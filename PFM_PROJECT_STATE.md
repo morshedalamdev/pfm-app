@@ -147,6 +147,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.3 Full test execution | NOT_STARTED | — | — |
 | 10 | 10.4 Defect repair | NOT_STARTED | — | — |
 | 10 | 10.A Profile data repair | PASSED | phase commit created after this state update | Added persisted user profile fields, register/profile API support, profile form save/load wiring, contract regeneration, and focused/full regression checks. |
+| 10 | 10.B Dropdown data repair | PASSED | phase commit created after this state update | Added idempotent default account/category bootstrap for empty users so transaction create/edit dropdowns and budget setup category rows render database-backed data. |
 | 10 | 10.V Final readiness verification | NOT_STARTED | — | — |
 
 ## 6. Architecture Decision Log
@@ -1009,6 +1010,8 @@ Phase 09.5 added no backend endpoints. It was blocked before the Compose stack c
 
 Phase 10.A changed `POST /api/v1/auth/register` to accept optional `full_name`, `phone_number`, and `occupation` profile fields and return them in the safe registration response. It changed `GET /api/v1/users/me` responses to include nullable profile fields and added authenticated `PATCH /api/v1/users/me` for updating email, full name, phone number, occupation, and about text. Profile updates normalize email/text inputs, preserve user ownership through the current-user dependency, return HTTP 409 on duplicate email conflicts, and never serialize password data.
 
+Phase 10.B changed `GET /api/v1/accounts` and `GET /api/v1/categories` list behavior to idempotently create database-backed default dropdown data for empty users. Account list creates a `Cash` account only when the current user has no account rows. Category list creates default income or expense categories only when the current user has no rows for the requested kind. Existing user-created rows and archived rows are not overwritten.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1116,6 +1119,8 @@ Phase 09.4 created no migrations. README migration examples continue to use exis
 Phase 09.5 created no migrations and applied no migrations because the Compose stack was blocked before PostgreSQL started.
 
 Phase 10.A created Alembic migration `202607021004_add_user_profile_fields.py` for nullable `users.full_name`, `users.phone_number`, `users.occupation`, and `users.about` columns. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against a disposable PostgreSQL database.
+
+Phase 10.B created no migrations. It uses the existing account and category schema, including `categories.is_default`, and applied existing migrations through `202607021004_add_user_profile_fields.py` during E2E and Compose smoke checks.
 
 ## 11. Environment variables
 
@@ -1341,6 +1346,10 @@ Committed template: `server/.env.example`.
 - The attempted Compose startup used the existing local interpolation defaults from `compose.yml`; no external credentials or production secrets were required.
 
 ### Phase 10.A profile data repair variables
+
+- No new environment variables were added.
+
+### Phase 10.B dropdown data repair variables
 
 - No new environment variables were added.
 
@@ -2076,6 +2085,34 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `POSTGRES_PORT=55432 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
 | `git diff --check` | PASS | Verified no whitespace errors before state recording. |
 
+### Phase 10.B dropdown data repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format app/modules/finance_defaults.py app/modules/accounts/repositories.py app/modules/accounts/services.py app/modules/categories/repositories.py app/modules/categories/services.py tests/test_accounts_categories.py` | PASS | Focused formatting check for backend dropdown bootstrap files: 6 files left unchanged. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app/modules/finance_defaults.py app/modules/accounts/repositories.py app/modules/accounts/services.py app/modules/categories/repositories.py app/modules/categories/services.py tests/test_accounts_categories.py` | PASS | Focused lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_accounts_categories.py` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL. Approved focused dropdown/account/category regression passed: 5 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 146 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full backend test suite passed against disposable PostgreSQL: 145 passed, 1 warning. |
+| `git diff --check` | PASS | Verified no whitespace errors. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `cd client && npm run e2e` | PASS with approval | Full-stack Playwright E2E passed: 1 test passed, including transaction create Account/Category drawer and budget setup category assertions. |
+| `POSTGRES_PORT=55432 docker compose up -d --build` | PASS with approval | Rebuilt and started PostgreSQL, API, worker, and frontend with host PostgreSQL port override. |
+| `POSTGRES_PORT=55432 docker compose ps` | PASS with approval | Confirmed PostgreSQL, API, and frontend healthy; worker running with health check starting. |
+| `POSTGRES_PORT=55432 docker compose run --rm api alembic upgrade head` | PASS with approval | Containerized migration command completed against the smoke database. |
+| API liveness check against `http://127.0.0.1:8000/api/v1/health/live` | FAIL in sandbox, PASS with approval | Sandboxed curl could not connect to host port; approved check returned `{"status":"ok","service":"PFM API","environment":"development","version":"0.1.0"}`. |
+| Frontend reachability check against `http://127.0.0.1:3000` | FAIL in sandbox, PASS with approval | Sandboxed curl could not connect to host port; approved check returned HTTP 200. |
+| `POSTGRES_PORT=55432 docker compose logs --tail=20 worker` | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
+| Authenticated Compose dropdown smoke | PASS with approval | Fresh user list calls returned `accounts=1`, `expenses=10`, and `income=5`, including `Cash`, `Groceries`, and `Salary`. |
+| `POSTGRES_PORT=55432 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2132,6 +2169,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 09.4 is passed. Next allowed phase is 09.5, Deployment smoke test, after user permission.
 - Phase 09.5 is blocked by local Docker image pull/startup: `postgres:18-alpine` did not finish pulling, no Compose containers were created, and no usable local Postgres image is present. Next allowed phase remains 09.5 after Docker registry/network availability is restored or the image is made available locally.
 - Phase 10.A profile data repair is passed. Next allowed user-reported bug-fix phase is 10.B, dropdown data repair for create/edit forms, after user permission.
+- Phase 10.B dropdown data repair is passed. Next allowed user-reported bug-fix phase is 10.C, date picker selected/today styling repair, after user permission.
 
 ## 14. Progress log
 
@@ -2195,3 +2233,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 09.4 README update passed. Replaced the stale root README with accurate FastAPI, Next.js, PostgreSQL, worker, local adapter, Docker Compose, local setup, migration, API contract, test, documentation-link, and milestone workflow onboarding; verified stale stack terms are absent from project-owned README/server/docs content; ran feasible documented commands; and set the next allowed phase to 09.5.
 - 2026-07-02: Phase 09.5 deployment smoke test blocked. Compose validation passed, but `docker compose up -d --build` could not complete because Docker did not finish pulling `postgres:18-alpine`; no containers or usable Postgres image were left behind, `docker compose down` completed cleanly, and the next allowed phase remains 09.5 for retry after Docker registry/network availability is restored.
 - 2026-07-02: Phase 10.A profile data repair passed. Added persisted profile fields to users, registration/profile API support, generated frontend contract updates, a functional profile form backed by database data, focused profile tests, full backend tests, frontend build/API/E2E checks, migration smoke, and a Compose profile smoke using host PostgreSQL port `55432`; set the next allowed user-reported bug-fix phase to 10.B dropdown data repair.
+- 2026-07-02: Phase 10.B dropdown data repair passed. Added idempotent account/category default bootstrap for empty users through the existing list endpoints, covered transaction create Account/Category drawers and budget setup category rendering in E2E, verified full backend/frontend/API contract checks, ran Compose migration and authenticated dropdown smoke, and set the next allowed user-reported bug-fix phase to 10.C date picker styling repair.

@@ -69,6 +69,45 @@ def finance_context(disposable_postgres_url: str) -> Iterator[FinanceApiContext]
         asyncio.run(engine.dispose())
 
 
+def test_default_dropdown_data_bootstraps_for_empty_user(
+    finance_context: FinanceApiContext,
+) -> None:
+    context = finance_context
+    headers = auth_headers(context, "dropdown-bootstrap@example.com")
+
+    accounts_response = context.client.get("/api/v1/accounts", headers=headers)
+    expense_response = context.client.get(
+        "/api/v1/categories?kind=expense",
+        headers=headers,
+    )
+    income_response = context.client.get(
+        "/api/v1/categories?kind=income",
+        headers=headers,
+    )
+
+    assert accounts_response.status_code == 200
+    account_items = accounts_response.json()["items"]
+    assert [(item["name"], item["type"]) for item in account_items] == [
+        ("Cash", "cash")
+    ]
+
+    assert expense_response.status_code == 200
+    expense_items = expense_response.json()["items"]
+    assert {"Groceries", "Dining", "Transport", "Bills & Fees"}.issubset(
+        {item["name"] for item in expense_items}
+    )
+    assert all(item["kind"] == "expense" for item in expense_items)
+    assert all(item["is_default"] is True for item in expense_items)
+
+    assert income_response.status_code == 200
+    income_items = income_response.json()["items"]
+    assert {"Salary", "Business", "Freelance"}.issubset(
+        {item["name"] for item in income_items}
+    )
+    assert all(item["kind"] == "income" for item in income_items)
+    assert all(item["is_default"] is True for item in income_items)
+
+
 def test_account_crud_pagination_and_archive(
     finance_context: FinanceApiContext,
 ) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Select, and_, desc, or_, select
+from sqlalchemy import Select, and_, desc, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.accounts.models import Account
@@ -28,6 +28,12 @@ class AccountRepository:
             select(Account).where(Account.id == account_id, Account.user_id == user_id)
         )
         return result.scalar_one_or_none()
+
+    async def has_any_owned(self, user_id: uuid.UUID) -> bool:
+        result = await self._session.execute(
+            select(exists().where(Account.user_id == user_id))
+        )
+        return bool(result.scalar())
 
     async def list_owned(
         self,
