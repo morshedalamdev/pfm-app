@@ -138,7 +138,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 08 | 08.V Frontend verification | PASSED | verification commit created after this state update | Verified milestone 08 frontend/server integration, contract drift, full backend/frontend checks, E2E coverage, mock-value removal, and preserved UI scope. |
 | 09 | 09.1 Docker and Compose | PASSED | phase commit created after this state update | Added production-oriented backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL/API/recurring worker/frontend, health checks, volumes, ignored build/runtime artifacts, and local Docker command docs. |
 | 09 | 09.2 CI checks | PASSED | phase commit created after this state update | Added GitHub Actions CI quality gates for backend lint/format/type/tests/migrations, frontend build/optional checks, and API contract drift, plus local CI command documentation. |
-| 09 | 09.3 Deployment configuration | NOT_STARTED | — | — |
+| 09 | 09.3 Deployment configuration | PASSED | phase commit created after this state update | Added provider-neutral production deployment topology, secrets checklist, migration/rollback/backup procedure, health probes, CORS/cookie security notes, and receipt storage behavior documentation. |
 | 09 | 09.4 README update | NOT_STARTED | — | — |
 | 09 | 09.5 Deployment smoke test | NOT_STARTED | — | — |
 | 09 | 09.V DevOps verification | NOT_STARTED | — | — |
@@ -710,6 +710,15 @@ Append only. Do not rewrite earlier records.
 - Added `docs/development/CI.md` documenting the local backend, frontend, and API contract commands and clarifying that current frontend lint/test scripts are intentional no-ops until real scripts exist.
 - CI uses only local/test secrets and disposable service credentials. No production credentials, deployment provider configuration, endpoint behavior, migrations, Docker changes, or frontend UI changes were added in phase 09.2.
 
+### Phase 09.3 deployment configuration inventory
+
+- Added `docs/deployment/DEPLOYMENT.md` with a provider-neutral production topology covering frontend, API, recurring worker, PostgreSQL, storage provider when selected, email provider when selected, TLS termination, and log collection.
+- Documented a production environment variable checklist without values for API, worker, frontend, database, auth token secrets, worker tuning, receipt limits, storage, and email settings.
+- Documented production migration procedure, backup requirement, rollback considerations, health probes, recurring worker start command, log monitoring expectations, and receipt storage behavior.
+- Recorded production CORS guidance using the known live frontend domain `https://pfm.morshedalam.dev` and documented that the concrete API domain remains a provider-specific decision before generating deployment manifests.
+- Recorded that cookie transport is not currently implemented; refresh tokens still use the milestone 02 JSON-body transport, and future cookie transport must use HTTPS-only secure cookie settings.
+- No concrete provider deployment files, production credentials, endpoint behavior, migrations, Docker changes, CI changes, or frontend UI changes were added in phase 09.3.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -974,6 +983,8 @@ Phase 09.1 added no backend endpoints. It only added Dockerfiles, Compose orches
 
 Phase 09.2 added no backend endpoints. It only added CI workflow configuration and local CI command documentation.
 
+Phase 09.3 added no backend endpoints. It only added production deployment documentation.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1073,6 +1084,8 @@ Phase 08.V created no migrations. Verification and E2E applied existing migratio
 Phase 09.1 created no migrations. Compose migration execution uses the existing Alembic head through `docker compose run --rm api alembic upgrade head`.
 
 Phase 09.2 created no migrations. CI runs `alembic upgrade head` against a disposable PostgreSQL service using existing migrations through `202607010703_add_notification_schema.py`.
+
+Phase 09.3 created no migrations. It documented the production migration, rollback, and backup procedure for existing Alembic migrations through `202607010703_add_notification_schema.py`.
 
 ## 11. Environment variables
 
@@ -1279,6 +1292,12 @@ Committed template: `server/.env.example`.
 - No new committed application settings were added to `server/.env.example` or `client/.env.example`.
 - `.github/workflows/ci.yml` defines test-only CI values for `DATABASE_URL`, `ACCESS_TOKEN_SECRET_KEY`, `REFRESH_TOKEN_SECRET_KEY`, `CORS_ORIGINS`, `EMAIL_BACKEND`, `LOCAL_STORAGE_ROOT`, and `NEXT_PUBLIC_API_BASE_URL`.
 - CI PostgreSQL service credentials are disposable local test values (`pfm_ci`); no external credentials or production secrets are required.
+
+### Phase 09.3 deployment variables
+
+- No new committed application settings were added to `server/.env.example` or `client/.env.example`.
+- `docs/deployment/DEPLOYMENT.md` documents the production checklist for existing API, worker, frontend, PostgreSQL, auth-token, receipt, storage, and email environment variables without values.
+- Production object-storage and email provider variables remain deferred until concrete provider adapters are selected; no production credentials are required for this documentation phase.
 
 ## 12. Test command registry
 
@@ -1936,6 +1955,16 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
 | `cd client && npm run api:check` | PASS | Required local API contract drift check passed; generated OpenAPI JSON and TypeScript contracts are up to date. |
 
+### Phase 09.3 deployment configuration commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `ci-docker-deploy` before phase edits. |
+| `test -f docs/deployment/DEPLOYMENT.md` | PASS | Required deployment documentation existence check. |
+| `grep -q "migration" docs/deployment/DEPLOYMENT.md` | PASS | Required check that migration procedure is documented. |
+| `grep -q "worker" docs/deployment/DEPLOYMENT.md` | PASS | Required check that worker deployment behavior is documented. |
+| `git diff --check` | PASS | Verified no whitespace errors before commit. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1988,6 +2017,7 @@ Record only active blockers or intentionally deferred decisions.
 - Milestone 08 is verified. Next allowed phase is 09.1, Docker and Compose, after user permission to push the `frontend-integration` branch and begin milestone 09.
 - Phase 09.1 is passed. Next allowed phase is 09.2, Continuous integration, after user permission.
 - Phase 09.2 is passed. Next allowed phase is 09.3, Deployment configuration, after user permission.
+- Phase 09.3 is passed. Next allowed phase is 09.4, README update, after user permission.
 
 ## 14. Progress log
 
@@ -2047,3 +2077,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 08.V frontend verification passed. Verified the complete milestone 08 frontend/server integration with backend quality checks, frontend build and optional checks, contract drift check, full-stack E2E, mock-value searches, and preserved UI scope review; set the next allowed phase to 09.1 after permission to push the branch and begin milestone 09.
 - 2026-07-02: Phase 09.1 Docker and Compose passed. Added backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL, API, recurring worker, and frontend, service health checks, named volumes, Docker ignore files, and Docker lifecycle documentation. Required Compose validation passed, Docker image build passed with approval after sandboxed buildx state access was blocked, and the next allowed phase is 09.2.
 - 2026-07-02: Phase 09.2 continuous integration passed. Added GitHub Actions backend, frontend, and API-contract jobs with dependency caching, disposable PostgreSQL service credentials, local PostgreSQL binaries for database tests, and test-only secrets; documented local CI commands in `docs/development/CI.md`; ran the required backend, frontend, Alembic, and contract checks; and set the next allowed phase to 09.3.
+- 2026-07-02: Phase 09.3 deployment configuration passed. Added provider-neutral production deployment documentation covering required services, environment checklist without values, migration procedure, rollback and backup requirements, health probes, worker start command, receipt storage behavior, CORS guidance for `https://pfm.morshedalam.dev`, and cookie security notes; ran the required deployment documentation checks; and set the next allowed phase to 09.4.
