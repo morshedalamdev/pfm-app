@@ -616,7 +616,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Current User */
+        patch: operations["update_current_user_api_v1_users_me_patch"];
         trace?: never;
     };
 }
@@ -1300,8 +1301,14 @@ export interface components {
         RegisterUserRequest: {
             /** Email */
             email: string;
+            /** Full Name */
+            full_name?: string | null;
+            /** Occupation */
+            occupation?: string | null;
             /** Password */
             password: string;
+            /** Phone Number */
+            phone_number?: string | null;
         };
         /** RegisteredUserResponse */
         RegisteredUserResponse: {
@@ -1312,6 +1319,8 @@ export interface components {
             created_at: string;
             /** Email */
             email: string;
+            /** Full Name */
+            full_name: string | null;
             /**
              * Id
              * Format: uuid
@@ -1319,6 +1328,10 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /** Occupation */
+            occupation: string | null;
+            /** Phone Number */
+            phone_number: string | null;
         };
         /**
          * @description Decimal string serialized from Python Decimal.
@@ -1696,6 +1709,8 @@ export interface components {
         };
         /** UserResponse */
         UserResponse: {
+            /** About */
+            about: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1703,6 +1718,8 @@ export interface components {
             created_at: string;
             /** Email */
             email: string;
+            /** Full Name */
+            full_name: string | null;
             /**
              * Id
              * Format: uuid
@@ -1710,6 +1727,23 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /** Occupation */
+            occupation: string | null;
+            /** Phone Number */
+            phone_number: string | null;
+        };
+        /** UserUpdateRequest */
+        UserUpdateRequest: {
+            /** About */
+            about?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Full Name */
+            full_name?: string | null;
+            /** Occupation */
+            occupation?: string | null;
+            /** Phone Number */
+            phone_number?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -3460,6 +3494,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    update_current_user_api_v1_users_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

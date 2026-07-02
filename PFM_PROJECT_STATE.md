@@ -146,6 +146,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.2 Frontend audit | NOT_STARTED | — | — |
 | 10 | 10.3 Full test execution | NOT_STARTED | — | — |
 | 10 | 10.4 Defect repair | NOT_STARTED | — | — |
+| 10 | 10.A Profile data repair | PASSED | phase commit created after this state update | Added persisted user profile fields, register/profile API support, profile form save/load wiring, contract regeneration, and focused/full regression checks. |
 | 10 | 10.V Final readiness verification | NOT_STARTED | — | — |
 
 ## 6. Architecture Decision Log
@@ -1006,6 +1007,8 @@ Phase 09.4 added no backend endpoints. It only updated root README developer onb
 
 Phase 09.5 added no backend endpoints. It was blocked before the Compose stack could start.
 
+Phase 10.A changed `POST /api/v1/auth/register` to accept optional `full_name`, `phone_number`, and `occupation` profile fields and return them in the safe registration response. It changed `GET /api/v1/users/me` responses to include nullable profile fields and added authenticated `PATCH /api/v1/users/me` for updating email, full name, phone number, occupation, and about text. Profile updates normalize email/text inputs, preserve user ownership through the current-user dependency, return HTTP 409 on duplicate email conflicts, and never serialize password data.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1111,6 +1114,8 @@ Phase 09.3 created no migrations. It documented the production migration, rollba
 Phase 09.4 created no migrations. README migration examples continue to use existing Alembic migrations through `202607010703_add_notification_schema.py`.
 
 Phase 09.5 created no migrations and applied no migrations because the Compose stack was blocked before PostgreSQL started.
+
+Phase 10.A created Alembic migration `202607021004_add_user_profile_fields.py` for nullable `users.full_name`, `users.phone_number`, `users.occupation`, and `users.about` columns. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -1334,6 +1339,10 @@ Committed template: `server/.env.example`.
 
 - No new committed application settings were added to `server/.env.example` or `client/.env.example`.
 - The attempted Compose startup used the existing local interpolation defaults from `compose.yml`; no external credentials or production secrets were required.
+
+### Phase 10.A profile data repair variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -2037,6 +2046,36 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | Worker startup check | NOT RUN / BLOCKED | Worker container never started because the stack could not reach container creation. |
 | Minimal authenticated money flow | NOT RUN / BLOCKED | Could not register/login or create account/category/transaction records because the API stack was unavailable. |
 
+### Phase 10.A profile data repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and tracked the phase worktree. |
+| `git switch -c final-audit` | FAIL in sandbox, PASS with approval | Created the milestone 10 branch after sandboxed Git ref writes were blocked. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 145 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_users_profile.py` | FAIL in sandbox, PASS with approval | Focused profile tests require disposable PostgreSQL localhost binding. Approved rerun passed: 3 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_registration.py tests/test_users_profile.py` | FAIL in sandbox, PASS with approval | Focused registration/profile tests require disposable PostgreSQL. Approved rerun passed: 8 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval after repair | Sandboxed run could not bind localhost; first approved run exposed stale migration/model test assumptions. After updating those tests, full suite passed: 144 passed, 1 warning. |
+| `cd server && <disposable PostgreSQL> alembic upgrade head && alembic downgrade -1 && alembic upgrade head` | PASS with approval | New profile migration smoke passed through upgrade head, downgrade from `202607021004` to `202607010703`, and upgrade back to head. |
+| `cd client && npm run api:generate` | PASS | Regenerated OpenAPI JSON and TypeScript API contract for profile fields and `PATCH /api/v1/users/me`. |
+| `cd client && npx tsc --noEmit` | PASS | Diagnostic TypeScript check passed after generated contracts were refreshed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network rerun passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | API contract drift check passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `cd client && npm run e2e` | FAIL, PASS after repair with approval | First run exposed an E2E selector reading an `aria-hidden` route during navigation; after scoping the selector to visible `main`, the full-stack E2E passed: 1 Playwright test passed. |
+| `POSTGRES_PORT=55432 docker compose up -d --build` | PASS with approval after repair | First startup failed because host port `5432` was already in use. Retrying with `POSTGRES_PORT=55432` built and started PostgreSQL, API, worker, and frontend. |
+| `POSTGRES_PORT=55432 docker compose run --rm api alembic upgrade head` | PASS with approval | Containerized migration applied `202607021004_add_user_profile_fields.py`. |
+| API liveness check against `http://127.0.0.1:8000/api/v1/health/live` | PASS with approval | Returned `{"status":"ok","service":"PFM API","environment":"development","version":"0.1.0"}`. |
+| Frontend reachability check against `http://127.0.0.1:3000` | PASS with approval | Returned HTTP 200. |
+| Worker log check | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
+| Authenticated Compose profile smoke | PASS with approval | Register returned 201, login returned 200, profile patch returned 200 with `full_name=Compose Profile`. |
+| `POSTGRES_PORT=55432 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
+| `git diff --check` | PASS | Verified no whitespace errors before state recording. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2092,6 +2131,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 09.3 is passed. Next allowed phase is 09.4, README update, after user permission.
 - Phase 09.4 is passed. Next allowed phase is 09.5, Deployment smoke test, after user permission.
 - Phase 09.5 is blocked by local Docker image pull/startup: `postgres:18-alpine` did not finish pulling, no Compose containers were created, and no usable local Postgres image is present. Next allowed phase remains 09.5 after Docker registry/network availability is restored or the image is made available locally.
+- Phase 10.A profile data repair is passed. Next allowed user-reported bug-fix phase is 10.B, dropdown data repair for create/edit forms, after user permission.
 
 ## 14. Progress log
 
@@ -2154,3 +2194,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 09.3 deployment configuration passed. Added provider-neutral production deployment documentation covering required services, environment checklist without values, migration procedure, rollback and backup requirements, health probes, worker start command, receipt storage behavior, CORS guidance for `https://pfm.morshedalam.dev`, and cookie security notes; ran the required deployment documentation checks; and set the next allowed phase to 09.4.
 - 2026-07-02: Phase 09.4 README update passed. Replaced the stale root README with accurate FastAPI, Next.js, PostgreSQL, worker, local adapter, Docker Compose, local setup, migration, API contract, test, documentation-link, and milestone workflow onboarding; verified stale stack terms are absent from project-owned README/server/docs content; ran feasible documented commands; and set the next allowed phase to 09.5.
 - 2026-07-02: Phase 09.5 deployment smoke test blocked. Compose validation passed, but `docker compose up -d --build` could not complete because Docker did not finish pulling `postgres:18-alpine`; no containers or usable Postgres image were left behind, `docker compose down` completed cleanly, and the next allowed phase remains 09.5 for retry after Docker registry/network availability is restored.
+- 2026-07-02: Phase 10.A profile data repair passed. Added persisted profile fields to users, registration/profile API support, generated frontend contract updates, a functional profile form backed by database data, focused profile tests, full backend tests, frontend build/API/E2E checks, migration smoke, and a Compose profile smoke using host PostgreSQL port `55432`; set the next allowed user-reported bug-fix phase to 10.B dropdown data repair.

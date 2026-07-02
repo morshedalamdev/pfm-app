@@ -1899,11 +1899,47 @@
             "title": "Email",
             "type": "string"
           },
+          "full_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "occupation": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupation"
+          },
           "password": {
             "maxLength": 128,
             "minLength": 1,
             "title": "Password",
             "type": "string"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
           }
         },
         "required": [
@@ -1924,6 +1960,17 @@
             "title": "Email",
             "type": "string"
           },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1932,11 +1979,36 @@
           "is_active": {
             "title": "Is Active",
             "type": "boolean"
+          },
+          "occupation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupation"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
           }
         },
         "required": [
           "id",
           "email",
+          "full_name",
+          "phone_number",
+          "occupation",
           "is_active",
           "created_at"
         ],
@@ -2903,6 +2975,17 @@
       },
       "UserResponse": {
         "properties": {
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -2912,6 +2995,17 @@
             "title": "Email",
             "type": "string"
           },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -2920,15 +3014,108 @@
           "is_active": {
             "title": "Is Active",
             "type": "boolean"
+          },
+          "occupation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupation"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
           }
         },
         "required": [
           "id",
           "email",
+          "full_name",
+          "phone_number",
+          "occupation",
+          "about",
           "is_active",
           "created_at"
         ],
         "title": "UserResponse",
+        "type": "object"
+      },
+      "UserUpdateRequest": {
+        "properties": {
+          "about": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "occupation": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupation"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
+          }
+        },
+        "title": "UserUpdateRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -6017,6 +6204,50 @@
           }
         ],
         "summary": "Read Current User",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "operationId": "update_current_user_api_v1_users_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Current User",
         "tags": [
           "users"
         ]

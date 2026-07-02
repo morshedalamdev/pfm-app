@@ -15,6 +15,9 @@ from app.modules.auth.validation import (
 class RegisterUserRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=128)
+    full_name: str | None = Field(default=None, max_length=120)
+    phone_number: str | None = Field(default=None, max_length=32)
+    occupation: str | None = Field(default=None, max_length=80)
 
     @field_validator("email")
     @classmethod
@@ -25,6 +28,14 @@ class RegisterUserRequest(BaseModel):
     @classmethod
     def validate_password_field(cls, password: str) -> str:
         return validate_password_strength(password)
+
+    @field_validator("full_name", "phone_number", "occupation")
+    @classmethod
+    def normalize_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class LoginRequest(BaseModel):
@@ -59,6 +70,9 @@ class LogoutResponse(BaseModel):
 class RegisteredUserResponse(BaseModel):
     id: uuid.UUID
     email: str
+    full_name: str | None
+    phone_number: str | None
+    occupation: str | None
     is_active: bool
     created_at: datetime
 

@@ -108,7 +108,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       );
       const tokens = await apiPost<LoginRequest, AccessTokenResponse>(
         "/api/v1/auth/login",
-        request,
+        {
+          email: request.email,
+          password: request.password,
+        },
       );
       setStoredTokens({
         accessToken: tokens.access_token,

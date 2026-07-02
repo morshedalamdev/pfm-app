@@ -33,3 +33,6 @@ class UserRepository:
 
     async def rollback(self) -> None:
         await self._session.rollback()
+
+    async def refresh(self, user: User) -> None:
+        await self._session.refresh(user)

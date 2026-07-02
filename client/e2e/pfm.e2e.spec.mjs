@@ -196,9 +196,8 @@ const routeText = {
 };
 
 async function assertRenderedWithoutOverflow(page, path, viewportLabel) {
-  await expect(page.locator("main")).toContainText(routeText[path], {
-    timeout: 15_000,
-  });
+  const visibleMain = page.locator("main:not([aria-hidden='true'])");
+  await expect(visibleMain).toContainText(routeText[path], { timeout: 15_000 });
   const hasHorizontalOverflow = await page.evaluate(() => {
     const root = document.documentElement;
     const body = document.body;

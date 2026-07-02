@@ -38,12 +38,20 @@ def test_user_model_schema() -> None:
         "id",
         "email",
         "password_hash",
+        "full_name",
+        "phone_number",
+        "occupation",
+        "about",
         "is_active",
         "created_at",
         "updated_at",
     }
     assert table.columns.email.type.length == 320
     assert table.columns.password_hash.type.length == 255
+    assert table.columns.full_name.type.length == 120
+    assert table.columns.phone_number.type.length == 32
+    assert table.columns.occupation.type.length == 80
+    assert table.columns.about.type.length == 1000
     assert table.columns.is_active.nullable is False
     assert "uq_users_email" in constraint_names(
         [
