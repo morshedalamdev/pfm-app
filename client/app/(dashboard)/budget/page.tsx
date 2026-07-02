@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,39 +18,90 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import BudgetItem from "@/components/items/BudgetItem";
+import {
+  deleteBudget,
+  listBudgets,
+  type Budget,
+} from "@/lib/finance/api";
+import { formatMoney, formatPercent, monthKey } from "@/lib/finance/format";
 
-const MONTHS = [
-  { value: "Jan-2026", label: "Jan 2026" },
-  { value: "Feb-2025", label: "Feb 2025" },
-  { value: "Mar-2025", label: "Mar 2025" },
-  { value: "Apr-2025", label: "Apr 2025" },
-  { value: "May-2025", label: "May 2025" },
-  { value: "Jun-2025", label: "Jun 2025" },
-  { value: "Jul-2025", label: "Jul 2025" },
-  { value: "Aug-2025", label: "Aug 2025" },
-  { value: "Sep-2025", label: "Sep 2025" },
-  { value: "Oct-2025", label: "Oct 2025" },
-  { value: "Nov-2025", label: "Nov 2025" },
-  { value: "Dec-2025", label: "Dec 2025" },
-  { value: "Jan-2024", label: "Jan 2024" },
-  { value: "Feb-2024", label: "Feb 2024" },
-  { value: "Mar-2024", label: "Mar 2024" },
-  { value: "Apr-2024", label: "Apr 2024" },
-  { value: "May-2024", label: "May 2024" },
-  { value: "Jun-2024", label: "Jun 2024" },
-  { value: "Jul-2024", label: "Jul 2024" },
-  { value: "Aug-2024", label: "Aug 2024" },
-  { value: "Sep-2024", label: "Sep 2024" },
-  { value: "Oct-2024", label: "Oct 2024" },
-  { value: "Nov-2024", label: "Nov 2024" },
-  { value: "Dec-2024", label: "Dec 2024" },
-];
+function monthOptions() {
+  const now = new Date();
+  return Array.from({ length: 18 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+    const value = monthKey(date);
+    return {
+      label: date.toLocaleDateString([], { month: "short", year: "numeric" }),
+      value,
+    };
+  });
+}
+
 export default function BudgetPage() {
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [month, setMonth] = useState(monthKey());
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("Jan 2026");
+  const months = useMemo(monthOptions, []);
+
+  const loadBudgets = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      setBudgets(await listBudgets(month));
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Budgets could not be loaded.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [month]);
+
+  useEffect(() => {
+    void loadBudgets();
+  }, [loadBudgets]);
+
+  const totals = useMemo(() => {
+    const limit = budgets.reduce(
+      (total, budget) => total + Number(budget.limit_amount),
+      0,
+    );
+    const spent = budgets.reduce(
+      (total, budget) => total + Number(budget.progress.spent_amount),
+      0,
+    );
+    const remaining = limit - spent;
+    return {
+      limit,
+      percent: limit > 0 ? (spent / limit) * 100 : 0,
+      remaining,
+      spent,
+    };
+  }, [budgets]);
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteBudget(id);
+      setBudgets((items) => items.filter((item) => item.id !== id));
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Budget could not be deleted.",
+      );
+    }
+  }
+
+  const activeMonthLabel =
+    months.find((option) => option.value === month)?.label ?? month;
+
   return (
     <Fragment>
-      <Header homeBtn={true} title="Savings Goals">
+      <Header homeBtn={true} title="Budget">
         <Link href="/budget/setup">
           <Button variant="link" size="icon-sm">
             <SettingsIcon />
@@ -66,7 +117,7 @@ export default function BudgetPage() {
               aria-expanded={open}
               className="justify-between"
             >
-              {value}
+              {activeMonthLabel}
               <ChevronDownIcon className="text-input" />
             </Button>
           </PopoverTrigger>
@@ -74,20 +125,20 @@ export default function BudgetPage() {
             <Command>
               <CommandInput placeholder="Search Month" />
               <CommandGroup>
-                {MONTHS.map((month) => (
+                {months.map((option) => (
                   <CommandItem
-                    key={month.value}
-                    value={month.value}
+                    key={option.value}
+                    value={option.value}
                     className="flex items-center justify-between"
                     onSelect={(currentValue) => {
-                      setValue(currentValue === value ? "" : currentValue);
+                      setMonth(currentValue);
                       setOpen(false);
                     }}
                   >
-                    {month.label}
+                    {option.label}
                     <CheckIcon
                       className={
-                        value === month.value ? "opacity-100" : "opacity-0"
+                        month === option.value ? "opacity-100" : "opacity-0"
                       }
                     />
                   </CommandItem>
@@ -101,35 +152,55 @@ export default function BudgetPage() {
         <h2 className="text-input font-bold uppercase tracking-wide">
           Monthly Budget
         </h2>
-        <h3 className="text-5xl font-bold">$2,483.39</h3>
+        <h3 className="text-5xl font-bold">{formatMoney(totals.limit)}</h3>
         <div className="flex flex-wrap items-center justify-between gap-1.5 mt-3">
           <div>
             <span className="text-input">Spent</span>
-            <h4 className="font-bold text-2xl">$2100.00</h4>
+            <h4 className="font-bold text-2xl">{formatMoney(totals.spent)}</h4>
           </div>
           <div>
             <span className="text-input">Remaining</span>
-            <h4 className="font-bold text-2xl">$1400.00</h4>
+            <h4 className="font-bold text-2xl">
+              {formatMoney(totals.remaining)}
+            </h4>
           </div>
-          <Progress value={40} className="h-2" />
-          <span>60% used</span>
-          <span>15 days remaining</span>
+          <Progress value={Math.min(totals.percent, 100)} className="h-2" />
+          <span>{formatPercent(totals.percent)} used</span>
         </div>
       </section>
       <section className="space-y-3 p-3 h-[calc(100%-320px)] overflow-y-auto">
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
-          <BudgetItem />
+        {isLoading && <p className="text-input text-sm">Loading budgets...</p>}
+        {error && (
+          <div className="space-y-2">
+            <p className="text-destructive text-sm">{error}</p>
+            <Button type="button" variant="outline" onClick={() => void loadBudgets()}>
+              Retry
+            </Button>
+          </div>
+        )}
+        {!isLoading && !error && budgets.length === 0 && (
+          <p className="text-input text-sm">No budgets found for this month.</p>
+        )}
+        {!isLoading &&
+          !error &&
+          budgets.map((budget) => (
+            <BudgetItem
+              key={budget.id}
+              category={budget.category_name ?? "General"}
+              limit={formatMoney(budget.limit_amount, budget.currency)}
+              onDelete={() => void handleDelete(budget.id)}
+              percentUsed={Number(budget.progress.percent_used)}
+              remaining={formatMoney(
+                budget.progress.remaining_amount,
+                budget.currency,
+              )}
+              spent={formatMoney(
+                budget.progress.spent_amount,
+                budget.currency,
+              )}
+              status={budget.progress.status}
+            />
+          ))}
       </section>
     </Fragment>
   );

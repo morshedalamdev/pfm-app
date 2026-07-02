@@ -45,7 +45,7 @@ export default function ProfilePage() {
               </div>
               <Field>
                 <InputGroup>
-                  <InputGroupInput placeholder="John Doe" />
+                  <InputGroupInput placeholder="Full name" />
                   <InputGroupAddon className="text-white font-bold">
                     Name:
                   </InputGroupAddon>
@@ -54,7 +54,7 @@ export default function ProfilePage() {
               </Field>
               <Field>
                 <InputGroup>
-                  <InputGroupInput placeholder="demon@mail.com" />
+                  <InputGroupInput placeholder="Email address" />
                   <InputGroupAddon className="text-white font-bold">
                     Email:
                   </InputGroupAddon>
@@ -63,7 +63,7 @@ export default function ProfilePage() {
               </Field>
               <Field>
                 <InputGroup>
-                  <InputGroupInput placeholder="01XXXXXXXXXX" />
+                  <InputGroupInput placeholder="Phone number" />
                   <InputGroupAddon className="text-white font-bold">
                     Phone:
                   </InputGroupAddon>

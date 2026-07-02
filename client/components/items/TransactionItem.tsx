@@ -21,21 +21,38 @@ import {
 } from "../ui/alert-dialog";
 
 type TransactionItemProps = {
-  type: string;
-  category: string;
-  note: string;
   amount: number;
+  category: string;
   date: string;
+  deleteError?: string | null;
+  editHref?: string;
+  isDeleting?: boolean;
+  note: string;
+  onDelete?: () => void;
+  recurringLabel?: string;
+  transactionDate?: string;
+  type: string;
 };
 
 export default function TransactionItem({
-  type,
-  category,
-  note,
   amount,
+  category,
   date,
+  deleteError,
+  editHref = "/transaction/edit",
+  isDeleting = false,
+  note,
+  onDelete,
+  recurringLabel = "Daily",
+  transactionDate = "12/01/2026",
+  type,
 }: TransactionItemProps) {
-  const categoryIcon = categoryIcons.find((i) => i.name === category);
+  const categoryIcon =
+    categoryIcons.find((i) => i.name === category) ??
+    categoryIcons.find((i) => i.name === "Other");
+  const isIncome = type === "income" || type === "transfer_credit";
+  const isTransfer = type.startsWith("transfer");
+  const amountLabel = `${isIncome ? "+" : "-"}$${amount.toFixed(2)}`;
 
   return (
     <Drawer>
@@ -51,14 +68,14 @@ export default function TransactionItem({
           <div>
             <h4
               className={
-                type === "income"
+                isIncome
                   ? "font-bold text-green-500 text-base"
-                  : type === "transfer"
+                  : isTransfer
                   ? "font-bold text-blue-500 text-base"
                   : "font-bold text-base"
               }
             >
-              ${amount.toFixed(2)}
+              {amountLabel}
             </h4>
             <h6 className="flex items-center justify-end gap-1 text-input text-xs">
               <Clock className="size-2.5" />
@@ -83,17 +100,17 @@ export default function TransactionItem({
             <b>Type:</b> {type}
           </p>
           <p>
-            <b>Recurring:</b> Daily
+            <b>Recurring:</b> {recurringLabel}
           </p>
           <p>
             <b>Time:</b> {date}
           </p>
           <p>
-            <b>Date:</b> 12/01/2026
+            <b>Date:</b> {transactionDate}
           </p>
         </div>
         <DrawerFooter>
-          <Link href="/transaction/edit">
+          <Link href={editHref}>
             <Button variant="outline">Edit</Button>
           </Link>
           <AlertDialog>
@@ -106,10 +123,17 @@ export default function TransactionItem({
               </AlertDialogTitle>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction>Delete</AlertDialogAction>
+                <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          {deleteError && (
+            <p className="text-destructive text-sm text-center">
+              {deleteError}
+            </p>
+          )}
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

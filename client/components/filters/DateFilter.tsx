@@ -6,9 +6,18 @@ import { Button } from "../ui/button";
 import { Calendar } from "../ui/calendar";
 import { CalendarDays } from "lucide-react";
 
-export default function DateFilter() {
+type DateFilterProps = {
+  date?: Date;
+  onDateChange?: (date: Date | undefined) => void;
+};
+
+export default function DateFilter({
+  date: controlledDate,
+  onDateChange,
+}: DateFilterProps) {
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [date, setDate] = useState<Date | undefined>(undefined);
+  const activeDate = controlledDate ?? date;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -24,10 +33,11 @@ export default function DateFilter() {
       <PopoverContent className="w-auto overflow-hidden p-0" align="start">
         <Calendar
           mode="single"
-          selected={date}
+          selected={activeDate}
           captionLayout="dropdown"
           onSelect={(date) => {
             setDate(date);
+            onDateChange?.(date);
             setOpen(false);
           }}
         />

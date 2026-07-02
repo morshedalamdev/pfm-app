@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
 import {
@@ -15,166 +15,481 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import TransactionInput from "@/components/inputs/TransactionInput";
 import BackBtn from "@/components/BackBtn";
+import { useParams, useRouter } from "next/navigation";
+import {
+  createRecurringRule,
+  createTransaction,
+  createTransfer,
+  getTransaction,
+  listAccounts,
+  listCategories,
+  updateTransaction,
+  type Account,
+  type Category,
+} from "@/lib/finance/api";
+import { decimalInput, toDateTime } from "@/lib/finance/format";
 
-const EXPENSE_CATEGORY = [
-  "Groceries",
-  "Dining",
-  "Transport",
-  "Housing",
-  "Utilities",
-  "Entertainment",
-  "Health",
-  "Education",
-  "Shopping",
-  "Travel",
-  "Personal Care",
-  "Gifts & Donations",
-  "Bills & Fees",
-  "Debt Payment",
-  "Other",
-];
-const INCOME_SOURCE = [
-  "Salary",
-  "Business",
-  "Investments",
-  "Freelance",
-  "Rental",
-  "Bonuses",
-  "Other",
-];
 const RECURRENCE_OPTIONS = ["Daily", "Weekly", "Monthly", "Yearly"];
 
+type FormType = "expense" | "income" | "transfer";
+
+function frequencyFromLabel(label: string) {
+  return label.toLowerCase() as "daily" | "weekly" | "monthly" | "yearly";
+}
+
+function selectByName<T extends { name: string }>(items: T[], name: string) {
+  return items.find((item) => item.name === name);
+}
+
 export default function CreateTransactionPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const transactionId = params.id;
+  const isCreate = transactionId === "create" || transactionId === "edit";
+
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [error, setError] = useState<string | null>(null);
+  const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
+  const [fromAccountName, setFromAccountName] = useState("");
+  const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [note, setNote] = useState("");
+  const [recurringEvery, setRecurringEvery] = useState("Monthly");
+  const [selectedAccountName, setSelectedAccountName] = useState("");
+  const [selectedCategoryName, setSelectedCategoryName] = useState("");
+  const [toAccountName, setToAccountName] = useState("");
+  const [type, setType] = useState<FormType>("expense");
+
+  const accountNames = useMemo(
+    () => accounts.map((account) => account.name),
+    [accounts],
+  );
+  const activeCategories = type === "income" ? incomeCategories : expenseCategories;
+  const activeCategoryNames = useMemo(
+    () => activeCategories.map((category) => category.name),
+    [activeCategories],
+  );
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [nextAccounts, nextExpenses, nextIncome, transaction] =
+        await Promise.all([
+          listAccounts(),
+          listCategories("expense"),
+          listCategories("income"),
+          isCreate ? Promise.resolve(null) : getTransaction(transactionId),
+        ]);
+
+      setAccounts(nextAccounts);
+      setExpenseCategories(nextExpenses);
+      setIncomeCategories(nextIncome);
+
+      if (transaction) {
+        const nextType =
+          transaction.type === "income"
+            ? "income"
+            : transaction.type === "expense"
+              ? "expense"
+              : "transfer";
+        const nextCategories = nextType === "income" ? nextIncome : nextExpenses;
+        setType(nextType);
+        setAmount(transaction.amount);
+        setDate(new Date(transaction.transaction_at));
+        setNote(transaction.description ?? "");
+        setSelectedAccountName(
+          nextAccounts.find((account) => account.id === transaction.account_id)
+            ?.name ?? "",
+        );
+        setSelectedCategoryName(
+          nextCategories.find(
+            (category) => category.id === transaction.category_id,
+          )?.name ?? "",
+        );
+      } else {
+        setSelectedAccountName((current) => current || nextAccounts[0]?.name || "");
+        setFromAccountName((current) => current || nextAccounts[0]?.name || "");
+        setToAccountName((current) => current || nextAccounts[1]?.name || "");
+        setSelectedCategoryName((current) => current || nextExpenses[0]?.name || "");
+      }
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Transaction details could not be loaded.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isCreate, transactionId]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (type === "transfer") return;
+    const options = type === "income" ? incomeCategories : expenseCategories;
+    if (!options.some((category) => category.name === selectedCategoryName)) {
+      setSelectedCategoryName(options[0]?.name ?? "");
+    }
+  }, [expenseCategories, incomeCategories, selectedCategoryName, type]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    const transactionAt = toDateTime(date);
+    const decimalAmount = decimalInput(amount);
+    const selectedAccount = selectByName(accounts, selectedAccountName);
+    const selectedCategory = selectByName(activeCategories, selectedCategoryName);
+    const fromAccount = selectByName(accounts, fromAccountName);
+    const toAccount = selectByName(accounts, toAccountName);
+
+    if (type === "transfer") {
+      if (!fromAccount || !toAccount || fromAccount.id === toAccount.id) {
+        setError("Choose two different accounts for the transfer.");
+        return;
+      }
+    } else if (!selectedAccount || !selectedCategory) {
+      setError("Choose an account and category before saving.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (type === "transfer" && fromAccount && toAccount) {
+        await createTransfer({
+          amount: decimalAmount,
+          description: note || null,
+          from_account_id: fromAccount.id,
+          to_account_id: toAccount.id,
+          transaction_at: transactionAt,
+        });
+      } else if (isCreate && isRecurring && selectedAccount && selectedCategory) {
+        const transactionType = type === "income" ? "income" : "expense";
+        await createRecurringRule({
+          account_id: selectedAccount.id,
+          amount: decimalAmount,
+          category_id: selectedCategory.id,
+          description: note || null,
+          frequency: frequencyFromLabel(recurringEvery),
+          interval_count: 1,
+          start_at: transactionAt,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          transaction_type: transactionType,
+        });
+      } else if (isCreate && selectedAccount && selectedCategory) {
+        const transactionType = type === "income" ? "income" : "expense";
+        await createTransaction({
+          account_id: selectedAccount.id,
+          amount: decimalAmount,
+          category_id: selectedCategory.id,
+          description: note || null,
+          transaction_at: transactionAt,
+          type: transactionType,
+        });
+      } else if (selectedAccount && selectedCategory) {
+        await updateTransaction(transactionId, {
+          account_id: selectedAccount.id,
+          amount: decimalAmount,
+          category_id: selectedCategory.id,
+          description: note || null,
+          transaction_at: transactionAt,
+        });
+      }
+      router.push("/transaction");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Transaction could not be saved.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const formTitle = isCreate ? "Add New Transaction" : "Edit Transaction";
+  const submitLabel = isSaving
+    ? "Saving..."
+    : isCreate
+      ? type === "transfer"
+        ? "Add Transfer"
+        : isRecurring
+          ? "Add Recurring Rule"
+          : "Add Transaction"
+      : "Save Transaction";
+
   return (
     <Fragment>
-      <Header homeBtn={true} title="Add New Transaction">
+      <Header homeBtn={true} title={formTitle}>
         <BackBtn />
       </Header>
       <section className="px-3 pt-6">
-        <form action="">
-          <InputGroup className="border-0 border-b rounded-none h-12 mb-6">
-            <InputGroupAddon>
-              <InputGroupText>
-                <DollarSignIcon />
-              </InputGroupText>
-            </InputGroupAddon>
-            <InputGroupInput
-              type="number"
-              placeholder="0.00"
-              className="font-bold text-center text-5xl"
-            />
-          </InputGroup>
-          <Tabs defaultValue="expense">
-            <TabsList>
-              <TabsTrigger value="expense">Expense</TabsTrigger>
-              <TabsTrigger value="income">Income</TabsTrigger>
-            </TabsList>
-            <TabsContent value="expense">
-              <FieldSet>
-                <FieldGroup>
-                  <Field>
-                    <TransactionInput
-                      type="select"
-                      label="Category"
-                      list={EXPENSE_CATEGORY}
-                    />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <TransactionInput type="date" label="Date" />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <TransactionInput
-                      type="boolean"
-                      label="Ignore form Budgets"
-                    />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <TransactionInput type="boolean" label="Recurring" />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <TransactionInput
-                      type="select"
-                      label="Recurring Every"
-                      list={RECURRENCE_OPTIONS}
-                    />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <InputGroup>
-                      <InputGroupTextarea
-                        placeholder="Type here.."
-                        className="pt-0"
+        {isLoading && <p className="text-input text-sm">Loading form...</p>}
+        {error && (
+          <div className="mb-3 space-y-2">
+            <p className="text-destructive text-sm">{error}</p>
+            {!isSaving && (
+              <Button type="button" variant="outline" onClick={() => void loadData()}>
+                Retry
+              </Button>
+            )}
+          </div>
+        )}
+        {!isLoading && (
+          <form onSubmit={handleSubmit}>
+            <InputGroup className="border-0 border-b rounded-none h-12 mb-6">
+              <InputGroupAddon>
+                <InputGroupText>
+                  <DollarSignIcon />
+                </InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput
+                type="number"
+                min="0"
+                step="0.01"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="0.00"
+                className="font-bold text-center text-5xl"
+                required
+              />
+            </InputGroup>
+            <Tabs
+              value={type}
+              onValueChange={(value) => setType(value as FormType)}
+            >
+              <TabsList>
+                <TabsTrigger value="expense">Expense</TabsTrigger>
+                <TabsTrigger value="income">Income</TabsTrigger>
+                <TabsTrigger value="transfer" disabled={!isCreate}>
+                  Transfer
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="expense">
+                <TransactionFields
+                  accountNames={accountNames}
+                  categoryLabel="Category"
+                  categoryNames={activeCategoryNames}
+                  date={date}
+                  isRecurring={isRecurring}
+                  note={note}
+                  recurringEvery={recurringEvery}
+                  selectedAccountName={selectedAccountName}
+                  selectedCategoryName={selectedCategoryName}
+                  setDate={setDate}
+                  setIsRecurring={setIsRecurring}
+                  setNote={setNote}
+                  setRecurringEvery={setRecurringEvery}
+                  setSelectedAccountName={setSelectedAccountName}
+                  setSelectedCategoryName={setSelectedCategoryName}
+                  showRecurring={isCreate}
+                  submitLabel={submitLabel}
+                />
+              </TabsContent>
+              <TabsContent value="income">
+                <TransactionFields
+                  accountNames={accountNames}
+                  categoryLabel="Source"
+                  categoryNames={activeCategoryNames}
+                  date={date}
+                  isRecurring={isRecurring}
+                  note={note}
+                  recurringEvery={recurringEvery}
+                  selectedAccountName={selectedAccountName}
+                  selectedCategoryName={selectedCategoryName}
+                  setDate={setDate}
+                  setIsRecurring={setIsRecurring}
+                  setNote={setNote}
+                  setRecurringEvery={setRecurringEvery}
+                  setSelectedAccountName={setSelectedAccountName}
+                  setSelectedCategoryName={setSelectedCategoryName}
+                  showRecurring={isCreate}
+                  submitLabel={submitLabel}
+                />
+              </TabsContent>
+              <TabsContent value="transfer">
+                <FieldSet>
+                  <FieldGroup>
+                    <Field>
+                      <TransactionInput
+                        type="select"
+                        label="From Account"
+                        list={accountNames}
+                        value={fromAccountName}
+                        onChange={(value) => setFromAccountName(String(value))}
                       />
-                      <InputGroupAddon
-                        align="block-start"
-                        className="text-white font-bold"
-                      >
-                        Note
-                      </InputGroupAddon>
-                    </InputGroup>
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <Button type="submit">Add Transaction</Button>
-                  </Field>
-                </FieldGroup>
-              </FieldSet>
-            </TabsContent>
-            <TabsContent value="income">
-              <FieldSet>
-                <FieldGroup>
-                  <Field>
-                    <TransactionInput
-                      type="select"
-                      label="Source"
-                      list={INCOME_SOURCE}
-                    />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <TransactionInput type="date" label="Date" />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <TransactionInput type="boolean" label="Recurring" />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <TransactionInput
-                      type="select"
-                      label="Recurring Every"
-                      list={RECURRENCE_OPTIONS}
-                    />
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <InputGroup>
-                      <InputGroupTextarea
-                        placeholder="Type here.."
-                        className="pt-0"
+                      <FieldError />
+                    </Field>
+                    <Field>
+                      <TransactionInput
+                        type="select"
+                        label="To Account"
+                        list={accountNames}
+                        value={toAccountName}
+                        onChange={(value) => setToAccountName(String(value))}
                       />
-                      <InputGroupAddon
-                        align="block-start"
-                        className="text-white font-bold"
-                      >
-                        Note
-                      </InputGroupAddon>
-                    </InputGroup>
-                    <FieldError />
-                  </Field>
-                  <Field>
-                    <Button type="submit">Add Transaction</Button>
-                  </Field>
-                </FieldGroup>
-              </FieldSet>
-            </TabsContent>
-          </Tabs>
-        </form>
+                      <FieldError />
+                    </Field>
+                    <Field>
+                      <TransactionInput
+                        type="date"
+                        label="Date"
+                        value={date}
+                        onChange={(value) => setDate(value as Date)}
+                      />
+                      <FieldError />
+                    </Field>
+                    <NoteField note={note} setNote={setNote} />
+                    <Field>
+                      <Button type="submit" disabled={isSaving}>
+                        {submitLabel}
+                      </Button>
+                    </Field>
+                  </FieldGroup>
+                </FieldSet>
+              </TabsContent>
+            </Tabs>
+          </form>
+        )}
       </section>
     </Fragment>
+  );
+}
+
+type TransactionFieldsProps = {
+  accountNames: string[];
+  categoryLabel: string;
+  categoryNames: string[];
+  date: Date | undefined;
+  isRecurring: boolean;
+  note: string;
+  recurringEvery: string;
+  selectedAccountName: string;
+  selectedCategoryName: string;
+  setDate: (date: Date | undefined) => void;
+  setIsRecurring: (value: boolean) => void;
+  setNote: (value: string) => void;
+  setRecurringEvery: (value: string) => void;
+  setSelectedAccountName: (value: string) => void;
+  setSelectedCategoryName: (value: string) => void;
+  showRecurring: boolean;
+  submitLabel: string;
+};
+
+function TransactionFields({
+  accountNames,
+  categoryLabel,
+  categoryNames,
+  date,
+  isRecurring,
+  note,
+  recurringEvery,
+  selectedAccountName,
+  selectedCategoryName,
+  setDate,
+  setIsRecurring,
+  setNote,
+  setRecurringEvery,
+  setSelectedAccountName,
+  setSelectedCategoryName,
+  showRecurring,
+  submitLabel,
+}: TransactionFieldsProps) {
+  return (
+    <FieldSet>
+      <FieldGroup>
+        <Field>
+          <TransactionInput
+            type="select"
+            label="Account"
+            list={accountNames}
+            value={selectedAccountName}
+            onChange={(value) => setSelectedAccountName(String(value))}
+          />
+          <FieldError />
+        </Field>
+        <Field>
+          <TransactionInput
+            type="select"
+            label={categoryLabel}
+            list={categoryNames}
+            value={selectedCategoryName}
+            onChange={(value) => setSelectedCategoryName(String(value))}
+          />
+          <FieldError />
+        </Field>
+        <Field>
+          <TransactionInput
+            type="date"
+            label="Date"
+            value={date}
+            onChange={(value) => setDate(value as Date)}
+          />
+          <FieldError />
+        </Field>
+        {showRecurring && (
+          <Fragment>
+            <Field>
+              <TransactionInput
+                type="boolean"
+                label="Recurring"
+                value={isRecurring}
+                onChange={(value) => setIsRecurring(Boolean(value))}
+              />
+              <FieldError />
+            </Field>
+            {isRecurring && (
+              <Field>
+                <TransactionInput
+                  type="select"
+                  label="Recurring Every"
+                  list={RECURRENCE_OPTIONS}
+                  value={recurringEvery}
+                  onChange={(value) => setRecurringEvery(String(value))}
+                />
+                <FieldError />
+              </Field>
+            )}
+          </Fragment>
+        )}
+        <NoteField note={note} setNote={setNote} />
+        <Field>
+          <Button type="submit">{submitLabel}</Button>
+        </Field>
+      </FieldGroup>
+    </FieldSet>
+  );
+}
+
+function NoteField({
+  note,
+  setNote,
+}: {
+  note: string;
+  setNote: (value: string) => void;
+}) {
+  return (
+    <Field>
+      <InputGroup>
+        <InputGroupTextarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="Type here.."
+          className="pt-0"
+        />
+        <InputGroupAddon align="block-start" className="text-white font-bold">
+          Note
+        </InputGroupAddon>
+      </InputGroup>
+      <FieldError />
+    </Field>
   );
 }

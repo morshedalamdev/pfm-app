@@ -1,274 +1,233 @@
-# Personal Finance Management App
+# PFM App
 
-A full-stack personal finance tracker for monitoring income, expenses, savings, budgets, recurring transactions, and financial analytics.
+Personal finance management app with a Next.js frontend, FastAPI backend,
+PostgreSQL database, and a separate recurring-work worker.
 
-The frontend UI is currently implemented with **Next.js**. The backend is being redesigned and implemented with **Python FastAPI** and **PostgreSQL**.
+The backend is a Python FastAPI modular monolith under `server/`. The frontend
+is a Next.js App Router application under `client/`. PostgreSQL is the system of
+record, Alembic manages schema migrations, and the frontend API contract is
+generated from the FastAPI OpenAPI schema.
 
-## Live Demo
-
-- **Frontend**: [https://pfm.morshedalam.dev](https://pfm.morshedalam.dev)
-- **API**: Hosted on Render
-
-## Project Status
-
-This project is under active development.
-
-- Frontend UI: completed with Next.js and responsive dashboard screens.
-- Backend: being migrated from the original Node/Nest.js plan to Python FastAPI.
-- Database: PostgreSQL.
-- Development workflow: milestone-based implementation with Codex agents.
-- Current priority: build the FastAPI backend first, then connect the existing frontend UI to live server data.
-
-## Project Ownership and Development Approach
-
-The project idea, product direction, system design, planning, architecture, data model decisions, and milestone strategy are designed by **Myself**.
-
-**Codex** is used as an AI development assistant to execute the implementation in controlled phases. Codex is not used to blindly generate the whole system at once. Each milestone is broken into smaller phases where the agent must:
-
-1. Study the existing project state.
-2. Think through the assigned phase.
-3. Execute only the requested scope.
-4. Run tests.
-5. Fix bugs if tests fail.
-6. Update the project state documentation.
-7. Stop and ask for approval before continuing.
-
-This workflow keeps the project architecture intentional, reviewable, and easier to maintain.
-
-## Core Features
-
-Planned and in-progress features include:
-
-- User registration, login, JWT authentication, and refresh-token rotation.
-- Account management for cash, bank, card, wallet, and savings accounts.
-- Income, expense, and transfer tracking.
-- Custom transaction categories.
-- Monthly and custom-period budgets.
-- Savings goals and contribution tracking.
-- Dashboard summaries for income, expenses, balance, savings, and cash flow.
-- Reports and analytics with charts and date-range filtering.
-- Recurring transactions with background worker execution.
-- Receipt upload support.
-- Notification and email adapter support.
-- Server-Sent Events for one-way real-time update signals where useful.
-- Responsive frontend integration with live backend data.
-
-## System Design
-
-The application is designed as a **modular monolith**. This keeps the system simple enough for fast development while still enforcing clean boundaries between domains.
+## Project Layout
 
 ```text
-pfm-app
-├── client/                  # Next.js frontend
-│   ├── app/                 # App Router pages and layouts
-│   ├── components/          # UI and feature components
-│   ├── lib/                 # Frontend utilities and API client layer
-│   └── public/              # Static assets
-└── server/                  # Python FastAPI backend
-    ├── app/
-    │   ├── api/             # Versioned API routers
-    │   ├── core/            # Config, security, logging, app setup
-    │   ├── db/              # Database session, migrations, base models
-    │   ├── modules/         # Domain modules
-    │   │   ├── auth/
-    │   │   ├── users/
-    │   │   ├── accounts/
-    │   │   ├── transactions/
-    │   │   ├── budgets/
-    │   │   ├── savings/
-    │   │   ├── reports/
-    │   │   └── notifications/
-    │   ├── workers/         # Background worker logic
-    │   └── main.py          # FastAPI entrypoint
-    ├── alembic/             # Database migrations
-    └── tests/               # Backend tests
+client/                    Next.js frontend
+server/                    FastAPI backend and worker code
+docs/architecture/          System design and UI/API mapping
+docs/development/CI.md      Local and GitHub Actions CI commands
+docs/deployment/DEPLOYMENT.md
+compose.yml                Local PostgreSQL/API/worker/frontend stack
+milestones/                Phase-by-phase delivery plan
+PFM_PROJECT_STATE.md       Persistent phase memory and command log
+AGENTS.md                  Codex execution rules
 ```
-
-## Backend Architecture
-
-The backend target architecture uses:
-
-- **Python FastAPI** for API development.
-- **PostgreSQL** as the primary database.
-- **SQLAlchemy 2.x async ORM** for persistence.
-- **Alembic** for schema migrations.
-- **Pydantic** for request validation, response schemas, and settings.
-- **JWT access tokens** with refresh-token rotation.
-- **Argon2 password hashing** for secure password storage.
-- **OpenAPI-generated TypeScript contracts** for frontend/backend type safety.
-- **Background worker process** for recurring transactions and deferred jobs.
-- **Outbox event table** for reliable internal event handling.
-- **Adapter pattern** for email and file storage providers.
-- **Server-Sent Events** only for one-way server-to-client notifications or refresh signals.
-
-The backend is not designed as only a collection of CRUD endpoints. It is planned around finance-domain behavior, including balance consistency, transaction atomicity, idempotency, recurring rule execution, reporting queries, and frontend contract stability.
-
-## Frontend Architecture
-
-The frontend is built with:
-
-- **Next.js**
-- **React**
-- **TypeScript**
-- **Tailwind CSS**
-- **Zustand** for client state where needed
-- **Zod** for validation
-- **Axios** for HTTP requests
-- **Recharts** for financial charts
-- **Lucide React** for icons
-- **date-fns** for date handling
-
-The current frontend UI is treated as the visual foundation. Backend integration will replace mock/static data with typed API responses while preserving the existing responsive design.
-
-## Planned Data Domains
-
-The backend is organized around the following domains:
-
-- **Auth and Users**: identity, credentials, sessions, authorization.
-- **Accounts**: user-owned financial accounts and balances.
-- **Categories**: income and expense classification.
-- **Transactions**: income, expense, and transfer records.
-- **Budgets**: budget periods, limits, and category spending progress.
-- **Savings Goals**: targets, contributions, and progress tracking.
-- **Reports**: dashboard summaries, category breakdowns, cash-flow trends, and savings analytics.
-- **Recurring Rules**: recurring income/expense generation.
-- **Notifications**: persisted user notifications and optional delivery adapters.
-- **Receipts**: file metadata and storage-provider abstraction.
 
 ## Prerequisites
 
-Recommended local tools:
+- Python 3.12+
+- Node.js 24+ and npm
+- PostgreSQL server/client tools for local database work
+- Docker with Compose for the containerized local stack
 
-- Git
-- Node.js 18+ or newer
-- npm or pnpm
-- Python 3.11+
-- PostgreSQL
-- Docker, optional but recommended for later deployment and integration testing
+## Environment Files
 
-## Getting Started
-
-### 1. Clone the Repository
+Use the committed templates and keep real values out of Git:
 
 ```bash
-git clone https://github.com/morshedalamdev/pfm-app.git
-cd pfm-app
+cp server/.env.example server/.env
+cp client/.env.example client/.env.local
 ```
 
-### 2. Run the Frontend
+Local defaults use key-free adapters:
+
+- `STORAGE_BACKEND=local` stores receipt bytes under an ignored local storage
+  root.
+- `EMAIL_BACKEND=console` logs email delivery instead of using external
+  credentials.
+
+Production storage and email providers are optional future adapter choices.
+Provider credentials must be supplied through the deployment environment, never
+committed.
+
+## Install Dependencies
+
+Backend:
+
+```bash
+cd server
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev,test]"
+```
+
+Frontend:
 
 ```bash
 cd client
 npm install
-npm run dev
 ```
 
-Frontend runs at:
+## Run With Docker Compose
 
-```text
-http://localhost:3000
+Validate the local stack:
+
+```bash
+docker compose config
 ```
 
-### 3. Backend Development Direction
+Build the images:
 
-The backend is being implemented in Python FastAPI under the `server/` directory. The final commands will be confirmed as the FastAPI foundation milestone is completed.
+```bash
+docker compose build
+```
 
-Expected development flow:
+Apply migrations and start the full stack:
+
+```bash
+docker compose up -d postgres
+docker compose run --rm api alembic upgrade head
+docker compose up
+```
+
+The API runs at `http://localhost:8000`, and the frontend runs at
+`http://localhost:3000`.
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Reset local Compose data, including PostgreSQL and local receipt storage:
+
+```bash
+docker compose down --volumes
+```
+
+Run one recurring worker tick in the container:
+
+```bash
+docker compose run --rm worker python -m app.workers.recurring --once
+```
+
+## Run Without Docker
+
+Create a local PostgreSQL database:
+
+```bash
+createuser pfm_app
+createdb --owner=pfm_app pfm_app
+```
+
+Start the API:
 
 ```bash
 cd server
-python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+export DATABASE_URL=postgresql+asyncpg://pfm_app@localhost:5432/pfm_app
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Expected backend URL:
+Start the recurring worker in a second terminal:
 
-```text
-http://localhost:8000
+```bash
+cd server
+source .venv/bin/activate
+export DATABASE_URL=postgresql+asyncpg://pfm_app@localhost:5432/pfm_app
+python -m app.workers.recurring
 ```
 
-Expected API documentation URL:
+Start the frontend in a third terminal:
 
-```text
-http://localhost:8000/docs
+```bash
+cd client
+npm run dev
 ```
 
-## Environment Variables
+Health endpoints:
 
-The final `.env.example` will be maintained during backend implementation. Expected backend variables include:
+- `GET /api/v1/health/live`
+- `GET /api/v1/health/ready`
 
-```env
-APP_ENV=development
-APP_NAME=pfm-api
-API_V1_PREFIX=/api/v1
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/pfm_app
-JWT_SECRET_KEY=replace-with-local-secret
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
-CORS_ALLOWED_ORIGINS=http://localhost:3000
+Workers do not expose HTTP health endpoints. Monitor worker process status and
+structured log events such as `recurring_worker_tick` and `outbox_worker_tick`.
+
+## Migrations
+
+Run Alembic from `server/` with a valid PostgreSQL `DATABASE_URL`:
+
+```bash
+alembic upgrade head
 ```
 
-Expected frontend variable:
+For migration development, test upgrade/downgrade/upgrade behavior against a
+disposable database. Do not run destructive migration checks against a personal
+or production database.
 
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+## API Contract
+
+Generate the frontend OpenAPI JSON and TypeScript API types from FastAPI:
+
+```bash
+cd client
+npm run api:generate
 ```
 
-## Security Goals
+Check for contract drift:
 
-Security requirements include:
+```bash
+cd client
+npm run api:check
+```
 
-- Strong password hashing with Argon2.
-- Short-lived JWT access tokens.
-- Refresh-token rotation and revocation.
-- User-scoped authorization for all finance resources.
-- Validation for all API inputs.
-- Monetary values handled with decimal precision.
-- Idempotency protection for transaction creation.
-- CORS configured through environment variables.
-- No secrets committed to the repository.
+Generated files live in `client/generated/` and should not be hand-edited.
 
-## Testing Strategy
+## Tests And Quality Checks
 
-The project will use phase-level and milestone-level tests.
+Backend checks from `server/`:
 
-Backend testing targets:
+```bash
+ruff check .
+ruff format --check .
+mypy app
+pytest -q
+alembic upgrade head
+```
 
-- Unit tests for domain services.
-- Integration tests for API endpoints.
-- Migration tests for Alembic schema changes.
-- Authentication and authorization tests.
-- Balance consistency and transfer atomicity tests.
-- Reporting correctness tests.
-- Worker idempotency and retry tests.
+Frontend checks from `client/`:
 
-Frontend testing targets:
+```bash
+npm run build
+npm run lint --if-present
+npm run test --if-present
+npm run api:check
+npm run e2e
+```
 
-- Build validation.
-- Type checking.
-- API client contract validation.
-- Loading, empty, error, and success states.
-- Responsive layout checks.
-- Full frontend/backend integration smoke tests.
+The current frontend package has no real `lint` or `test` scripts, so those
+commands are expected no-ops until scripts are added. The E2E command starts a
+disposable local PostgreSQL, FastAPI, and Next.js stack.
 
-## Current Development Principle
+## Documentation
 
-The goal is to build a production-quality personal finance system gradually instead of rushing a single large implementation. Every milestone must leave the repository in a working, testable state.
+- Architecture: `docs/architecture/SYSTEM_DESIGN.md`
+- UI/API mapping: `docs/architecture/UI_API_MATRIX.md`
+- CI: `docs/development/CI.md`
+- Deployment: `docs/deployment/DEPLOYMENT.md`
+- Backend details: `server/README.md`
 
-## Author
+## Milestone Workflow
 
-**Morshed Alam**
+Codex work follows the phase workflow in `AGENTS.md` and
+`PFM_PROJECT_STATE.md`:
 
-- Website: [morshedalam.dev](https://morshedalam.dev)
-- GitHub: [@morshedalamdev](https://github.com/morshedalamdev)
-- Live Project: [pfm.morshedalam.dev](https://pfm.morshedalam.dev)
+1. Work on one milestone branch at a time.
+2. Execute exactly one requested phase from the active milestone file.
+3. Run the phase-required checks and repair failures.
+4. Update `PFM_PROJECT_STATE.md`.
+5. Create one local phase commit.
+6. Stop and ask permission before continuing.
 
-## License
-
-This project is licensed under the ISC License.
-
----
-
-Built and architected by **Morshed Alam**. Implementation is developed through a controlled milestone-based workflow with Codex assistance.
+Do not push milestone branches until the verification phase passes and the user
+explicitly requests a push.

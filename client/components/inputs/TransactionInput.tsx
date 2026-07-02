@@ -18,20 +18,29 @@ import { Calendar } from "../ui/calendar";
 type TransactionInputProps = {
   type?: "text" | "number" | "date" | "boolean" | "select";
   label: string;
-  list: string[];
+  list?: string[];
   value?: string | boolean | Date | undefined;
-  onChange: (value: string | boolean | Date | undefined) => void;
+  onChange?: (value: string | boolean | Date | undefined) => void;
   error?: boolean;
 };
 
 export default function TransactionInput({
   type,
   label,
-  list,
+  list = [],
   value,
   onChange,
   error,
 }: TransactionInputProps) {
+  const displayValue =
+    value instanceof Date
+      ? value.toLocaleDateString()
+      : typeof value === "boolean"
+        ? value
+          ? "Yes"
+          : "No"
+        : value;
+
   const DrawerField = () => {
     switch (type) {
       case "text":
@@ -70,7 +79,7 @@ export default function TransactionInput({
                   mode="single"
                   selected={value as Date}
                   onSelect={(date) => {
-                    onChange(date);
+                    onChange?.(date);
                   }}
                   className="max-w-sm w-full mx-auto text-black"
                 />
@@ -89,7 +98,7 @@ export default function TransactionInput({
                 <DrawerClose asChild>
                   <Button
                     variant="ghost"
-                    onClick={() => onChange(true)}
+                    onClick={() => onChange?.(true)}
                     className={value ? "bg-black text-white" : ""}
                   >
                     Yes
@@ -100,7 +109,7 @@ export default function TransactionInput({
                 <DrawerClose asChild>
                   <Button
                     variant="ghost"
-                    onClick={() => onChange(false)}
+                    onClick={() => onChange?.(false)}
                     className={!value ? "bg-black text-white" : ""}
                   >
                     No
@@ -122,7 +131,7 @@ export default function TransactionInput({
                   <DrawerClose asChild>
                     <Button
                       variant="ghost"
-                      onClick={() => onChange(item)}
+                      onClick={() => onChange?.(item)}
                       className={value === item ? "bg-black text-white" : ""}
                     >
                       {item}
@@ -155,7 +164,7 @@ export default function TransactionInput({
             {label}
           </p>
           <p className="flex items-center gap-1.5 font-semibold text-muted-foreground">
-            <span>{value && value.toString()}</span>
+            <span>{displayValue}</span>
             <ChevronRightIcon className="size-4" />
           </p>
         </div>
