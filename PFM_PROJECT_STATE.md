@@ -140,7 +140,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 09 | 09.2 CI checks | PASSED | phase commit created after this state update | Added GitHub Actions CI quality gates for backend lint/format/type/tests/migrations, frontend build/optional checks, and API contract drift, plus local CI command documentation. |
 | 09 | 09.3 Deployment configuration | PASSED | phase commit created after this state update | Added provider-neutral production deployment topology, secrets checklist, migration/rollback/backup procedure, health probes, CORS/cookie security notes, and receipt storage behavior documentation. |
 | 09 | 09.4 README update | PASSED | phase commit created after this state update | Replaced the stale milestone-pack root README with accurate FastAPI, Next.js, PostgreSQL, worker, local adapter, setup, migration, test, Docker Compose, API contract, and milestone workflow documentation. |
-| 09 | 09.5 Deployment smoke test | NOT_STARTED | — | — |
+| 09 | 09.5 Deployment smoke test | BLOCKED | blocker commit created after this state update | Compose validation passed, but the local deployment stack could not start because pulling `postgres:18-alpine` stalled and no PostgreSQL image or containers were created. |
 | 09 | 09.V DevOps verification | NOT_STARTED | — | — |
 | 10 | 10.1 Backend audit | NOT_STARTED | — | — |
 | 10 | 10.2 Frontend audit | NOT_STARTED | — | — |
@@ -727,6 +727,15 @@ Append only. Do not rewrite earlier records.
 - Removed stale root README backend-stack claims by omission; a project-owned filtered grep across `README.md`, `server`, and `docs` has no matches for the retired Nest.js, Express, Prisma, or TypeORM terms. The exact required broad grep still reports false positives from ignored local dependency/cache paths such as `server/.venv` and `server/.mypy_cache`.
 - No backend endpoint behavior, migrations, environment templates, Docker/CI configuration, production provider credentials, or frontend UI behavior changed in phase 09.4.
 
+### Phase 09.5 deployment smoke inventory
+
+- Attempted the required local deployment smoke startup with `docker compose up -d --build` using the milestone 09 Compose stack.
+- Compose validation passed before startup, confirming the rendered `postgres`, `api`, `worker`, and `frontend` services and local port mappings.
+- The Compose startup could not reach container creation because Docker did not finish pulling `postgres:18-alpine`. The first approved run made slow progress through the Postgres image pull before the user intentionally interrupted the turn; the resumed approved run printed `Image postgres:18-alpine Pulling` and remained silent for several minutes until interrupted.
+- Follow-up checks confirmed no Compose containers were running and no usable local `postgres` image was present. `docker compose down` completed cleanly.
+- Because the stack never started, phase 09.5 could not apply containerized migrations, verify API liveness/readiness, verify frontend/API reachability, verify worker startup, or run the minimal authenticated money flow.
+- No backend endpoint behavior, migrations, environment templates, Docker/CI configuration, production credentials, frontend UI behavior, or application source files changed in phase 09.5.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -995,6 +1004,8 @@ Phase 09.3 added no backend endpoints. It only added production deployment docum
 
 Phase 09.4 added no backend endpoints. It only updated root README developer onboarding documentation.
 
+Phase 09.5 added no backend endpoints. It was blocked before the Compose stack could start.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1098,6 +1109,8 @@ Phase 09.2 created no migrations. CI runs `alembic upgrade head` against a dispo
 Phase 09.3 created no migrations. It documented the production migration, rollback, and backup procedure for existing Alembic migrations through `202607010703_add_notification_schema.py`.
 
 Phase 09.4 created no migrations. README migration examples continue to use existing Alembic migrations through `202607010703_add_notification_schema.py`.
+
+Phase 09.5 created no migrations and applied no migrations because the Compose stack was blocked before PostgreSQL started.
 
 ## 11. Environment variables
 
@@ -1316,6 +1329,11 @@ Committed template: `server/.env.example`.
 - No new committed application settings were added to `server/.env.example` or `client/.env.example`.
 - Root `README.md` now documents the existing environment template copy commands and the local key-free `STORAGE_BACKEND=local` and `EMAIL_BACKEND=console` adapter defaults.
 - Production provider credentials remain intentionally deferred to deployment environment configuration and must not be committed.
+
+### Phase 09.5 deployment smoke variables
+
+- No new committed application settings were added to `server/.env.example` or `client/.env.example`.
+- The attempted Compose startup used the existing local interpolation defaults from `compose.yml`; no external credentials or production secrets were required.
 
 ## 12. Test command registry
 
@@ -2003,6 +2021,22 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `git diff --check` | PASS | Verified no whitespace errors before commit. |
 | `npm run e2e` | NOT RUN | Documented E2E command was not rerun in phase 09.4 because this documentation-only phase did not alter frontend behavior and the command starts a full disposable app/browser stack; it remains covered by phase 08.6 and 08.V. |
 
+### Phase 09.5 deployment smoke commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `ci-docker-deploy` and clean worktree before phase execution. |
+| `docker compose config` | PASS | Required Compose validation passed for `postgres`, `api`, `worker`, `frontend`, local ports, health checks, environment, and named volumes. |
+| `docker compose up -d --build` | BLOCKED | Required stack startup could not complete because Docker did not finish pulling `postgres:18-alpine`. First approved run made slow pull progress before user interruption; resumed approved run printed only `Image postgres:18-alpine Pulling` and stayed silent for several minutes until interrupted with exit code 130. |
+| `docker compose ps` | PASS | Verified the interrupted startup left no running Compose services. |
+| `docker image ls postgres --format "{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}"` | PASS / no image | Verified no usable local `postgres` image was present after the interrupted pull. |
+| `docker compose down` | PASS | Required clean shutdown command completed; no services needed removal. |
+| `docker compose run --rm api alembic upgrade head` | NOT RUN / BLOCKED | Containerized migration could not run because the Compose stack did not start and PostgreSQL image pull was incomplete. |
+| API liveness/readiness checks | NOT RUN / BLOCKED | Health checks could not run because the API container never started. |
+| Frontend/API reachability check | NOT RUN / BLOCKED | Frontend container never started because the stack could not reach container creation. |
+| Worker startup check | NOT RUN / BLOCKED | Worker container never started because the stack could not reach container creation. |
+| Minimal authenticated money flow | NOT RUN / BLOCKED | Could not register/login or create account/category/transaction records because the API stack was unavailable. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2057,6 +2091,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 09.2 is passed. Next allowed phase is 09.3, Deployment configuration, after user permission.
 - Phase 09.3 is passed. Next allowed phase is 09.4, README update, after user permission.
 - Phase 09.4 is passed. Next allowed phase is 09.5, Deployment smoke test, after user permission.
+- Phase 09.5 is blocked by local Docker image pull/startup: `postgres:18-alpine` did not finish pulling, no Compose containers were created, and no usable local Postgres image is present. Next allowed phase remains 09.5 after Docker registry/network availability is restored or the image is made available locally.
 
 ## 14. Progress log
 
@@ -2118,3 +2153,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 09.2 continuous integration passed. Added GitHub Actions backend, frontend, and API-contract jobs with dependency caching, disposable PostgreSQL service credentials, local PostgreSQL binaries for database tests, and test-only secrets; documented local CI commands in `docs/development/CI.md`; ran the required backend, frontend, Alembic, and contract checks; and set the next allowed phase to 09.3.
 - 2026-07-02: Phase 09.3 deployment configuration passed. Added provider-neutral production deployment documentation covering required services, environment checklist without values, migration procedure, rollback and backup requirements, health probes, worker start command, receipt storage behavior, CORS guidance for `https://pfm.morshedalam.dev`, and cookie security notes; ran the required deployment documentation checks; and set the next allowed phase to 09.4.
 - 2026-07-02: Phase 09.4 README update passed. Replaced the stale root README with accurate FastAPI, Next.js, PostgreSQL, worker, local adapter, Docker Compose, local setup, migration, API contract, test, documentation-link, and milestone workflow onboarding; verified stale stack terms are absent from project-owned README/server/docs content; ran feasible documented commands; and set the next allowed phase to 09.5.
+- 2026-07-02: Phase 09.5 deployment smoke test blocked. Compose validation passed, but `docker compose up -d --build` could not complete because Docker did not finish pulling `postgres:18-alpine`; no containers or usable Postgres image were left behind, `docker compose down` completed cleanly, and the next allowed phase remains 09.5 for retry after Docker registry/network availability is restored.
