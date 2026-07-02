@@ -139,7 +139,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 09 | 09.1 Docker and Compose | PASSED | phase commit created after this state update | Added production-oriented backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL/API/recurring worker/frontend, health checks, volumes, ignored build/runtime artifacts, and local Docker command docs. |
 | 09 | 09.2 CI checks | PASSED | phase commit created after this state update | Added GitHub Actions CI quality gates for backend lint/format/type/tests/migrations, frontend build/optional checks, and API contract drift, plus local CI command documentation. |
 | 09 | 09.3 Deployment configuration | PASSED | phase commit created after this state update | Added provider-neutral production deployment topology, secrets checklist, migration/rollback/backup procedure, health probes, CORS/cookie security notes, and receipt storage behavior documentation. |
-| 09 | 09.4 README update | NOT_STARTED | — | — |
+| 09 | 09.4 README update | PASSED | phase commit created after this state update | Replaced the stale milestone-pack root README with accurate FastAPI, Next.js, PostgreSQL, worker, local adapter, setup, migration, test, Docker Compose, API contract, and milestone workflow documentation. |
 | 09 | 09.5 Deployment smoke test | NOT_STARTED | — | — |
 | 09 | 09.V DevOps verification | NOT_STARTED | — | — |
 | 10 | 10.1 Backend audit | NOT_STARTED | — | — |
@@ -719,6 +719,14 @@ Append only. Do not rewrite earlier records.
 - Recorded that cookie transport is not currently implemented; refresh tokens still use the milestone 02 JSON-body transport, and future cookie transport must use HTTPS-only secure cookie settings.
 - No concrete provider deployment files, production credentials, endpoint behavior, migrations, Docker changes, CI changes, or frontend UI changes were added in phase 09.3.
 
+### Phase 09.4 README update inventory
+
+- Replaced the root `README.md` milestone-pack placeholder with normal developer onboarding for the implemented application stack.
+- Documented the current FastAPI modular monolith backend, Next.js App Router frontend, PostgreSQL system of record, Alembic migrations, separate recurring worker, and generated OpenAPI TypeScript contract flow.
+- Added root-level setup guidance for prerequisites, environment templates, local key-free storage/email adapters, dependency installation, Docker Compose operation, non-Docker local API/worker/frontend operation, health endpoints, migrations, API contract generation/checking, quality checks, documentation links, and the milestone workflow.
+- Removed stale root README backend-stack claims by omission; a project-owned filtered grep across `README.md`, `server`, and `docs` has no matches for the retired Nest.js, Express, Prisma, or TypeORM terms. The exact required broad grep still reports false positives from ignored local dependency/cache paths such as `server/.venv` and `server/.mypy_cache`.
+- No backend endpoint behavior, migrations, environment templates, Docker/CI configuration, production provider credentials, or frontend UI behavior changed in phase 09.4.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -985,6 +993,8 @@ Phase 09.2 added no backend endpoints. It only added CI workflow configuration a
 
 Phase 09.3 added no backend endpoints. It only added production deployment documentation.
 
+Phase 09.4 added no backend endpoints. It only updated root README developer onboarding documentation.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1086,6 +1096,8 @@ Phase 09.1 created no migrations. Compose migration execution uses the existing 
 Phase 09.2 created no migrations. CI runs `alembic upgrade head` against a disposable PostgreSQL service using existing migrations through `202607010703_add_notification_schema.py`.
 
 Phase 09.3 created no migrations. It documented the production migration, rollback, and backup procedure for existing Alembic migrations through `202607010703_add_notification_schema.py`.
+
+Phase 09.4 created no migrations. README migration examples continue to use existing Alembic migrations through `202607010703_add_notification_schema.py`.
 
 ## 11. Environment variables
 
@@ -1298,6 +1310,12 @@ Committed template: `server/.env.example`.
 - No new committed application settings were added to `server/.env.example` or `client/.env.example`.
 - `docs/deployment/DEPLOYMENT.md` documents the production checklist for existing API, worker, frontend, PostgreSQL, auth-token, receipt, storage, and email environment variables without values.
 - Production object-storage and email provider variables remain deferred until concrete provider adapters are selected; no production credentials are required for this documentation phase.
+
+### Phase 09.4 README variables
+
+- No new committed application settings were added to `server/.env.example` or `client/.env.example`.
+- Root `README.md` now documents the existing environment template copy commands and the local key-free `STORAGE_BACKEND=local` and `EMAIL_BACKEND=console` adapter defaults.
+- Production provider credentials remain intentionally deferred to deployment environment configuration and must not be committed.
 
 ## 12. Test command registry
 
@@ -1965,6 +1983,26 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `grep -q "worker" docs/deployment/DEPLOYMENT.md` | PASS | Required check that worker deployment behavior is documented. |
 | `git diff --check` | PASS | Verified no whitespace errors before commit. |
 
+### Phase 09.4 README update commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `ci-docker-deploy`; only `README.md` was modified before state recording. |
+| `grep -R "NestJS\|Nest.js\|Express\|Prisma\|TypeORM" -n README.md server docs \|\| true` | PASS with expected ignored-path matches | Required broad grep completed. It reported 1,822 matches only from ignored local dependency/cache paths such as `server/.venv` and `server/.mypy_cache`, mostly `License-Expression` false positives. |
+| `grep -R "NestJS\|Nest.js\|Express\|Prisma\|TypeORM" -n README.md server docs --exclude-dir=.venv --exclude-dir=.mypy_cache --exclude-dir=.pytest_cache --exclude-dir=__pycache__ \|\| true` | PASS | Project-owned README/server/docs check returned 0 matches for stale backend stack terms. |
+| `docker compose config` | PASS | Verified README's Compose topology command still parses. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Documented backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Documented backend format check passed: 143 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Documented backend type check passed: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Documented backend test suite could not bind `127.0.0.1` for disposable PostgreSQL in the sandbox; approved rerun passed with 141 tests and 1 Starlette/httpx warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | FAIL / local database credential issue | Documented direct local migration command reached PostgreSQL with approval but failed because the configured local `pfm_app` database password was rejected. This requires local database credentials or a disposable database URL; pytest migration coverage passed through the disposable test database. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Documented frontend production build failed in sandbox while fetching Google Fonts Urbanist; approved network rerun passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | Documented optional frontend lint command passed; no `lint` script is currently defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | Documented optional frontend test command passed; no `test` script is currently defined. |
+| `cd client && npm run api:check` | PASS | Documented API contract drift check passed; generated OpenAPI JSON and TypeScript contracts are up to date. |
+| `git diff --check` | PASS | Verified no whitespace errors before commit. |
+| `npm run e2e` | NOT RUN | Documented E2E command was not rerun in phase 09.4 because this documentation-only phase did not alter frontend behavior and the command starts a full disposable app/browser stack; it remains covered by phase 08.6 and 08.V. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2018,6 +2056,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 09.1 is passed. Next allowed phase is 09.2, Continuous integration, after user permission.
 - Phase 09.2 is passed. Next allowed phase is 09.3, Deployment configuration, after user permission.
 - Phase 09.3 is passed. Next allowed phase is 09.4, README update, after user permission.
+- Phase 09.4 is passed. Next allowed phase is 09.5, Deployment smoke test, after user permission.
 
 ## 14. Progress log
 
@@ -2078,3 +2117,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 09.1 Docker and Compose passed. Added backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL, API, recurring worker, and frontend, service health checks, named volumes, Docker ignore files, and Docker lifecycle documentation. Required Compose validation passed, Docker image build passed with approval after sandboxed buildx state access was blocked, and the next allowed phase is 09.2.
 - 2026-07-02: Phase 09.2 continuous integration passed. Added GitHub Actions backend, frontend, and API-contract jobs with dependency caching, disposable PostgreSQL service credentials, local PostgreSQL binaries for database tests, and test-only secrets; documented local CI commands in `docs/development/CI.md`; ran the required backend, frontend, Alembic, and contract checks; and set the next allowed phase to 09.3.
 - 2026-07-02: Phase 09.3 deployment configuration passed. Added provider-neutral production deployment documentation covering required services, environment checklist without values, migration procedure, rollback and backup requirements, health probes, worker start command, receipt storage behavior, CORS guidance for `https://pfm.morshedalam.dev`, and cookie security notes; ran the required deployment documentation checks; and set the next allowed phase to 09.4.
+- 2026-07-02: Phase 09.4 README update passed. Replaced the stale root README with accurate FastAPI, Next.js, PostgreSQL, worker, local adapter, Docker Compose, local setup, migration, API contract, test, documentation-link, and milestone workflow onboarding; verified stale stack terms are absent from project-owned README/server/docs content; ran feasible documented commands; and set the next allowed phase to 09.5.

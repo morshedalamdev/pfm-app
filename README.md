@@ -1,45 +1,233 @@
-# PFM App — Phased Codex Milestone Pack
+# PFM App
 
-This pack reorganizes the project into **one Markdown file per milestone**. Each milestone file contains its own smaller phases. Run only one phase in each Codex session.
+Personal finance management app with a Next.js frontend, FastAPI backend,
+PostgreSQL database, and a separate recurring-work worker.
 
-## Copy into the repository
+The backend is a Python FastAPI modular monolith under `server/`. The frontend
+is a Next.js App Router application under `client/`. PostgreSQL is the system of
+record, Alembic manages schema migrations, and the frontend API contract is
+generated from the FastAPI OpenAPI schema.
 
-Copy these files into the root of `pfm-app`:
-
-```text
-AGENTS.md
-PFM_PROJECT_STATE.md
-RUN_COMMANDS.md
-milestones/
-```
-
-## Working model
+## Project Layout
 
 ```text
-One project
-└── One milestone branch
-    ├── One Codex run for phase NN.1
-    ├── One Codex run for phase NN.2
-    ├── ...
-    └── One Codex run for phase NN.V verification
+client/                    Next.js frontend
+server/                    FastAPI backend and worker code
+docs/architecture/          System design and UI/API mapping
+docs/development/CI.md      Local and GitHub Actions CI commands
+docs/deployment/DEPLOYMENT.md
+compose.yml                Local PostgreSQL/API/worker/frontend stack
+milestones/                Phase-by-phase delivery plan
+PFM_PROJECT_STATE.md       Persistent phase memory and command log
+AGENTS.md                  Codex execution rules
 ```
 
-Each phase must stop after tests pass and request approval before the next phase.
+## Prerequisites
 
-## Start here
+- Python 3.12+
+- Node.js 24+ and npm
+- PostgreSQL server/client tools for local database work
+- Docker with Compose for the containerized local stack
+
+## Environment Files
+
+Use the committed templates and keep real values out of Git:
 
 ```bash
-git checkout main
-git pull
-git checkout -b milestone/00-discovery-architecture
-
-codex "Read AGENTS.md, PFM_PROJECT_STATE.md, and milestones/00_DISCOVERY_ARCHITECTURE.md. Execute only phase 00.1. Follow its stop condition exactly."
+cp server/.env.example server/.env
+cp client/.env.example client/.env.local
 ```
 
-After phase 00.1 passes, approve phase 00.2 and run:
+Local defaults use key-free adapters:
+
+- `STORAGE_BACKEND=local` stores receipt bytes under an ignored local storage
+  root.
+- `EMAIL_BACKEND=console` logs email delivery instead of using external
+  credentials.
+
+Production storage and email providers are optional future adapter choices.
+Provider credentials must be supplied through the deployment environment, never
+committed.
+
+## Install Dependencies
+
+Backend:
 
 ```bash
-codex "Read AGENTS.md, PFM_PROJECT_STATE.md, and milestones/00_DISCOVERY_ARCHITECTURE.md. Execute only phase 00.2. Follow its stop condition exactly."
+cd server
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev,test]"
 ```
 
-Use `RUN_COMMANDS.md` for all commands and recommended Codex model settings.
+Frontend:
+
+```bash
+cd client
+npm install
+```
+
+## Run With Docker Compose
+
+Validate the local stack:
+
+```bash
+docker compose config
+```
+
+Build the images:
+
+```bash
+docker compose build
+```
+
+Apply migrations and start the full stack:
+
+```bash
+docker compose up -d postgres
+docker compose run --rm api alembic upgrade head
+docker compose up
+```
+
+The API runs at `http://localhost:8000`, and the frontend runs at
+`http://localhost:3000`.
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Reset local Compose data, including PostgreSQL and local receipt storage:
+
+```bash
+docker compose down --volumes
+```
+
+Run one recurring worker tick in the container:
+
+```bash
+docker compose run --rm worker python -m app.workers.recurring --once
+```
+
+## Run Without Docker
+
+Create a local PostgreSQL database:
+
+```bash
+createuser pfm_app
+createdb --owner=pfm_app pfm_app
+```
+
+Start the API:
+
+```bash
+cd server
+source .venv/bin/activate
+export DATABASE_URL=postgresql+asyncpg://pfm_app@localhost:5432/pfm_app
+alembic upgrade head
+uvicorn app.main:app --reload
+```
+
+Start the recurring worker in a second terminal:
+
+```bash
+cd server
+source .venv/bin/activate
+export DATABASE_URL=postgresql+asyncpg://pfm_app@localhost:5432/pfm_app
+python -m app.workers.recurring
+```
+
+Start the frontend in a third terminal:
+
+```bash
+cd client
+npm run dev
+```
+
+Health endpoints:
+
+- `GET /api/v1/health/live`
+- `GET /api/v1/health/ready`
+
+Workers do not expose HTTP health endpoints. Monitor worker process status and
+structured log events such as `recurring_worker_tick` and `outbox_worker_tick`.
+
+## Migrations
+
+Run Alembic from `server/` with a valid PostgreSQL `DATABASE_URL`:
+
+```bash
+alembic upgrade head
+```
+
+For migration development, test upgrade/downgrade/upgrade behavior against a
+disposable database. Do not run destructive migration checks against a personal
+or production database.
+
+## API Contract
+
+Generate the frontend OpenAPI JSON and TypeScript API types from FastAPI:
+
+```bash
+cd client
+npm run api:generate
+```
+
+Check for contract drift:
+
+```bash
+cd client
+npm run api:check
+```
+
+Generated files live in `client/generated/` and should not be hand-edited.
+
+## Tests And Quality Checks
+
+Backend checks from `server/`:
+
+```bash
+ruff check .
+ruff format --check .
+mypy app
+pytest -q
+alembic upgrade head
+```
+
+Frontend checks from `client/`:
+
+```bash
+npm run build
+npm run lint --if-present
+npm run test --if-present
+npm run api:check
+npm run e2e
+```
+
+The current frontend package has no real `lint` or `test` scripts, so those
+commands are expected no-ops until scripts are added. The E2E command starts a
+disposable local PostgreSQL, FastAPI, and Next.js stack.
+
+## Documentation
+
+- Architecture: `docs/architecture/SYSTEM_DESIGN.md`
+- UI/API mapping: `docs/architecture/UI_API_MATRIX.md`
+- CI: `docs/development/CI.md`
+- Deployment: `docs/deployment/DEPLOYMENT.md`
+- Backend details: `server/README.md`
+
+## Milestone Workflow
+
+Codex work follows the phase workflow in `AGENTS.md` and
+`PFM_PROJECT_STATE.md`:
+
+1. Work on one milestone branch at a time.
+2. Execute exactly one requested phase from the active milestone file.
+3. Run the phase-required checks and repair failures.
+4. Update `PFM_PROJECT_STATE.md`.
+5. Create one local phase commit.
+6. Stop and ask permission before continuing.
+
+Do not push milestone branches until the verification phase passes and the user
+explicitly requests a push.
