@@ -5,7 +5,7 @@ import json
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -264,7 +264,11 @@ def test_notification_email_outbox_handler_records_delivery(
     assert pending_outbox.payload["notification_id"] == notification["id"]
 
     adapter = LocalEmailAdapter(from_address="alerts@localhost")
-    result = run_notification_email_worker(context, adapter)
+    result = run_notification_email_worker(
+        context,
+        adapter,
+        now=pending_outbox.available_at + timedelta(seconds=1),
+    )
 
     assert result.claimed == 1
     assert result.processed == 1
@@ -300,7 +304,8 @@ def test_notification_email_outbox_retry_records_adapter_failure(
         message="This message should be retried.",
         request_email=True,
     )
-    now = datetime(2026, 7, 2, tzinfo=UTC)
+    _, pending_outbox = load_notification_and_outbox(context, notification["id"])
+    now = pending_outbox.available_at + timedelta(seconds=1)
 
     result = run_notification_email_worker_with_handler(
         context,
@@ -567,11 +572,13 @@ def parse_sse_event(raw_event: str) -> dict[str, Any]:
 def run_notification_email_worker(
     context: NotificationApiContext,
     adapter: LocalEmailAdapter,
+    *,
+    now: datetime,
 ) -> Any:
     return run_notification_email_worker_with_handler(
         context,
         NotificationEmailHandler(adapter),
-        now=datetime(2026, 7, 2, tzinfo=UTC),
+        now=now,
     )
 
 

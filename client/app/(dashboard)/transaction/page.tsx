@@ -49,6 +49,18 @@ function groupDate(value: string): string {
   });
 }
 
+function addDays(value: Date, days: number): Date {
+  const nextDate = new Date(value);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function startOfDay(value: Date): Date {
+  const nextDate = new Date(value);
+  nextDate.setHours(0, 0, 0, 0);
+  return nextDate;
+}
+
 export default function TransactionPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -64,26 +76,27 @@ export default function TransactionPage() {
 
   const dateRange = useMemo(() => {
     if (date) {
-      const selected = date.toISOString().slice(0, 10);
-      return { from: selected, to: selected };
-    }
-
-    const now = new Date();
-    const from = new Date(now);
-    if (duration === "day") {
+      const selectedStart = startOfDay(date);
       return {
-        from: now.toISOString().slice(0, 10),
-        to: now.toISOString().slice(0, 10),
+        from: selectedStart.toISOString(),
+        to: addDays(selectedStart, 1).toISOString(),
       };
     }
-    if (duration === "week") {
-      from.setDate(now.getDate() - 7);
-    } else {
-      from.setMonth(now.getMonth() - 1);
+
+    const todayStart = startOfDay(new Date());
+    const from = new Date(todayStart);
+    const to = addDays(todayStart, 1);
+    if (duration === "day") {
+      return {
+        from: todayStart.toISOString(),
+        to: to.toISOString(),
+      };
     }
+    if (duration === "week") from.setDate(todayStart.getDate() - 7);
+    else from.setMonth(todayStart.getMonth() - 1);
     return {
-      from: from.toISOString().slice(0, 10),
-      to: now.toISOString().slice(0, 10),
+      from: from.toISOString(),
+      to: to.toISOString(),
     };
   }, [date, duration]);
 

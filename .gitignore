@@ -20,6 +20,10 @@ coverage
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+playwright-report/
+test-results/
+client/playwright-report/
+client/test-results/
 
 # next.js
 .next/

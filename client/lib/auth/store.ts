@@ -32,30 +32,51 @@ type AuthState = {
   clearError: () => void;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+const LOGOUT_TIMEOUT_MS = 3_000;
+
+let hydratePromise: Promise<void> | null = null;
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   status: "idle",
   error: null,
 
   hydrate: async () => {
-    const tokens = getStoredTokens();
-    if (!tokens) {
-      set({ user: null, status: "unauthenticated", error: null });
+    const currentState = get();
+    if (currentState.status === "authenticated" && currentState.user) {
       return;
     }
+    if (hydratePromise) {
+      return hydratePromise;
+    }
 
-    set({ status: "loading", error: null });
+    hydratePromise = (async () => {
+      const tokens = getStoredTokens();
+      if (!tokens) {
+        set({ user: null, status: "unauthenticated", error: null });
+        return;
+      }
+
+      set({ status: "loading", error: null });
+      try {
+        const user = await apiGet<User>("/api/v1/users/me");
+        set({ user, status: "authenticated", error: null });
+      } catch (error) {
+        const apiError = error instanceof ApiError ? error : mapApiError(error);
+        clearStoredTokens();
+        set({ user: null, status: "unauthenticated", error: apiError });
+      }
+    })();
+
     try {
-      const user = await apiGet<User>("/api/v1/users/me");
-      set({ user, status: "authenticated", error: null });
-    } catch (error) {
-      const apiError = error instanceof ApiError ? error : mapApiError(error);
-      clearStoredTokens();
-      set({ user: null, status: "unauthenticated", error: apiError });
+      await hydratePromise;
+    } finally {
+      hydratePromise = null;
     }
   },
 
   login: async (request) => {
+    hydratePromise = null;
     set({ status: "loading", error: null });
     try {
       const tokens = await apiPost<LoginRequest, AccessTokenResponse>(
@@ -78,6 +99,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (request) => {
+    hydratePromise = null;
     set({ status: "loading", error: null });
     try {
       await apiPost<RegisterRequest, RegisteredUserResponse>(
@@ -104,16 +126,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    hydratePromise = null;
     const tokens = getStoredTokens();
     set({ status: "loading", error: null });
     try {
       if (tokens?.refreshToken) {
-        await apiPost<LogoutRequest, LogoutResponse>(
-          "/api/v1/auth/logout",
-          {
+        await Promise.race([
+          apiPost<LogoutRequest, LogoutResponse>("/api/v1/auth/logout", {
             refresh_token: tokens.refreshToken,
-          },
-        );
+          }),
+          timeoutAfter(LOGOUT_TIMEOUT_MS),
+        ]);
       }
     } catch {
       // Local session cleanup should still win if the server rejects the token.
@@ -125,3 +148,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+function timeoutAfter(milliseconds: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("Operation timed out")), milliseconds);
+  });
+}

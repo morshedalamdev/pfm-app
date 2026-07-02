@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Urbanist } from "next/font/google";
 import "./globals.css";
 import Image from "next/image";
-import ellipseImg from "@/assets/ellipse.svg"
+import ellipseImg from "@/assets/ellipse.svg";
 
 const urbanist = Urbanist({
   variable: "--font-urbanist",
@@ -22,7 +22,15 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-x-hidden">
       <body className={`${urbanist.variable} antialiased overflow-x-hidden`} suppressHydrationWarning>
-        <div className="absolute -top-60 w-full z-0"><Image src={ellipseImg} alt="ellipse for background" width={240} height={240} className="scale-200 w-full" /></div>
+        <div className="absolute -top-60 left-0 w-full overflow-hidden z-0">
+          <Image
+            src={ellipseImg}
+            alt="ellipse for background"
+            width={240}
+            height={240}
+            className="w-full scale-200"
+          />
+        </div>
         <main className="relative h-svh mx-auto z-10">{children}</main>
       </body>
     </html>

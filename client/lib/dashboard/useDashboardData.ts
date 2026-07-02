@@ -82,7 +82,7 @@ export function useDashboardData() {
         }),
         apiGet<CategoryListResponse>("/api/v1/categories", {
           params: {
-            limit: 200,
+            limit: 100,
           },
         }),
       ]);
