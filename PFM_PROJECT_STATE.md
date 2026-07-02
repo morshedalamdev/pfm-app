@@ -135,7 +135,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 08 | 08.4 CRUD screen integration | PASSED | phase commit created after this state update | Connected transaction, transfer, recurring, budget, savings, account selector, and category selector/list surfaces to typed server API calls with loading, empty, error, retry, idempotency, and mutation states. |
 | 08 | 08.5 Loading and error states | PASSED | phase commit created after this state update | Removed remaining runtime finance fixtures from analytics and loan/debt surfaces, connected analytics to report APIs, added loading/empty/error/retry behavior, and verified recorded fixture searches. |
 | 08 | 08.6 Responsive and E2E checks | PASSED | phase commit created after this state update | Added documented full-stack Playwright E2E/responsive coverage, fixed integration defects found by E2E, and verified required backend/frontend checks. |
-| 08 | 08.V Frontend verification | NOT_STARTED | — | — |
+| 08 | 08.V Frontend verification | PASSED | verification commit created after this state update | Verified milestone 08 frontend/server integration, contract drift, full backend/frontend checks, E2E coverage, mock-value removal, and preserved UI scope. |
 | 09 | 09.1 Docker and Compose | NOT_STARTED | — | — |
 | 09 | 09.2 CI checks | NOT_STARTED | — | — |
 | 09 | 09.3 Deployment configuration | NOT_STARTED | — | — |
@@ -683,6 +683,14 @@ Append only. Do not rewrite earlier records.
 - Fixed notification outbox tests to claim email events after each event's actual `available_at`, avoiding date-sensitive failures when tests run later on `2026-07-02`.
 - No backend endpoint behavior, migrations, production environment variables, new UI surfaces, receipt UI, notification list UI, or SSE subscription behavior was added in phase 08.6.
 
+### Phase 08.V frontend verification inventory
+
+- Verified the complete milestone 08 frontend/server integration scope: generated contract artifacts, auth/session layer, dashboard data, finance CRUD screens, analytics reports, fixture removal, responsive behavior, and E2E coverage.
+- Confirmed targeted mock/fixture scans found no recorded fixture names or hardcoded finance dollar values in production `client/app`, `client/components`, or `client/lib` paths.
+- Reviewed the milestone 08 diff and existing route set against the preserved-UI requirement; changes remain scoped to existing screens, data integration, loading/empty/error/retry states, responsive fixes, contract artifacts, and E2E harness code.
+- Verified full backend quality checks, frontend build/optional checks, API contract drift check, and documented full-stack Playwright E2E command.
+- No backend endpoint behavior, migrations, environment variables, new UI surfaces, receipt UI, notification list UI, or SSE subscription behavior was added in phase 08.V.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -797,6 +805,12 @@ Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
 - `npm run e2e` now runs a disposable full-stack Playwright journey against PostgreSQL, FastAPI, and Next.js with local-only test secrets.
 - The E2E confirms integrated auth, finance source-record setup, transaction/budget/savings/report rendering, unread notification count behavior, logout, and mobile/tablet/desktop route overflow checks.
 - Frontend integration defects found by E2E were fixed without redesign: category list limit mismatch, transaction datetime range serialization, auth hydration races, logout cleanup resiliency, and mobile background overflow.
+
+### Phase 08.V frontend integration verification update
+
+- Milestone 08 verification confirmed generated frontend contracts are current with FastAPI OpenAPI through `npm run api:check`.
+- Milestone 08 verification confirmed production UI paths no longer depend on recorded runtime finance fixtures or hardcoded finance values.
+- `docs/architecture/UI_API_MATRIX.md` remains the milestone 08 source of UI/API mapping for auth, dashboard, CRUD, analytics, deferred loans, receipts, notifications, and generated contract policy.
 
 ### Fixture paths recorded for milestone 08 replacement
 
@@ -935,6 +949,8 @@ Phase 08.5 added no backend endpoints. The frontend analytics screen now consume
 
 Phase 08.6 added no backend endpoints. It added frontend E2E validation for existing auth, finance, budget, savings, report, and notification unread-count endpoints.
 
+Phase 08.V added no backend endpoints. Verification confirmed the milestone 08 frontend consumes existing auth, user, account, category, transaction, transfer, recurring-rule, budget, savings-goal, report, and notification unread-count endpoints without adding server behavior.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1028,6 +1044,8 @@ Phase 08.4 created no migrations.
 Phase 08.5 created no migrations.
 
 Phase 08.6 created no migrations.
+
+Phase 08.V created no migrations. Verification and E2E applied existing migrations through `202607010703_add_notification_schema.py` against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -1217,6 +1235,10 @@ Committed template: `server/.env.example`.
 ### Phase 08.6 responsive and E2E variables
 
 - No new committed environment variables were added. The E2E harness sets only transient local process variables: `DATABASE_URL`, `CORS_ORIGINS`, `APP_ENV=test`, local token secrets, `EMAIL_BACKEND=local`, `NEXT_PUBLIC_API_BASE_URL`, `E2E_APP_BASE_URL`, and `E2E_API_BASE_URL`.
+
+### Phase 08.V frontend verification variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -1829,6 +1851,26 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npx tsc --noEmit` | PASS / diagnostic only | Verified the final frontend E2E/auth/layout/date-filter changes are type-clean. This command is not a phase-required check; `next.config.ts` still skips TypeScript validation during build. |
 | `git diff --check` | PASS | Verified no whitespace errors before commit. |
 
+### Phase 08.V frontend verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `frontend-integration`, clean worktree at phase start, and branch ahead of `origin/frontend-integration` by 3 phase commits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check. Result: all checks passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check. Result: 143 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check. Result: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full backend test suite. Approved local disposable PostgreSQL access was needed; result: 141 passed, 1 Starlette/httpx warning. |
+| `cd client && npm run build` | PASS with approval | Required frontend production build. Approved network access was needed for Google Fonts Urbanist; build passed and Next.js still reports `Skipping validation of types`. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Required API contract drift check. Generated API contract is up to date. |
+| `cd client && npm run e2e` | PASS with approval | Required documented E2E command. Approved local port access was needed; the harness applied migrations through `202607010703_add_notification_schema.py`, started FastAPI and Next.js, and passed 1 Playwright full-stack integration test. |
+| `rg -n "mock\|fixture\|Vacation Fund\|Uber\|Monthly Salary\|Restaurant\|Supermarket\|Mike Johnson\|John Doe\|\$2,483\|\$12,500\|\$3,200\|\$250\.00\|\$2000\.00\|\$2100\.00\|\$1400\.00\|\$7500\.00\|\$5,200\|\$2,716\|40%\|75%\|Jan 15\|Feb 15" client/app client/components client/lib --glob '!client/e2e/**'` | PASS / no matches | Verified no recorded mock/fixture names or values remain in production client paths. |
+| `rg -n "\$[0-9][0-9,]*(\.[0-9]+)?" client/app client/components client/lib --glob '!client/generated/**' --glob '!**/package*.json'` | PASS / no matches | Verified no hardcoded finance dollar values remain in production client paths. |
+| `git diff --stat origin/frontend-integration...HEAD` | PASS | Reviewed milestone 08 branch scope: existing screens/data integration, generated contracts, docs, and E2E harness; no unrelated redesign/new UI surface detected. |
+| `find client/app -maxdepth 4 -type f -name 'page.tsx'` | PASS | Reviewed preserved route set for existing auth and dashboard screens. |
+| `git diff --check` | PASS | Verified no whitespace errors before verification commit. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1878,6 +1920,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 08.4 is passed. Next allowed phase is 08.5, Fixture removal and resilience states, after user permission.
 - Phase 08.5 is passed. Next allowed phase is 08.6, Responsive and E2E checks, after user permission.
 - Phase 08.6 is passed. Next allowed phase is 08.V, Frontend verification, after user permission.
+- Milestone 08 is verified. Next allowed phase is 09.1, Docker and Compose, after user permission to push the `frontend-integration` branch and begin milestone 09.
 
 ## 14. Progress log
 
@@ -1934,3 +1977,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 08.4 CRUD screen integration passed on retry. Connected existing transaction, transfer, recurring, budget, savings, account-selector, and category-selector/list surfaces to typed server data and mutations; verified required frontend checks with approved network access for the Google Fonts production build; set the next allowed phase to 08.5.
 - 2026-07-02: Phase 08.5 fixture removal and resilience states passed. Connected analytics to existing monthly summary, cash-flow, and spending-by-category report APIs; removed remaining runtime analytics and loan/debt fixtures; deleted unused fixture-only components; verified loading, empty, error, retry, unauthorized/offline-capable API error paths through the shared auth/API layer and fixture searches; set the next allowed phase to 08.6.
 - 2026-07-02: Phase 08.6 responsive and E2E checks passed. Added a documented full-stack Playwright harness and integrated journey covering auth, finance records, budget, savings, analytics reports, unread notification behavior, logout, and mobile/tablet/desktop responsive checks; fixed E2E-discovered category limit, transaction date range, auth hydration, logout cleanup, mobile overflow, and notification outbox test timing defects; set the next allowed phase to 08.V.
+- 2026-07-02: Phase 08.V frontend verification passed. Verified the complete milestone 08 frontend/server integration with backend quality checks, frontend build and optional checks, contract drift check, full-stack E2E, mock-value searches, and preserved UI scope review; set the next allowed phase to 09.1 after permission to push the branch and begin milestone 09.
