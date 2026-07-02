@@ -13,7 +13,6 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
 
 COPY . .
 RUN npm run build \
-    && npm prune --omit=dev \
     && npm cache clean --force
 
 FROM node:24-alpine AS runtime

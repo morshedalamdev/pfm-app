@@ -47,7 +47,7 @@ export default function Footer() {
   const status = useAuthStore((state) => state.status);
   const logout = useAuthStore((state) => state.logout);
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
-
+  console.log({ user });
   const displayName = user?.email?.split("@")[0] ?? "Profile";
   const displayEmail = user?.email ?? "Not signed in";
 
@@ -97,9 +97,8 @@ export default function Footer() {
             <Button
               variant="link"
               size="icon"
-              className={`${
-                pathname === i.href ? "p-5 text-white bg-icon" : "text-input"
-              } x-animation`}
+              className={`${pathname === i.href ? "p-5 text-white bg-icon" : "text-input"
+                } x-animation`}
             >
               {i.icon}
             </Button>

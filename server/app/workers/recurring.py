@@ -99,7 +99,7 @@ class RecurringWorker:
                 extra={
                     "worker_id": self.worker_id,
                     "claimed": result.claimed,
-                    "created": result.created,
+                    "transactions_created": result.created,
                     "skipped": result.skipped,
                 },
             )
@@ -287,7 +287,7 @@ async def amain(settings: Settings | None = None) -> None:
             "recurring_worker_once_complete",
             extra={
                 "claimed": result.claimed,
-                "created": result.created,
+                "transactions_created": result.created,
                 "skipped": result.skipped,
             },
         )
