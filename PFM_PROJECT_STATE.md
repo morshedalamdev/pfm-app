@@ -136,7 +136,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 08 | 08.5 Loading and error states | PASSED | phase commit created after this state update | Removed remaining runtime finance fixtures from analytics and loan/debt surfaces, connected analytics to report APIs, added loading/empty/error/retry behavior, and verified recorded fixture searches. |
 | 08 | 08.6 Responsive and E2E checks | PASSED | phase commit created after this state update | Added documented full-stack Playwright E2E/responsive coverage, fixed integration defects found by E2E, and verified required backend/frontend checks. |
 | 08 | 08.V Frontend verification | PASSED | verification commit created after this state update | Verified milestone 08 frontend/server integration, contract drift, full backend/frontend checks, E2E coverage, mock-value removal, and preserved UI scope. |
-| 09 | 09.1 Docker and Compose | NOT_STARTED | — | — |
+| 09 | 09.1 Docker and Compose | PASSED | phase commit created after this state update | Added production-oriented backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL/API/recurring worker/frontend, health checks, volumes, ignored build/runtime artifacts, and local Docker command docs. |
 | 09 | 09.2 CI checks | NOT_STARTED | — | — |
 | 09 | 09.3 Deployment configuration | NOT_STARTED | — | — |
 | 09 | 09.4 README update | NOT_STARTED | — | — |
@@ -691,6 +691,16 @@ Append only. Do not rewrite earlier records.
 - Verified full backend quality checks, frontend build/optional checks, API contract drift check, and documented full-stack Playwright E2E command.
 - No backend endpoint behavior, migrations, environment variables, new UI surfaces, receipt UI, notification list UI, or SSE subscription behavior was added in phase 08.V.
 
+### Phase 09.1 Docker and Compose inventory
+
+- Added `server/Dockerfile` as the production-oriented FastAPI image. It installs only runtime Python dependencies from `server/pyproject.toml`, compiles the `app` package, runs as a non-root `pfm` user, exposes port `8000`, defines a liveness health check, and defaults to `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+- Added `client/Dockerfile` as the local container frontend strategy consistent with the existing Next.js app. It uses `npm ci`, builds with `NEXT_PUBLIC_API_BASE_URL`, prunes development dependencies, exposes port `3000`, defines a frontend health check, and runs `npm run start`.
+- Added `.dockerignore` files for `server/` and `client/` to exclude virtual environments, dependency directories, build output, caches, local storage, local environment files, Playwright output, and other ignored artifacts from image build contexts.
+- Added root `compose.yml` with PostgreSQL, API, recurring worker, and frontend services. The API and worker share the backend image and PostgreSQL settings; the worker uses the existing `python -m app.workers.recurring` process path. No standalone generic outbox command was invented.
+- Compose uses named volumes for PostgreSQL data and local receipt storage, service health checks for PostgreSQL/API/frontend, safe local default credentials through environment interpolation, and committed environment templates via `server/.env.example` and `client/.env.example` without embedding production secrets.
+- Updated `server/README.md` with local Docker Compose build, migrate, start, stop, reset, port override, and one-shot recurring worker commands.
+- No backend endpoint behavior, migrations, production deployment provider configuration, CI workflow, or root README rewrite was added in phase 09.1.
+
 ## 8. UI-to-API matrix summary
 
 Detailed matrix: `docs/architecture/UI_API_MATRIX.md`.
@@ -951,6 +961,8 @@ Phase 08.6 added no backend endpoints. It added frontend E2E validation for exis
 
 Phase 08.V added no backend endpoints. Verification confirmed the milestone 08 frontend consumes existing auth, user, account, category, transaction, transfer, recurring-rule, budget, savings-goal, report, and notification unread-count endpoints without adding server behavior.
 
+Phase 09.1 added no backend endpoints. It only added Dockerfiles, Compose orchestration, health checks, volumes, ignored build/runtime artifacts, and local Docker operation documentation.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1046,6 +1058,8 @@ Phase 08.5 created no migrations.
 Phase 08.6 created no migrations.
 
 Phase 08.V created no migrations. Verification and E2E applied existing migrations through `202607010703_add_notification_schema.py` against disposable PostgreSQL.
+
+Phase 09.1 created no migrations. Compose migration execution uses the existing Alembic head through `docker compose run --rm api alembic upgrade head`.
 
 ## 11. Environment variables
 
@@ -1239,6 +1253,13 @@ Committed template: `server/.env.example`.
 ### Phase 08.V frontend verification variables
 
 - No new environment variables were added.
+
+### Phase 09.1 Docker and Compose variables
+
+- No new committed application settings were added to `server/.env.example` or `client/.env.example`.
+- Root `compose.yml` uses local-only interpolation defaults for `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `API_PORT`, `FRONTEND_PORT`, `DEBUG`, `ACCESS_TOKEN_SECRET_KEY`, `REFRESH_TOKEN_SECRET_KEY`, and `NEXT_PUBLIC_API_BASE_URL`.
+- Compose overrides `DATABASE_URL` to point API and worker containers at the `postgres` service and overrides `LOCAL_STORAGE_ROOT` to `/var/lib/pfm/storage`, backed by a named Docker volume.
+- Compose default token secret values and PostgreSQL password are development placeholders only; production secrets must be supplied by the deployment environment and not committed.
 
 ## 12. Test command registry
 
@@ -1871,6 +1892,15 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `find client/app -maxdepth 4 -type f -name 'page.tsx'` | PASS | Reviewed preserved route set for existing auth and dashboard screens. |
 | `git diff --check` | PASS | Verified no whitespace errors before verification commit. |
 
+### Phase 09.1 Docker and Compose commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed starting branch `frontend-integration` was clean and ahead of origin before creating the milestone 09 branch. |
+| `git switch -c ci-docker-deploy` | FAIL in sandbox, PASS with approval | Required milestone branch creation. Sandboxed run could not create `.git/refs/heads/ci-docker-deploy.lock`; approved rerun created and switched to `ci-docker-deploy`. |
+| `docker compose config` | PASS | Required Compose validation passed and rendered PostgreSQL, API, recurring worker, frontend, health checks, ports, environment, and named volumes. |
+| `docker compose build` | FAIL in sandbox, PASS with approval | Required image build. Sandboxed run could not write Docker buildx activity state under the user Docker home. Approved rerun built `pfm-app-api`, `pfm-app-worker`, and `pfm-app-frontend`; frontend build still reports `Skipping validation of types`, and npm reported the existing 6 audit findings. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -1921,6 +1951,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 08.5 is passed. Next allowed phase is 08.6, Responsive and E2E checks, after user permission.
 - Phase 08.6 is passed. Next allowed phase is 08.V, Frontend verification, after user permission.
 - Milestone 08 is verified. Next allowed phase is 09.1, Docker and Compose, after user permission to push the `frontend-integration` branch and begin milestone 09.
+- Phase 09.1 is passed. Next allowed phase is 09.2, Continuous integration, after user permission.
 
 ## 14. Progress log
 
@@ -1978,3 +2009,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 08.5 fixture removal and resilience states passed. Connected analytics to existing monthly summary, cash-flow, and spending-by-category report APIs; removed remaining runtime analytics and loan/debt fixtures; deleted unused fixture-only components; verified loading, empty, error, retry, unauthorized/offline-capable API error paths through the shared auth/API layer and fixture searches; set the next allowed phase to 08.6.
 - 2026-07-02: Phase 08.6 responsive and E2E checks passed. Added a documented full-stack Playwright harness and integrated journey covering auth, finance records, budget, savings, analytics reports, unread notification behavior, logout, and mobile/tablet/desktop responsive checks; fixed E2E-discovered category limit, transaction date range, auth hydration, logout cleanup, mobile overflow, and notification outbox test timing defects; set the next allowed phase to 08.V.
 - 2026-07-02: Phase 08.V frontend verification passed. Verified the complete milestone 08 frontend/server integration with backend quality checks, frontend build and optional checks, contract drift check, full-stack E2E, mock-value searches, and preserved UI scope review; set the next allowed phase to 09.1 after permission to push the branch and begin milestone 09.
+- 2026-07-02: Phase 09.1 Docker and Compose passed. Added backend and frontend Dockerfiles, local Compose orchestration for PostgreSQL, API, recurring worker, and frontend, service health checks, named volumes, Docker ignore files, and Docker lifecycle documentation. Required Compose validation passed, Docker image build passed with approval after sandboxed buildx state access was blocked, and the next allowed phase is 09.2.

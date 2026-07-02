@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pfm_app}
+      POSTGRES_USER: ${POSTGRES_USER:-pfm_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pfm_app}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ./server
+    env_file:
+      - ./server/.env.example
+    environment:
+      APP_ENV: development
+      DEBUG: ${DEBUG:-false}
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pfm_app}:${POSTGRES_PASSWORD:-pfm_app}@postgres:5432/${POSTGRES_DB:-pfm_app}
+      ACCESS_TOKEN_SECRET_KEY: ${ACCESS_TOKEN_SECRET_KEY:-compose-local-access-token-secret-change-me}
+      REFRESH_TOKEN_SECRET_KEY: ${REFRESH_TOKEN_SECRET_KEY:-compose-local-refresh-token-secret-change-me}
+      LOCAL_STORAGE_ROOT: /var/lib/pfm/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=3).read()",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - local_storage:/var/lib/pfm/storage
+
+  worker:
+    build:
+      context: ./server
+    env_file:
+      - ./server/.env.example
+    environment:
+      APP_ENV: development
+      DEBUG: ${DEBUG:-false}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pfm_app}:${POSTGRES_PASSWORD:-pfm_app}@postgres:5432/${POSTGRES_DB:-pfm_app}
+      ACCESS_TOKEN_SECRET_KEY: ${ACCESS_TOKEN_SECRET_KEY:-compose-local-access-token-secret-change-me}
+      REFRESH_TOKEN_SECRET_KEY: ${REFRESH_TOKEN_SECRET_KEY:-compose-local-refresh-token-secret-change-me}
+      LOCAL_STORAGE_ROOT: /var/lib/pfm/storage
+    command: ["python", "-m", "app.workers.recurring"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - local_storage:/var/lib/pfm/storage
+
+  frontend:
+    build:
+      context: ./client
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    env_file:
+      - ./client/.env.example
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  local_storage:

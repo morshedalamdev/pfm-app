@@ -89,6 +89,62 @@ email delivery registers a `notification.email.requested` handler through
 `app.workers.notifications`; there is no standalone generic outbox command
 because each event type needs an explicit handler.
 
+## Running with Docker Compose
+
+The repository root `compose.yml` starts local PostgreSQL, the FastAPI API, the
+recurring worker, and the Next.js frontend with key-free local defaults. It uses
+the committed `server/.env.example` and `client/.env.example` templates, then
+overrides container-specific values such as `DATABASE_URL` and
+`LOCAL_STORAGE_ROOT`.
+
+Build the images:
+
+```bash
+docker compose build
+```
+
+Start the database first when applying migrations:
+
+```bash
+docker compose up -d postgres
+docker compose run --rm api alembic upgrade head
+```
+
+Start the full local stack:
+
+```bash
+docker compose up
+```
+
+The API is exposed on `http://localhost:8000`, and the frontend is exposed on
+`http://localhost:3000`. Override host ports or local-only credentials without
+editing committed files:
+
+```bash
+API_PORT=8001 FRONTEND_PORT=3001 POSTGRES_PORT=5433 docker compose up
+```
+
+Stop the stack while keeping named volumes:
+
+```bash
+docker compose down
+```
+
+Reset local Compose data, including PostgreSQL and local receipt storage:
+
+```bash
+docker compose down --volumes
+```
+
+Run a one-shot recurring worker tick inside the built worker image:
+
+```bash
+docker compose run --rm worker python -m app.workers.recurring --once
+```
+
+The Compose defaults are for local development only. Set real deployment
+secrets through the deployment environment instead of committing `.env` files.
+
 ## Worker environment
 
 The API and workers share the normal application settings, especially
