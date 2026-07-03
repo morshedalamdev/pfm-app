@@ -18,6 +18,7 @@ import {
   getSavingsGoal,
   updateSavingsGoal,
 } from "@/lib/finance/api";
+import { useAuthStore } from "@/lib/auth/store";
 import { decimalInput, toDateOnly } from "@/lib/finance/format";
 import { DollarSignIcon } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ export default function CreateSavingsPage() {
   const [note, setNote] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [targetDate, setTargetDate] = useState<Date | undefined>();
+  const userCurrency = useAuthStore((state) => state.user?.base_currency ?? "USD");
 
   const loadGoal = useCallback(async () => {
     if (isCreate) return;
@@ -69,7 +71,7 @@ export default function CreateSavingsPage() {
     setIsSaving(true);
     try {
       const body = {
-        currency: "USD",
+        currency: userCurrency,
         monthly_target_amount: decimalInput(monthlyTarget),
         name,
         note: note || null,

@@ -61,6 +61,8 @@ DEFAULT_CATEGORIES: dict[CategoryKind, tuple[DefaultCategory, ...]] = {
 async def ensure_default_account(
     accounts: AccountRepository,
     user_id: uuid.UUID,
+    *,
+    currency: str = DEFAULT_ACCOUNT.currency,
 ) -> bool:
     if await accounts.has_any_owned(user_id):
         return False
@@ -68,7 +70,7 @@ async def ensure_default_account(
     await accounts.create(
         Account(
             user_id=user_id,
-            currency=DEFAULT_ACCOUNT.currency,
+            currency=currency,
             name=DEFAULT_ACCOUNT.name,
             opening_balance=DEFAULT_ACCOUNT.opening_balance,
             type=DEFAULT_ACCOUNT.type,

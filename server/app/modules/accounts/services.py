@@ -63,7 +63,9 @@ class AccountService:
             raise InvalidAccountCursorError from exc
 
         if cursor is None and await ensure_default_account(
-            self.accounts, current_user.id
+            self.accounts,
+            current_user.id,
+            currency=current_user.base_currency,
         ):
             await self.accounts.commit()
 

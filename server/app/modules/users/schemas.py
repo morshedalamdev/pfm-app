@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.auth.validation import normalize_email
 
+DEFAULT_BASE_CURRENCY = "USD"
+
 
 class UserResponse(BaseModel):
     id: uuid.UUID
@@ -15,6 +17,7 @@ class UserResponse(BaseModel):
     phone_number: str | None
     occupation: str | None
     about: str | None
+    base_currency: str = DEFAULT_BASE_CURRENCY
     is_active: bool
     created_at: datetime
 
@@ -27,6 +30,7 @@ class UserUpdateRequest(BaseModel):
     phone_number: str | None = Field(default=None, max_length=32)
     occupation: str | None = Field(default=None, max_length=80)
     about: str | None = Field(default=None, max_length=1000)
+    base_currency: str | None = Field(default=None, min_length=3, max_length=3)
 
     @field_validator("email")
     @classmethod
@@ -42,3 +46,13 @@ class UserUpdateRequest(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
+
+    @field_validator("base_currency", mode="before")
+    @classmethod
+    def normalize_base_currency(cls, currency: object) -> object:
+        if currency is None or not isinstance(currency, str):
+            return currency
+        normalized = currency.strip().upper()
+        if not normalized.isalpha() or len(normalized) != 3:
+            raise ValueError("Currency must be a 3-letter ISO code.")
+        return normalized

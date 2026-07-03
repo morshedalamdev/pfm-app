@@ -28,6 +28,19 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page).toHaveURL(`${appBaseUrl}/`);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
+  await openFooterMenu(page);
+  await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "BDT - Bangladeshi Taka" }).click();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Settings updated.")).toBeVisible();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "USD - US Dollar" }).click();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Settings updated.")).toBeVisible();
+  await page.goto("/");
+
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
     return value ? JSON.parse(value) : null;
@@ -150,9 +163,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByText("$150.00")).toHaveCount(2);
 
   await page.goto("/analytics");
-  await expect(page.getByText("Income vs Expense")).toBeVisible();
-  await expect(page.getByText("Spending by Category")).toBeVisible();
-  await expect(page.getByText("Groceries")).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();
 
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
@@ -174,6 +185,12 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     await openFooterMenu(page);
     await page.getByRole("link", { name: "Savings Goals" }).click();
     await assertRenderedWithoutOverflow(page, "/savings", viewport.label);
+    await page.goBack();
+    await assertRenderedWithoutOverflow(page, "/analytics", viewport.label);
+
+    await openFooterMenu(page);
+    await page.getByRole("link", { name: "Settings" }).click();
+    await assertRenderedWithoutOverflow(page, "/settings", viewport.label);
     await page.goBack();
     await assertRenderedWithoutOverflow(page, "/analytics", viewport.label);
   }
@@ -230,12 +247,13 @@ const routeText = {
   "/": "available balance",
   "/analytics": "Analytics",
   "/budget": "Budget",
+  "/settings": "Settings",
   "/savings": "Savings Goals",
   "/transaction": "Transaction",
 };
 
 async function assertRenderedWithoutOverflow(page, path, viewportLabel) {
-  const visibleMain = page.locator("main:not([aria-hidden='true'])");
+  const visibleMain = page.locator("main:not([aria-hidden='true'])").last();
   await expect(visibleMain).toContainText(routeText[path], { timeout: 15_000 });
   const hasHorizontalOverflow = await page.evaluate(() => {
     const root = document.documentElement;

@@ -1312,6 +1312,8 @@ export interface components {
         };
         /** RegisteredUserResponse */
         RegisteredUserResponse: {
+            /** Base Currency */
+            base_currency: string;
             /**
              * Created At
              * Format: date-time
@@ -1712,6 +1714,11 @@ export interface components {
             /** About */
             about: string | null;
             /**
+             * Base Currency
+             * @default USD
+             */
+            base_currency: string;
+            /**
              * Created At
              * Format: date-time
              */
@@ -1736,6 +1743,8 @@ export interface components {
         UserUpdateRequest: {
             /** About */
             about?: string | null;
+            /** Base Currency */
+            base_currency?: string | null;
             /** Email */
             email?: string | null;
             /** Full Name */

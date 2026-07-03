@@ -64,6 +64,7 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
             "phone_number": "  +15551234567 ",
             "occupation": "  business ",
             "about": "  Building a calmer money cockpit. ",
+            "base_currency": " eur ",
         },
     )
 
@@ -74,6 +75,7 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     assert body["phone_number"] == "+15551234567"
     assert body["occupation"] == "business"
     assert body["about"] == "Building a calmer money cockpit."
+    assert body["base_currency"] == "EUR"
     assert "password" not in body
     assert "password_hash" not in body
 
@@ -83,6 +85,21 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     )
     assert me_response.status_code == 200
     assert me_response.json()["full_name"] == "Profile Owner"
+    assert me_response.json()["base_currency"] == "EUR"
+
+
+def test_current_user_profile_rejects_invalid_base_currency(
+    profile_client: TestClient,
+) -> None:
+    tokens = register_and_login(profile_client, "profile-currency@example.com")
+
+    response = profile_client.patch(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        json={"base_currency": "US"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_current_user_profile_rejects_duplicate_email(

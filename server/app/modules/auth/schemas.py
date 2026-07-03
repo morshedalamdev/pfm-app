@@ -73,6 +73,7 @@ class RegisteredUserResponse(BaseModel):
     full_name: str | None
     phone_number: str | None
     occupation: str | None
+    base_currency: str
     is_active: bool
     created_at: datetime
 

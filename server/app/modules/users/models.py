@@ -24,6 +24,12 @@ class User(Base):
     phone_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
     occupation: Mapped[str | None] = mapped_column(String(80), nullable=True)
     about: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    base_currency: Mapped[str] = mapped_column(
+        String(3),
+        nullable=False,
+        default="USD",
+        server_default="USD",
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

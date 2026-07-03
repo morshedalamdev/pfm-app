@@ -28,7 +28,7 @@ from app.modules.reports.schemas import (
 )
 from app.modules.users.models import User
 
-BASE_CURRENCY = "USD"
+DEFAULT_BASE_CURRENCY = "USD"
 ZERO_AMOUNT = Decimal("0.0000")
 HUNDRED_PERCENT = Decimal("100")
 TOP_EXPENSE_LIMIT = 5
@@ -93,11 +93,12 @@ class ReportService:
             for bucket in buckets
         ]
 
+        currency = report_currency(current_user)
         return DashboardReportResponse(
             period=period,
             type=transaction_type,
             range=ReportRangeResponse(start_at=report_start, end_at=report_end),
-            currency=BASE_CURRENCY,
+            currency=currency,
             available_balance=available_balance,
             income_amount=income_amount,
             expense_amount=expense_amount,
@@ -162,10 +163,11 @@ class ReportService:
             daily_expense_amounts,
         )
 
+        currency = report_currency(current_user)
         return MonthlySummaryReportResponse(
             month=query.month,
             range=ReportRangeResponse(start_at=report_start, end_at=report_end),
-            currency=BASE_CURRENCY,
+            currency=currency,
             savings_amount=savings_amount,
             savings_month_over_month_percent=month_over_month_percent(
                 current_amount=savings_amount,
@@ -236,10 +238,11 @@ class ReportService:
                 )
             )
 
+        currency = report_currency(current_user)
         return CashFlowReportResponse(
             range=ReportRangeResponse(start_at=query.date_from, end_at=query.date_to),
             interval=query.interval,
-            currency=BASE_CURRENCY,
+            currency=currency,
             buckets=bucket_responses,
         )
 
@@ -258,9 +261,10 @@ class ReportService:
             (category.amount for category in category_expenses),
             ZERO_AMOUNT,
         )
+        currency = report_currency(current_user)
         return SpendingByCategoryReportResponse(
             range=ReportRangeResponse(start_at=query.date_from, end_at=query.date_to),
-            currency=BASE_CURRENCY,
+            currency=currency,
             total_amount=total_amount,
             items=[
                 SpendingByCategoryItemResponse(
@@ -273,6 +277,10 @@ class ReportService:
                 for category in category_expenses
             ],
         )
+
+
+def report_currency(current_user: User) -> str:
+    return current_user.base_currency or DEFAULT_BASE_CURRENCY
 
 
 def dashboard_period_range(

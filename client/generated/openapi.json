@@ -1951,6 +1951,10 @@
       },
       "RegisteredUserResponse": {
         "properties": {
+          "base_currency": {
+            "title": "Base Currency",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -2009,6 +2013,7 @@
           "full_name",
           "phone_number",
           "occupation",
+          "base_currency",
           "is_active",
           "created_at"
         ],
@@ -2986,6 +2991,11 @@
             ],
             "title": "About"
           },
+          "base_currency": {
+            "default": "USD",
+            "title": "Base Currency",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -3064,6 +3074,19 @@
               }
             ],
             "title": "About"
+          },
+          "base_currency": {
+            "anyOf": [
+              {
+                "maxLength": 3,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Currency"
           },
           "email": {
             "anyOf": [

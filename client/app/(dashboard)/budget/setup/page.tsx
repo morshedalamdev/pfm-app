@@ -21,6 +21,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createBudget, listCategories, type Category } from "@/lib/finance/api";
+import { useAuthStore } from "@/lib/auth/store";
 import {
   decimalInput,
   formatMoney,
@@ -42,6 +43,7 @@ export default function SetupBudgetPage() {
   const [income, setIncome] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const userCurrency = useAuthStore((state) => state.user?.base_currency ?? "USD");
   const currentMonth = monthKey();
 
   useEffect(() => {
@@ -99,7 +101,7 @@ export default function SetupBudgetPage() {
         entries.map((entry) =>
           createBudget({
             category_id: entry.category.id,
-            currency: "USD",
+            currency: userCurrency,
             limit_amount: decimalInput(entry.value),
             period_end: bounds.end,
             period_start: bounds.start,
@@ -136,13 +138,13 @@ export default function SetupBudgetPage() {
                 <div>
                   <span className="text-input">Income</span>
                   <h4 className="font-bold text-xl">
-                    {formatMoney(incomeAmount)}
+                    {formatMoney(incomeAmount, userCurrency)}
                   </h4>
                 </div>
                 <div>
                   <span className="text-input">Allocated</span>
                   <h4 className="font-bold text-xl">
-                    {formatMoney(allocated)}
+                    {formatMoney(allocated, userCurrency)}
                   </h4>
                 </div>
                 <div>
@@ -152,7 +154,7 @@ export default function SetupBudgetPage() {
                       remaining < 0 ? "text-red-500" : "text-green-500"
                     }`}
                   >
-                    {formatMoney(remaining)}
+                    {formatMoney(remaining, userCurrency)}
                   </h4>
                 </div>
               </div>

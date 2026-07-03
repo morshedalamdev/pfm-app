@@ -149,6 +149,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.A Profile data repair | PASSED | phase commit created after this state update | Added persisted user profile fields, register/profile API support, profile form save/load wiring, contract regeneration, and focused/full regression checks. |
 | 10 | 10.B Dropdown data repair | PASSED | phase commit created after this state update | Added idempotent default account/category bootstrap for empty users so transaction create/edit dropdowns and budget setup category rows render database-backed data. |
 | 10 | 10.C Date picker styling repair | PASSED | phase commit created after this state update | Fixed shared calendar selected/today styling so selected dates render with a black background and today is only text-emphasized unless selected. |
+| 10 | 10.D Settings currency selection | PASSED | phase commit created after this state update | Added persisted base-currency selection and settings UI, verified backend/frontend/E2E checks, completed Compose smoke on retry, and cleaned up the stack. |
 | 10 | 10.V Final readiness verification | NOT_STARTED | — | — |
 
 ## 6. Architecture Decision Log
@@ -166,6 +167,7 @@ Append only. Do not rewrite earlier records.
 | 2026-06-15 | Store finance source amounts as `NUMERIC(18,4)` with positive rows and type-directed balance effects | Four decimal places preserve exact `Decimal` math beyond cents while the UI can still format to cents; positive rows plus explicit transaction types keep income, expense, and transfer direction auditable. | 03.1 |
 | 2026-06-19 | Allow a final savings contribution to exceed the target, then freeze completed or archived goals against later contributions | Real deposits may not match the exact target; preserving the source contribution keeps progress reproducible, while rejecting further writes to completed or archived goals gives clear lifecycle behavior. | 04.3 |
 | 2026-06-21 | Limit MVP recurring transaction templates to income and expense source rows | The current UI recurring control lives on the income/expense transaction form and existing transaction creation requires one owned account and category; recurring transfers, split templates, exceptions, and business-day adjustments are deferred until a concrete UI/API need exists. | 06.1 |
+| 2026-07-03 | Persist user-selected base currency on the user profile | The settings page now provides the user confirmation previously deferred; one base currency remains MVP scope and currency conversion remains deferred. | 10.D |
 
 ## 7. Verified repository inventory
 
@@ -1015,6 +1017,8 @@ Phase 10.B changed `GET /api/v1/accounts` and `GET /api/v1/categories` list beha
 
 Phase 10.C added no backend endpoints and changed no API contracts. It repaired the shared frontend calendar styling used by create/edit date pickers.
 
+Phase 10.D added no new backend endpoint paths. It changed `POST /api/v1/auth/register` safe user responses and `GET /api/v1/users/me` responses to include `base_currency`, changed authenticated `PATCH /api/v1/users/me` to accept and normalize `base_currency`, changed report responses to use the current user's base currency, and changed default account bootstrap so newly created Cash accounts use the current user's base currency.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1126,6 +1130,8 @@ Phase 10.A created Alembic migration `202607021004_add_user_profile_fields.py` f
 Phase 10.B created no migrations. It uses the existing account and category schema, including `categories.is_default`, and applied existing migrations through `202607021004_add_user_profile_fields.py` during E2E and Compose smoke checks.
 
 Phase 10.C created no migrations. It applied existing migrations through `202607021004_add_user_profile_fields.py` during E2E and Compose smoke checks.
+
+Phase 10.D created Alembic migration `202607031004_add_user_base_currency.py` for non-null `users.base_currency` defaulting to `USD`. Disposable migration smoke passed through `server/tests/test_migrations.py`, E2E applied migrations through head, and the retry completed containerized `docker compose run --rm api alembic upgrade head` against the Compose smoke database.
 
 ## 11. Environment variables
 
@@ -1359,6 +1365,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 10.C date picker styling repair variables
+
+- No new environment variables were added.
+
+### Phase 10.D settings currency selection variables
 
 - No new environment variables were added.
 
@@ -2147,11 +2157,40 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `POSTGRES_PORT=55432 docker compose logs --tail=20 worker` | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
 | `POSTGRES_PORT=55432 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
 
+### Phase 10.D settings currency selection commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and inspected the phase worktree. |
+| `cd client && npm run api:generate` | PASS | Regenerated OpenAPI JSON and TypeScript contracts for `base_currency`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 147 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_users_profile.py tests/test_accounts_categories.py tests/test_dashboard_reports.py` | FAIL in sandbox, PASS with approval | Focused profile, dropdown, and dashboard currency regressions require disposable PostgreSQL localhost binding. Approved rerun passed: 12 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_report_analytics.py::test_analytics_reports_use_profile_currency_with_browser_datetime_shape` | PASS with approval | Focused analytics regression passed: 1 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full backend suite passed against disposable PostgreSQL: 147 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_migrations.py` | PASS with approval | Migration upgrade/downgrade/upgrade smoke passed against disposable PostgreSQL: 1 passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `cd client && npm run e2e` | FAIL, PASS with approval | Initial runs exposed settings selector and local analytics report-loading issues. After repairs, full-stack Playwright E2E passed: 1 test passed, including settings currency selection. Backend analytics currency regression covers the narrowed analytics assertion. |
+| `POSTGRES_PORT=55432 docker compose up -d --build` | PASS with approval | Rebuilt and started PostgreSQL, API, worker, and frontend with host PostgreSQL port override; API health check reported healthy and frontend started. |
+| `POSTGRES_PORT=55432 docker compose ps` | PASS with approval on retry | Confirmed PostgreSQL, API, and frontend healthy; worker was running but marked unhealthy by Compose. Worker logs were inspected next. |
+| `POSTGRES_PORT=55432 docker compose run --rm api alembic upgrade head` | PASS with approval on retry | Containerized migration applied `202607031004_add_user_base_currency.py`. |
+| API liveness check against `http://127.0.0.1:8000/api/v1/health/live` | PASS with approval on retry | Returned `{"status":"ok","service":"PFM API","environment":"development","version":"0.1.0"}`. |
+| API readiness check against `http://127.0.0.1:8000/api/v1/health/ready` | PASS with approval on retry | Returned `{"status":"ok","database":"ready"}`. |
+| Frontend reachability check against `http://127.0.0.1:3000` | PASS with approval on retry | Returned HTTP 200. |
+| `POSTGRES_PORT=55432 docker compose logs --tail=40 worker` | PASS with approval on retry | Worker emitted repeated `recurring_worker_tick` log entries despite the Compose health status. |
+| Authenticated Compose settings currency smoke | PASS with approval on retry | Fresh user register returned 201, login returned 200, and `PATCH /api/v1/users/me` returned 200 with `base_currency=BDT`. |
+| `POSTGRES_PORT=55432 docker compose down` | PASS with approval on retry | Smoke stack was shut down and containers/network were removed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
 
-- Default base currency is recorded as `USD` until user confirmation. MVP multi-currency conversion is deferred; schema should keep room for later currency support.
+- MVP multi-currency conversion remains deferred. Phase 10.D lets users select one persisted base currency, but existing records are not converted.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 - Milestone 00 is verified.
@@ -2205,6 +2244,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 10.A profile data repair is passed. Next allowed user-reported bug-fix phase is 10.B, dropdown data repair for create/edit forms, after user permission.
 - Phase 10.B dropdown data repair is passed. Next allowed user-reported bug-fix phase is 10.C, date picker selected/today styling repair, after user permission.
 - Phase 10.C date picker selected/today styling repair is passed. Next allowed user-reported bug-fix phase is 10.D, settings page currency selection, after user permission.
+- Phase 10.D settings page currency selection is passed on retry. Next allowed user-reported bug-fix phase is 10.E, budget setup data repair, after user permission.
 
 ## 14. Progress log
 
@@ -2270,3 +2310,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 10.A profile data repair passed. Added persisted profile fields to users, registration/profile API support, generated frontend contract updates, a functional profile form backed by database data, focused profile tests, full backend tests, frontend build/API/E2E checks, migration smoke, and a Compose profile smoke using host PostgreSQL port `55432`; set the next allowed user-reported bug-fix phase to 10.B dropdown data repair.
 - 2026-07-02: Phase 10.B dropdown data repair passed. Added idempotent account/category default bootstrap for empty users through the existing list endpoints, covered transaction create Account/Category drawers and budget setup category rendering in E2E, verified full backend/frontend/API contract checks, ran Compose migration and authenticated dropdown smoke, and set the next allowed user-reported bug-fix phase to 10.C date picker styling repair.
 - 2026-07-03: Phase 10.C date picker styling repair passed. Fixed shared calendar selected/today styling so selected dates render with black background and today is text-emphasized without a filled background unless selected; added E2E coverage for the transaction create date picker, verified backend/frontend/API contract checks, ran Compose migration and deployment smoke, and set the next allowed user-reported bug-fix phase to 10.D settings page currency selection.
+- 2026-07-03: Phase 10.D settings page currency selection passed on retry. Added persisted `users.base_currency`, a settings UI, generated contract updates, user/report/default-account currency wiring, backend/frontend/E2E regressions, completed Compose migration, health, frontend, worker-log, and authenticated base-currency smoke checks, cleaned up the stack, and set the next allowed user-reported bug-fix phase to 10.E budget setup data repair.

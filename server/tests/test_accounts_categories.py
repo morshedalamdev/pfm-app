@@ -74,6 +74,12 @@ def test_default_dropdown_data_bootstraps_for_empty_user(
 ) -> None:
     context = finance_context
     headers = auth_headers(context, "dropdown-bootstrap@example.com")
+    currency_response = context.client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "gbp"},
+    )
+    assert currency_response.status_code == 200
 
     accounts_response = context.client.get("/api/v1/accounts", headers=headers)
     expense_response = context.client.get(
@@ -87,9 +93,9 @@ def test_default_dropdown_data_bootstraps_for_empty_user(
 
     assert accounts_response.status_code == 200
     account_items = accounts_response.json()["items"]
-    assert [(item["name"], item["type"]) for item in account_items] == [
-        ("Cash", "cash")
-    ]
+    assert [
+        (item["name"], item["type"], item["currency"]) for item in account_items
+    ] == [("Cash", "cash", "GBP")]
 
     assert expense_response.status_code == 200
     expense_items = expense_response.json()["items"]

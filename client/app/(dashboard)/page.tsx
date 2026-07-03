@@ -7,6 +7,7 @@ import TransactionItem from "@/components/items/TransactionItem";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardData } from "@/lib/dashboard/useDashboardData";
+import { formatMoney } from "@/lib/finance/format";
 
 export default function HomePage() {
   const {
@@ -28,6 +29,7 @@ export default function HomePage() {
   const reportLoading = reportStatus === "loading" && !report;
   const transactionsLoading =
     transactionsStatus === "loading" && transactions.length === 0;
+  const reportCurrency = report?.currency ?? "USD";
 
   return (
     <Fragment>
@@ -39,7 +41,7 @@ export default function HomePage() {
           <Skeleton className="mx-auto mt-2 h-12 w-56" />
         ) : (
           <h3 className="text-5xl font-bold">
-            {formatMoney(report?.available_balance)}
+            {formatMoney(report?.available_balance ?? "0", reportCurrency)}
           </h3>
         )}
       </section>
@@ -53,11 +55,11 @@ export default function HomePage() {
           <>
             <HeaderItem
               title="Income"
-              amount={formatMoney(report?.income_amount)}
+              amount={formatMoney(report?.income_amount ?? "0", reportCurrency)}
             />
             <HeaderItem
               title="Expense"
-              amount={formatMoney(report?.expense_amount)}
+              amount={formatMoney(report?.expense_amount ?? "0", reportCurrency)}
             />
           </>
         )}
@@ -87,6 +89,7 @@ export default function HomePage() {
           onTypeChange={setTransactionType}
           period={period}
           type={transactionType}
+          currency={reportCurrency}
         />
       </section>
       <section className="px-3 pb-[70px]">
@@ -140,11 +143,4 @@ export default function HomePage() {
       </section>
     </Fragment>
   );
-}
-
-function formatMoney(value?: string) {
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(Number(value ?? 0));
 }
