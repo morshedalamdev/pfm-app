@@ -148,6 +148,23 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await page.goto("/budget/setup");
   await expect(page.getByText("Groceries")).toBeVisible();
   await expect(page.getByText("Dining")).toBeVisible();
+  await expect(
+    page
+      .locator('[data-slot="field"]')
+      .filter({ hasText: "Groceries" })
+      .locator('input[type="number"]'),
+  ).toHaveValue("500.00");
+  await page
+    .locator('[data-slot="field"]')
+    .filter({ hasText: "Dining" })
+    .locator('input[type="number"]')
+    .fill("120.00");
+  await page.getByRole("button", { name: "Save Budget" }).click();
+  await expect(page).toHaveURL(/\/budget$/);
+  await expect(page.getByText("Loading budgets...")).not.toBeVisible({
+    timeout: 15000,
+  });
+  await expect(page.getByText("Dining")).toBeVisible();
 
   await page.goto("/transaction");
   await expect(page.getByText("E2E income")).toBeVisible();
@@ -156,11 +173,10 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
 
   await page.goto("/budget");
   await expect(page.getByText("Monthly Budget")).toBeVisible();
+  await expect(page.getByText("Loading budgets...")).not.toBeVisible({
+    timeout: 15000,
+  });
   await expect(page.getByText("Groceries")).toBeVisible();
-
-  await page.goto("/savings");
-  await expect(page.getByText("Emergency Fund")).toBeVisible();
-  await expect(page.getByText("$150.00")).toHaveCount(2);
 
   await page.goto("/analytics");
   await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();

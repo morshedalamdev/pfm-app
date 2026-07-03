@@ -20,7 +20,15 @@ import {
 } from "@/components/ui/input-group";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createBudget, listCategories, type Category } from "@/lib/finance/api";
+import {
+  createBudget,
+  deleteBudget,
+  listBudgets,
+  listCategories,
+  updateBudget,
+  type Budget,
+  type Category,
+} from "@/lib/finance/api";
 import { useAuthStore } from "@/lib/auth/store";
 import {
   decimalInput,
@@ -34,36 +42,63 @@ import { useRouter } from "next/navigation";
 import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
 
 type BudgetAmounts = Record<string, string>;
+type BudgetLookup = Record<string, Budget>;
 
 export default function SetupBudgetPage() {
   const router = useRouter();
   const [amounts, setAmounts] = useState<BudgetAmounts>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [existingBudgets, setExistingBudgets] = useState<BudgetLookup>({});
   const [income, setIncome] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const userCurrency = useAuthStore((state) => state.user?.base_currency ?? "USD");
+  const userCurrency = useAuthStore(
+    (state) => state.user?.base_currency ?? "USD",
+  );
   const currentMonth = monthKey();
 
   useEffect(() => {
-    async function loadCategories() {
+    async function loadBudgetSetup() {
       setIsLoading(true);
       setError(null);
       try {
-        setCategories(await listCategories("expense"));
+        const [expenseCategories, currentBudgets] = await Promise.all([
+          listCategories("expense"),
+          listBudgets(currentMonth),
+        ]);
+        const budgetLookup = currentBudgets.reduce<BudgetLookup>(
+          (lookup, budget) => {
+            if (budget.category_id) {
+              lookup[budget.category_id] = budget;
+            }
+            return lookup;
+          },
+          {},
+        );
+        setCategories(expenseCategories);
+        setExistingBudgets(budgetLookup);
+        setAmounts(
+          expenseCategories.reduce<BudgetAmounts>((nextAmounts, category) => {
+            const budget = budgetLookup[category.id];
+            if (budget) {
+              nextAmounts[category.id] = Number(budget.limit_amount).toFixed(2);
+            }
+            return nextAmounts;
+          }, {}),
+        );
       } catch (loadError) {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Expense categories could not be loaded.",
+            : "Budget setup data could not be loaded.",
         );
       } finally {
         setIsLoading(false);
       }
     }
-    void loadCategories();
-  }, []);
+    void loadBudgetSetup();
+  }, [currentMonth]);
 
   const allocated = useMemo(
     () =>
@@ -75,40 +110,57 @@ export default function SetupBudgetPage() {
   );
   const incomeAmount = Number(income || 0);
   const remaining = incomeAmount - allocated;
-  const allocatedPercent = incomeAmount > 0 ? (allocated / incomeAmount) * 100 : 0;
+  const allocatedPercent =
+    incomeAmount > 0 ? (allocated / incomeAmount) * 100 : 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSaving(true);
 
-    const entries = categories
-      .map((category) => ({
-        category,
-        value: amounts[category.id] ?? "",
-      }))
-      .filter((entry) => Number(entry.value) > 0);
+    const bounds = monthBounds(currentMonth);
+    const operations = categories.reduce<Promise<unknown>[]>((next, category) => {
+      const value = amounts[category.id] ?? "";
+      const budget = existingBudgets[category.id];
+      const hasAmount = Number(value) > 0;
 
-    if (entries.length === 0) {
+      if (hasAmount) {
+        const body = {
+          currency: userCurrency,
+          limit_amount: decimalInput(value),
+        };
+        next.push(
+          budget
+            ? updateBudget(budget.id, body)
+            : createBudget({
+                ...body,
+                category_id: category.id,
+                period_end: bounds.end,
+                period_start: bounds.start,
+                period_type: "monthly",
+              }),
+        );
+        return next;
+      }
+
+      if (budget) {
+        next.push(deleteBudget(budget.id));
+      }
+      return next;
+    }, []);
+
+    const hasPositiveAmount = categories.some(
+      (category) => Number(amounts[category.id] || 0) > 0,
+    );
+
+    if (!hasPositiveAmount && operations.length === 0) {
       setError("Enter at least one category budget.");
       setIsSaving(false);
       return;
     }
 
-    const bounds = monthBounds(currentMonth);
     try {
-      await Promise.all(
-        entries.map((entry) =>
-          createBudget({
-            category_id: entry.category.id,
-            currency: userCurrency,
-            limit_amount: decimalInput(entry.value),
-            period_end: bounds.end,
-            period_start: bounds.start,
-            period_type: "monthly",
-          }),
-        ),
-      );
+      await Promise.all(operations);
       router.push("/budget");
     } catch (saveError) {
       setError(

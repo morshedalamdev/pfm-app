@@ -47,24 +47,34 @@ export default function BudgetPage() {
   const userCurrency = useAuthStore((state) => state.user?.base_currency ?? "USD");
   const months = useMemo(monthOptions, []);
 
-  const loadBudgets = useCallback(async () => {
+  const loadBudgets = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
-      setBudgets(await listBudgets(month));
+      const budgetItems = await listBudgets(month, { signal });
+      if (!signal?.aborted) {
+        setBudgets(budgetItems);
+      }
     } catch (loadError) {
+      if (signal?.aborted) {
+        return;
+      }
       setError(
         loadError instanceof Error
           ? loadError.message
           : "Budgets could not be loaded.",
       );
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [month]);
 
   useEffect(() => {
-    void loadBudgets();
+    const controller = new AbortController();
+    void loadBudgets(controller.signal);
+    return () => controller.abort();
   }, [loadBudgets]);
 
   const totals = useMemo(() => {

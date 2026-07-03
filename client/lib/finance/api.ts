@@ -10,6 +10,7 @@ import {
 export type Account = components["schemas"]["AccountResponse"];
 export type Budget = components["schemas"]["BudgetResponse"];
 export type BudgetCreate = components["schemas"]["BudgetCreateRequest"];
+export type BudgetUpdate = components["schemas"]["BudgetUpdateRequest"];
 export type Category = components["schemas"]["CategoryResponse"];
 export type RecurringRuleCreate =
   components["schemas"]["RecurringRuleCreateRequest"];
@@ -138,15 +139,23 @@ export function createTransfer(body: TransferCreate) {
   );
 }
 
-export async function listBudgets(month: string): Promise<Budget[]> {
+export async function listBudgets(
+  month: string,
+  config?: { signal?: AbortSignal },
+): Promise<Budget[]> {
   const response = await apiGet<BudgetList>("/api/v1/budgets", {
     params: { month, include_archived: false, limit: 100 },
+    signal: config?.signal,
   });
   return response.items;
 }
 
 export function createBudget(body: BudgetCreate) {
   return apiPost<BudgetCreate, Budget>("/api/v1/budgets", body);
+}
+
+export function updateBudget(id: string, body: BudgetUpdate) {
+  return apiPatch<BudgetUpdate, Budget>(apiPath(`/api/v1/budgets/${id}`), body);
 }
 
 export function deleteBudget(id: string) {

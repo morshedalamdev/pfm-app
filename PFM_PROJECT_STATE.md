@@ -150,6 +150,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.B Dropdown data repair | PASSED | phase commit created after this state update | Added idempotent default account/category bootstrap for empty users so transaction create/edit dropdowns and budget setup category rows render database-backed data. |
 | 10 | 10.C Date picker styling repair | PASSED | phase commit created after this state update | Fixed shared calendar selected/today styling so selected dates render with a black background and today is only text-emphasized unless selected. |
 | 10 | 10.D Settings currency selection | PASSED | phase commit created after this state update | Added persisted base-currency selection and settings UI, verified backend/frontend/E2E checks, completed Compose smoke on retry, and cleaned up the stack. |
+| 10 | 10.E Budget setup data repair | PASSED | phase commit created after this state update | Loaded existing current-month budgets into setup inputs, saved create/update/delete operations without overlap conflicts, and covered the repaired flow in E2E. |
 | 10 | 10.V Final readiness verification | NOT_STARTED | — | — |
 
 ## 6. Architecture Decision Log
@@ -1019,6 +1020,8 @@ Phase 10.C added no backend endpoints and changed no API contracts. It repaired 
 
 Phase 10.D added no new backend endpoint paths. It changed `POST /api/v1/auth/register` safe user responses and `GET /api/v1/users/me` responses to include `base_currency`, changed authenticated `PATCH /api/v1/users/me` to accept and normalize `base_currency`, changed report responses to use the current user's base currency, and changed default account bootstrap so newly created Cash accounts use the current user's base currency.
 
+Phase 10.E added no backend endpoints and changed no backend API contracts. The frontend budget setup now consumes existing `GET /api/v1/budgets?month=...`, `PATCH /api/v1/budgets/{budget_id}`, `POST /api/v1/budgets`, and `DELETE /api/v1/budgets/{budget_id}` paths to edit current-month category budgets.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1132,6 +1135,8 @@ Phase 10.B created no migrations. It uses the existing account and category sche
 Phase 10.C created no migrations. It applied existing migrations through `202607021004_add_user_profile_fields.py` during E2E and Compose smoke checks.
 
 Phase 10.D created Alembic migration `202607031004_add_user_base_currency.py` for non-null `users.base_currency` defaulting to `USD`. Disposable migration smoke passed through `server/tests/test_migrations.py`, E2E applied migrations through head, and the retry completed containerized `docker compose run --rm api alembic upgrade head` against the Compose smoke database.
+
+Phase 10.E created no migrations. It reuses the existing budget schema and applied existing migrations through `202607031004_add_user_base_currency.py` during the full-stack E2E harness.
 
 ## 11. Environment variables
 
@@ -1369,6 +1374,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 10.D settings currency selection variables
+
+- No new environment variables were added.
+
+### Phase 10.E budget setup data repair variables
 
 - No new environment variables were added.
 
@@ -2186,6 +2195,25 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | Authenticated Compose settings currency smoke | PASS with approval on retry | Fresh user register returned 201, login returned 200, and `PATCH /api/v1/users/me` returned 200 with `base_currency=BDT`. |
 | `POSTGRES_PORT=55432 docker compose down` | PASS with approval on retry | Smoke stack was shut down and containers/network were removed. |
 
+### Phase 10.E budget setup data repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean phase start before edits. |
+| `cd client && npx tsc --noEmit` | FAIL, PASS | Initial run caught mixed budget save operation return types; final reruns passed after typing the operations list. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run e2e` | FAIL, PASS with approval | Initial E2E retries exposed budget overview loading timing and an unrelated savings hard assertion; final full-stack Playwright run passed: 1 test passed, including existing budget setup prefill, update, create, and budget overview rendering. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 147 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL; approved rerun passed: 147 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | FAIL in sandbox, FAIL with approval | Sandboxed run could not connect to localhost; approved run reached the configured local database but failed authentication for user `pfm_app`. Existing migrations were verified through full backend tests and E2E disposable PostgreSQL setup. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2245,6 +2273,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 10.B dropdown data repair is passed. Next allowed user-reported bug-fix phase is 10.C, date picker selected/today styling repair, after user permission.
 - Phase 10.C date picker selected/today styling repair is passed. Next allowed user-reported bug-fix phase is 10.D, settings page currency selection, after user permission.
 - Phase 10.D settings page currency selection is passed on retry. Next allowed user-reported bug-fix phase is 10.E, budget setup data repair, after user permission.
+- Phase 10.E budget setup data repair is passed. Next allowed phase is 10.V, Final readiness verification, after user permission.
 
 ## 14. Progress log
 
@@ -2311,3 +2340,4 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 10.B dropdown data repair passed. Added idempotent account/category default bootstrap for empty users through the existing list endpoints, covered transaction create Account/Category drawers and budget setup category rendering in E2E, verified full backend/frontend/API contract checks, ran Compose migration and authenticated dropdown smoke, and set the next allowed user-reported bug-fix phase to 10.C date picker styling repair.
 - 2026-07-03: Phase 10.C date picker styling repair passed. Fixed shared calendar selected/today styling so selected dates render with black background and today is text-emphasized without a filled background unless selected; added E2E coverage for the transaction create date picker, verified backend/frontend/API contract checks, ran Compose migration and deployment smoke, and set the next allowed user-reported bug-fix phase to 10.D settings page currency selection.
 - 2026-07-03: Phase 10.D settings page currency selection passed on retry. Added persisted `users.base_currency`, a settings UI, generated contract updates, user/report/default-account currency wiring, backend/frontend/E2E regressions, completed Compose migration, health, frontend, worker-log, and authenticated base-currency smoke checks, cleaned up the stack, and set the next allowed user-reported bug-fix phase to 10.E budget setup data repair.
+- 2026-07-03: Phase 10.E budget setup data repair passed. Budget setup now preloads existing current-month category budgets, updates existing rows instead of creating overlap conflicts, creates newly entered category budgets, deletes cleared existing budgets, verifies the repaired setup flow in E2E, and sets the next allowed phase to 10.V final readiness verification.
