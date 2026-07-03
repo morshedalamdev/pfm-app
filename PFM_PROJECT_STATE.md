@@ -151,7 +151,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.C Date picker styling repair | PASSED | phase commit created after this state update | Fixed shared calendar selected/today styling so selected dates render with a black background and today is only text-emphasized unless selected. |
 | 10 | 10.D Settings currency selection | PASSED | phase commit created after this state update | Added persisted base-currency selection and settings UI, verified backend/frontend/E2E checks, completed Compose smoke on retry, and cleaned up the stack. |
 | 10 | 10.E Budget setup data repair | PASSED | phase commit created after this state update | Loaded existing current-month budgets into setup inputs, saved create/update/delete operations without overlap conflicts, and covered the repaired flow in E2E. |
-| 10 | 10.V Final readiness verification | NOT_STARTED | — | — |
+| 10 | 10.V Final readiness verification | PASSED | verification commit created after this state update | Ran the final backend, frontend, contract, E2E, Compose, migration, health, frontend reachability, and worker-log verification matrix; added release readiness documentation and confirmed readiness with documented external configuration. |
 
 ## 6. Architecture Decision Log
 
@@ -1022,6 +1022,8 @@ Phase 10.D added no new backend endpoint paths. It changed `POST /api/v1/auth/re
 
 Phase 10.E added no backend endpoints and changed no backend API contracts. The frontend budget setup now consumes existing `GET /api/v1/budgets?month=...`, `PATCH /api/v1/budgets/{budget_id}`, `POST /api/v1/budgets`, and `DELETE /api/v1/budgets/{budget_id}` paths to edit current-month category budgets.
 
+Phase 10.V added no backend endpoints and changed no backend API contracts. It verified the implemented API surface and documented release readiness.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1137,6 +1139,8 @@ Phase 10.C created no migrations. It applied existing migrations through `202607
 Phase 10.D created Alembic migration `202607031004_add_user_base_currency.py` for non-null `users.base_currency` defaulting to `USD`. Disposable migration smoke passed through `server/tests/test_migrations.py`, E2E applied migrations through head, and the retry completed containerized `docker compose run --rm api alembic upgrade head` against the Compose smoke database.
 
 Phase 10.E created no migrations. It reuses the existing budget schema and applied existing migrations through `202607031004_add_user_base_currency.py` during the full-stack E2E harness.
+
+Phase 10.V created no migrations. It verified existing migrations through `202607031004_add_user_base_currency.py` with a disposable Alembic upgrade, the E2E harness migration path, and the Compose containerized `alembic upgrade head` smoke. The default local `pfm_app` database still rejects the configured password, so direct local `alembic upgrade head` requires a valid `DATABASE_URL`.
 
 ## 11. Environment variables
 
@@ -1380,6 +1384,10 @@ Committed template: `server/.env.example`.
 ### Phase 10.E budget setup data repair variables
 
 - No new environment variables were added.
+
+### Phase 10.V final readiness verification variables
+
+- No new environment variables were added. `docs/release/RELEASE_READINESS.md` summarizes the existing production API, worker, frontend, database, storage, and email configuration requirements and provider decisions still needed.
 
 ## 12. Test command registry
 
@@ -2214,6 +2222,34 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `docker compose config` | PASS | Compose configuration rendered successfully. |
 | `git diff --check` | PASS | Whitespace check passed. |
 
+### Phase 10.V final readiness verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean phase start. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 147 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL; approved rerun passed: 147 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | FAIL in sandbox, FAIL with approval | Sandboxed run could not connect to localhost; approved run reached the configured local database but failed authentication for user `pfm_app`. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Applied all migrations through `202607031004_add_user_base_currency.py` against disposable PostgreSQL. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | API contract drift check passed; generated API contract is up to date. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run e2e` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost; approved full-stack Playwright E2E passed: 1 test passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose up -d --build` | PASS with approval | Rebuilt and started PostgreSQL, API, worker, and frontend on non-default host ports. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose ps` | PASS with approval | Confirmed PostgreSQL, API, and frontend healthy; worker was running with health check starting. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose run --rm api alembic upgrade head` | PASS with approval | Containerized migration command completed against the Compose smoke database. |
+| `curl -fsS http://127.0.0.1:58000/api/v1/health/live` | PASS with approval | Returned API liveness JSON. |
+| `curl -fsS http://127.0.0.1:58000/api/v1/health/ready` | PASS with approval | Returned database readiness JSON. |
+| `curl -fsS -o /tmp/pfm-frontend-smoke.html -w "%{http_code}" http://127.0.0.1:53000` | PASS with approval | Frontend returned HTTP 200. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose logs --tail=40 worker` | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
+| `test -f docs/release/RELEASE_READINESS.md` | PASS | Release readiness document exists. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2274,6 +2310,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 10.C date picker selected/today styling repair is passed. Next allowed user-reported bug-fix phase is 10.D, settings page currency selection, after user permission.
 - Phase 10.D settings page currency selection is passed on retry. Next allowed user-reported bug-fix phase is 10.E, budget setup data repair, after user permission.
 - Phase 10.E budget setup data repair is passed. Next allowed phase is 10.V, Final readiness verification, after user permission.
+- Phase 10.V final readiness verification is passed. Next allowed action is to push the `final-audit` branch after user permission.
 
 ## 14. Progress log
 
@@ -2341,3 +2378,4 @@ Append a dated entry after every completed phase.
 - 2026-07-03: Phase 10.C date picker styling repair passed. Fixed shared calendar selected/today styling so selected dates render with black background and today is text-emphasized without a filled background unless selected; added E2E coverage for the transaction create date picker, verified backend/frontend/API contract checks, ran Compose migration and deployment smoke, and set the next allowed user-reported bug-fix phase to 10.D settings page currency selection.
 - 2026-07-03: Phase 10.D settings page currency selection passed on retry. Added persisted `users.base_currency`, a settings UI, generated contract updates, user/report/default-account currency wiring, backend/frontend/E2E regressions, completed Compose migration, health, frontend, worker-log, and authenticated base-currency smoke checks, cleaned up the stack, and set the next allowed user-reported bug-fix phase to 10.E budget setup data repair.
 - 2026-07-03: Phase 10.E budget setup data repair passed. Budget setup now preloads existing current-month category budgets, updates existing rows instead of creating overlap conflicts, creates newly entered category budgets, deletes cleared existing budgets, verifies the repaired setup flow in E2E, and sets the next allowed phase to 10.V final readiness verification.
+- 2026-07-03: Phase 10.V final readiness verification passed. Ran final backend, frontend, API contract, E2E, Compose, migration, health, frontend reachability, and worker-log checks; added `docs/release/RELEASE_READINESS.md`; documented readiness with external production configuration decisions still required; and set the next allowed action to pushing `final-audit` after user permission.
