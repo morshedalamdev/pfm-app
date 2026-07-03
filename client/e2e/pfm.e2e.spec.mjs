@@ -130,6 +130,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await page.getByText("Category").click();
   await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
   await page.keyboard.press("Escape");
+  await assertDateSelectionStyle(page);
 
   await page.goto("/budget/setup");
   await expect(page.getByText("Groceries")).toBeVisible();
@@ -198,6 +199,31 @@ async function getCategoryByName(api, kind, name) {
   const category = body.items.find((item) => item.name === name);
   expect(category, `${kind} category ${name}`).toBeTruthy();
   return category;
+}
+
+async function assertDateSelectionStyle(page) {
+  const labels = await page.evaluate(() => {
+    const today = new Date();
+    const selected = new Date(today);
+    selected.setDate(today.getDate() + 1);
+    return {
+      selected: selected.toLocaleDateString(),
+      today: today.toLocaleDateString(),
+    };
+  });
+
+  const dateField = page.getByLabel("Expense").getByText("Date");
+
+  await dateField.click();
+  await page.locator(`button[data-day="${labels.selected}"]`).click();
+
+  const selectedButton = page.locator(`button[data-day="${labels.selected}"]`);
+  const todayButton = page.locator(`button[data-day="${labels.today}"]`);
+  await expect(selectedButton).toHaveAttribute("data-selected-single", "true");
+  await expect(selectedButton).toHaveCSS("background-color", "rgb(0, 0, 0)");
+  await expect(todayButton).not.toHaveAttribute("data-selected-single", "true");
+  await expect(todayButton).not.toHaveCSS("background-color", "rgb(0, 0, 0)");
+  await page.keyboard.press("Escape");
 }
 
 const routeText = {
