@@ -145,7 +145,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.1 Backend audit | NOT_STARTED | — | — |
 | 10 | 10.2 Frontend audit | NOT_STARTED | — | — |
 | 10 | 10.3 Full test execution | NOT_STARTED | — | — |
-| 10 | 10.4 Defect repair | NOT_STARTED | — | — |
+| 10 | 10.4 Defect repair | PASSED | phase commit created after this state update | Repaired Compose frontend API-origin drift by adding runtime browser API config, deriving the default Compose frontend API URL from `API_PORT`, and tagging frontend images by API port so failed rebuilds cannot silently reuse a stale wrong-port image. |
 | 10 | 10.A Profile data repair | PASSED | phase commit created after this state update | Added persisted user profile fields, register/profile API support, profile form save/load wiring, contract regeneration, and focused/full regression checks. |
 | 10 | 10.B Dropdown data repair | PASSED | phase commit created after this state update | Added idempotent default account/category bootstrap for empty users so transaction create/edit dropdowns and budget setup category rows render database-backed data. |
 | 10 | 10.C Date picker styling repair | PASSED | phase commit created after this state update | Fixed shared calendar selected/today styling so selected dates render with a black background and today is only text-emphasized unless selected. |
@@ -1024,6 +1024,8 @@ Phase 10.E added no backend endpoints and changed no backend API contracts. The 
 
 Phase 10.V added no backend endpoints and changed no backend API contracts. It verified the implemented API surface and documented release readiness.
 
+Phase 10.4 post-verification repair added no backend endpoints and changed no backend API contracts. It changed only the frontend container runtime configuration path and Compose image/build metadata so browser API calls use the active Compose API host port.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1141,6 +1143,8 @@ Phase 10.D created Alembic migration `202607031004_add_user_base_currency.py` fo
 Phase 10.E created no migrations. It reuses the existing budget schema and applied existing migrations through `202607031004_add_user_base_currency.py` during the full-stack E2E harness.
 
 Phase 10.V created no migrations. It verified existing migrations through `202607031004_add_user_base_currency.py` with a disposable Alembic upgrade, the E2E harness migration path, and the Compose containerized `alembic upgrade head` smoke. The default local `pfm_app` database still rejects the configured password, so direct local `alembic upgrade head` requires a valid `DATABASE_URL`.
+
+Phase 10.4 post-verification repair created no migrations.
 
 ## 11. Environment variables
 
@@ -1388,6 +1392,10 @@ Committed template: `server/.env.example`.
 ### Phase 10.V final readiness verification variables
 
 - No new environment variables were added. `docs/release/RELEASE_READINESS.md` summarizes the existing production API, worker, frontend, database, storage, and email configuration requirements and provider decisions still needed.
+
+### Phase 10.4 Compose frontend API URL repair variables
+
+- No new environment variables were added. The existing `NEXT_PUBLIC_API_BASE_URL` is now also written to `/runtime-config.js` by the frontend container at startup. When it is omitted in Compose, the default is derived from `API_PORT`.
 
 ## 12. Test command registry
 
@@ -2250,6 +2258,25 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
 | `test -f docs/release/RELEASE_READINESS.md` | PASS | Release readiness document exists. |
 
+### Phase 10.4 Compose frontend API URL repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean worktree before repair edits. |
+| `docker compose config` | PASS | Verified default Compose renders frontend image `pfm-app-frontend:api-8000` and browser API origin `http://localhost:8000`. |
+| `API_PORT=58000 docker compose config` | PASS | Verified API port override renders API host port `58000`, frontend image `pfm-app-frontend:api-58000`, and browser API origin `http://localhost:58000`. |
+| `POSTGRES_PORT=5433 docker compose config` | PASS | Verified changing only PostgreSQL host port leaves the browser API origin at `http://localhost:8000`. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend type check passed after runtime config changes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, BLOCKED with approval timeout | Sandboxed run failed fetching Google Fonts Urbanist. Two approved network reruns were blocked by approval-review timeout, so the command could not be completed in this environment. |
+| `POSTGRES_PORT=5433 docker compose build frontend` | BLOCKED with approval rejection | Docker build verification could not run because the environment reported the usage limit was hit. No Docker workaround was attempted. |
+| `sh -n client/scripts/docker-entrypoint.sh` | PASS | Frontend container entrypoint shell syntax is valid. |
+| `PUBLIC_DIR=<tmp> NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 sh client/scripts/docker-entrypoint.sh true` | PASS | Generated `runtime-config.js` with `apiBaseUrl` set to `http://localhost:8000`. |
+| `PUBLIC_DIR=<tmp> NEXT_PUBLIC_API_BASE_URL=http://localhost:58000/ sh client/scripts/docker-entrypoint.sh true` | PASS | Generated `runtime-config.js` with trailing slash trimmed to `http://localhost:58000`. |
+| `git diff --check` | PASS | Verified no whitespace errors before commit. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2311,6 +2338,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 10.D settings page currency selection is passed on retry. Next allowed user-reported bug-fix phase is 10.E, budget setup data repair, after user permission.
 - Phase 10.E budget setup data repair is passed. Next allowed phase is 10.V, Final readiness verification, after user permission.
 - Phase 10.V final readiness verification is passed. Next allowed action is to push the `final-audit` branch after user permission.
+- Phase 10.4 post-verification Compose frontend API URL repair is passed with external Docker/network verification blocked by the environment usage limit. Next allowed action is to run the local Compose rebuild and push the `final-audit` branch after user permission.
 
 ## 14. Progress log
 
@@ -2379,3 +2407,4 @@ Append a dated entry after every completed phase.
 - 2026-07-03: Phase 10.D settings page currency selection passed on retry. Added persisted `users.base_currency`, a settings UI, generated contract updates, user/report/default-account currency wiring, backend/frontend/E2E regressions, completed Compose migration, health, frontend, worker-log, and authenticated base-currency smoke checks, cleaned up the stack, and set the next allowed user-reported bug-fix phase to 10.E budget setup data repair.
 - 2026-07-03: Phase 10.E budget setup data repair passed. Budget setup now preloads existing current-month category budgets, updates existing rows instead of creating overlap conflicts, creates newly entered category budgets, deletes cleared existing budgets, verifies the repaired setup flow in E2E, and sets the next allowed phase to 10.V final readiness verification.
 - 2026-07-03: Phase 10.V final readiness verification passed. Ran final backend, frontend, API contract, E2E, Compose, migration, health, frontend reachability, and worker-log checks; added `docs/release/RELEASE_READINESS.md`; documented readiness with external production configuration decisions still required; and set the next allowed action to pushing `final-audit` after user permission.
+- 2026-07-03: Phase 10.4 post-verification Compose frontend API URL repair passed. Added runtime frontend API configuration generated by the container entrypoint, derived default Compose `NEXT_PUBLIC_API_BASE_URL` from `API_PORT`, tagged frontend images by API port to avoid stale wrong-port reuse after failed builds, documented the port override workflow, and recorded that Docker/network verification was blocked by the local usage limit.

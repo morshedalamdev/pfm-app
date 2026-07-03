@@ -12,8 +12,15 @@ export type ApiPath = keyof paths;
 type RefreshRequest = components["schemas"]["RefreshTokenRequest"];
 type RefreshResponse = components["schemas"]["AccessTokenResponse"];
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
+declare global {
+  interface Window {
+    __PFM_RUNTIME_CONFIG__?: {
+      apiBaseUrl?: string;
+    };
+  }
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -157,4 +164,14 @@ async function requestTokenRefresh(): Promise<string | null> {
 function isAuthRequest(config: AxiosRequestConfig): boolean {
   const url = config.url ?? "";
   return url.includes("/api/v1/auth/");
+}
+
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    const runtimeApiBaseUrl = window.__PFM_RUNTIME_CONFIG__?.apiBaseUrl?.trim();
+    if (runtimeApiBaseUrl) {
+      return runtimeApiBaseUrl.replace(/\/$/, "");
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
 }

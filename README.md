@@ -92,6 +92,20 @@ docker compose up
 The API runs at `http://localhost:8000`, and the frontend runs at
 `http://localhost:3000`.
 
+Override host ports without editing committed files:
+
+```bash
+POSTGRES_PORT=5433 API_PORT=8000 FRONTEND_PORT=3000 docker compose up
+```
+
+The frontend container writes its browser API origin from
+`NEXT_PUBLIC_API_BASE_URL` at startup. If `NEXT_PUBLIC_API_BASE_URL` is not set,
+Compose derives it from `API_PORT`, so `API_PORT=58000 docker compose up`
+builds and runs the frontend against `http://localhost:58000`. If a Docker
+metadata or registry timeout stops `docker compose build`, rerun the build
+before `docker compose up`; Compose tags the frontend image by API port so a
+stale wrong-port frontend image is not silently reused.
+
 Stop the stack:
 
 ```bash
