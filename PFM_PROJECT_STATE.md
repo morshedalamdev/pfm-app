@@ -152,6 +152,13 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.D Settings currency selection | PASSED | phase commit created after this state update | Added persisted base-currency selection and settings UI, verified backend/frontend/E2E checks, completed Compose smoke on retry, and cleaned up the stack. |
 | 10 | 10.E Budget setup data repair | PASSED | phase commit created after this state update | Loaded existing current-month budgets into setup inputs, saved create/update/delete operations without overlap conflicts, and covered the repaired flow in E2E. |
 | 10 | 10.V Final readiness verification | PASSED | verification commit created after this state update | Ran the final backend, frontend, contract, E2E, Compose, migration, health, frontend reachability, and worker-log verification matrix; added release readiness documentation and confirmed readiness with documented external configuration. |
+| 11 | 11.1 Budget setup UX repair | PASSED | phase commit created after this state update | Added milestone 11 plan, made budget setup Details read-only, kept Custom editable, renamed Monthly Budget labels, and loaded/saved current-month global budget amount. |
+| 11 | 11.2 Savings goal month targeting | NOT_STARTED | — | — |
+| 11 | 11.3 Savings transfer mutation | NOT_STARTED | — | — |
+| 11 | 11.4 Loan and debt backend | NOT_STARTED | — | — |
+| 11 | 11.5 Loan and debt frontend | NOT_STARTED | — | — |
+| 11 | 11.6 Settings monthly currency guard | NOT_STARTED | — | — |
+| 11 | 11.V Product repair verification | NOT_STARTED | — | — |
 
 ## 6. Architecture Decision Log
 
@@ -1026,6 +1033,8 @@ Phase 10.V added no backend endpoints and changed no backend API contracts. It v
 
 Phase 10.4 post-verification repair added no backend endpoints and changed no backend API contracts. It changed only the frontend container runtime configuration path and Compose image/build metadata so browser API calls use the active Compose API host port.
 
+Phase 11.1 added no backend endpoints and changed no backend API contracts. The frontend budget setup now uses the existing budget endpoints to preload and save the current-month global monthly budget (`category_id=null`) alongside existing category budgets, with read-only details shown by default and editing limited to the custom tab.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1145,6 +1154,8 @@ Phase 10.E created no migrations. It reuses the existing budget schema and appli
 Phase 10.V created no migrations. It verified existing migrations through `202607031004_add_user_base_currency.py` with a disposable Alembic upgrade, the E2E harness migration path, and the Compose containerized `alembic upgrade head` smoke. The default local `pfm_app` database still rejects the configured password, so direct local `alembic upgrade head` requires a valid `DATABASE_URL`.
 
 Phase 10.4 post-verification repair created no migrations.
+
+Phase 11.1 created no migrations. It reuses the existing budget schema and endpoints.
 
 ## 11. Environment variables
 
@@ -1396,6 +1407,10 @@ Committed template: `server/.env.example`.
 ### Phase 10.4 Compose frontend API URL repair variables
 
 - No new environment variables were added. The existing `NEXT_PUBLIC_API_BASE_URL` is now also written to `/runtime-config.js` by the frontend container at startup. When it is omitted in Compose, the default is derived from `API_PORT`.
+
+### Phase 11.1 budget setup UX repair variables
+
+- No new environment variables were added.
 
 ## 12. Test command registry
 
@@ -2277,6 +2292,19 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `PUBLIC_DIR=<tmp> NEXT_PUBLIC_API_BASE_URL=http://localhost:58000/ sh client/scripts/docker-entrypoint.sh true` | PASS | Generated `runtime-config.js` with trailing slash trimmed to `http://localhost:58000`. |
 | `git diff --check` | PASS | Verified no whitespace errors before commit. |
 
+### Phase 11.1 budget setup UX repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` was clean before creating the milestone 11 branch, then active branch `product-repairs` before phase edits. |
+| `git switch -c product-repairs` | FAIL in sandbox, PASS with approval | Required milestone branch creation. Sandboxed run could not create `.git/refs/heads/product-repairs.lock`; approved rerun created and switched to `product-repairs`. |
+| `cd client && npx tsc --noEmit` | FAIL, PASS | Initial run caught one stale `next.push` reference from the refactor; after repair, TypeScript passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2339,6 +2367,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 10.E budget setup data repair is passed. Next allowed phase is 10.V, Final readiness verification, after user permission.
 - Phase 10.V final readiness verification is passed. Next allowed action is to push the `final-audit` branch after user permission.
 - Phase 10.4 post-verification Compose frontend API URL repair is passed with external Docker/network verification blocked by the environment usage limit. Next allowed action is to run the local Compose rebuild and push the `final-audit` branch after user permission.
+- Phase 11.1 budget setup UX repair is passed. Next allowed phase is 11.2, Savings goal month targeting, after user permission.
 
 ## 14. Progress log
 
@@ -2408,3 +2437,4 @@ Append a dated entry after every completed phase.
 - 2026-07-03: Phase 10.E budget setup data repair passed. Budget setup now preloads existing current-month category budgets, updates existing rows instead of creating overlap conflicts, creates newly entered category budgets, deletes cleared existing budgets, verifies the repaired setup flow in E2E, and sets the next allowed phase to 10.V final readiness verification.
 - 2026-07-03: Phase 10.V final readiness verification passed. Ran final backend, frontend, API contract, E2E, Compose, migration, health, frontend reachability, and worker-log checks; added `docs/release/RELEASE_READINESS.md`; documented readiness with external production configuration decisions still required; and set the next allowed action to pushing `final-audit` after user permission.
 - 2026-07-03: Phase 10.4 post-verification Compose frontend API URL repair passed. Added runtime frontend API configuration generated by the container entrypoint, derived default Compose `NEXT_PUBLIC_API_BASE_URL` from `API_PORT`, tagged frontend images by API port to avoid stale wrong-port reuse after failed builds, documented the port override workflow, and recorded that Docker/network verification was blocked by the local usage limit.
+- 2026-07-04: Phase 11.1 budget setup UX repair passed. Added `milestones/11_PRODUCT_REPAIRS.md`, moved budget setup to a read-only Details tab by default, kept Custom as the only editable tab, changed Monthly Income wording to Monthly Budget, loaded/saved the current-month global monthly budget amount with existing budget APIs, preserved category budget create/update/delete behavior, and set the next allowed phase to 11.2.
