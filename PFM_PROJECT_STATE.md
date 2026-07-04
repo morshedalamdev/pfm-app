@@ -153,7 +153,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.E Budget setup data repair | PASSED | phase commit created after this state update | Loaded existing current-month budgets into setup inputs, saved create/update/delete operations without overlap conflicts, and covered the repaired flow in E2E. |
 | 10 | 10.V Final readiness verification | PASSED | verification commit created after this state update | Ran the final backend, frontend, contract, E2E, Compose, migration, health, frontend reachability, and worker-log verification matrix; added release readiness documentation and confirmed readiness with documented external configuration. |
 | 11 | 11.1 Budget setup UX repair | PASSED | phase commit created after this state update | Added milestone 11 plan, made budget setup Details read-only, kept Custom editable, renamed Monthly Budget labels, and loaded/saved current-month global budget amount. |
-| 11 | 11.2 Savings goal month targeting | NOT_STARTED | — | — |
+| 11 | 11.2 Savings goal month targeting | PASSED | phase commit created after this state update | Savings goal create/edit now uses selected target months, calculates monthly saving as read-only, and persists compatible monthly target plus derived target date through existing APIs. |
 | 11 | 11.3 Savings transfer mutation | NOT_STARTED | — | — |
 | 11 | 11.4 Loan and debt backend | NOT_STARTED | — | — |
 | 11 | 11.5 Loan and debt frontend | NOT_STARTED | — | — |
@@ -1035,6 +1035,8 @@ Phase 10.4 post-verification repair added no backend endpoints and changed no ba
 
 Phase 11.1 added no backend endpoints and changed no backend API contracts. The frontend budget setup now uses the existing budget endpoints to preload and save the current-month global monthly budget (`category_id=null`) alongside existing category budgets, with read-only details shown by default and editing limited to the custom tab.
 
+Phase 11.2 added no backend endpoints and changed no backend API contracts. The frontend savings goal create/edit form now uses selected target months while continuing to persist through the existing savings-goal create/update payload fields `monthly_target_amount` and `target_date`.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1156,6 +1158,8 @@ Phase 10.V created no migrations. It verified existing migrations through `20260
 Phase 10.4 post-verification repair created no migrations.
 
 Phase 11.1 created no migrations. It reuses the existing budget schema and endpoints.
+
+Phase 11.2 created no migrations. It reuses the existing savings goal schema and endpoints.
 
 ## 11. Environment variables
 
@@ -1409,6 +1413,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added. The existing `NEXT_PUBLIC_API_BASE_URL` is now also written to `/runtime-config.js` by the frontend container at startup. When it is omitted in Compose, the default is derived from `API_PORT`.
 
 ### Phase 11.1 budget setup UX repair variables
+
+- No new environment variables were added.
+
+### Phase 11.2 savings goal month targeting variables
 
 - No new environment variables were added.
 
@@ -2305,6 +2313,18 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
 | `git diff --check` | PASS | Whitespace check passed. |
 
+### Phase 11.2 savings goal month targeting commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` before phase edits. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed against the final working tree. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2368,6 +2388,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 10.V final readiness verification is passed. Next allowed action is to push the `final-audit` branch after user permission.
 - Phase 10.4 post-verification Compose frontend API URL repair is passed with external Docker/network verification blocked by the environment usage limit. Next allowed action is to run the local Compose rebuild and push the `final-audit` branch after user permission.
 - Phase 11.1 budget setup UX repair is passed. Next allowed phase is 11.2, Savings goal month targeting, after user permission.
+- Phase 11.2 savings goal month targeting is passed. Next allowed phase is 11.3, Savings transfer mutation, after user permission.
 
 ## 14. Progress log
 
@@ -2438,3 +2459,4 @@ Append a dated entry after every completed phase.
 - 2026-07-03: Phase 10.V final readiness verification passed. Ran final backend, frontend, API contract, E2E, Compose, migration, health, frontend reachability, and worker-log checks; added `docs/release/RELEASE_READINESS.md`; documented readiness with external production configuration decisions still required; and set the next allowed action to pushing `final-audit` after user permission.
 - 2026-07-03: Phase 10.4 post-verification Compose frontend API URL repair passed. Added runtime frontend API configuration generated by the container entrypoint, derived default Compose `NEXT_PUBLIC_API_BASE_URL` from `API_PORT`, tagged frontend images by API port to avoid stale wrong-port reuse after failed builds, documented the port override workflow, and recorded that Docker/network verification was blocked by the local usage limit.
 - 2026-07-04: Phase 11.1 budget setup UX repair passed. Added `milestones/11_PRODUCT_REPAIRS.md`, moved budget setup to a read-only Details tab by default, kept Custom as the only editable tab, changed Monthly Income wording to Monthly Budget, loaded/saved the current-month global monthly budget amount with existing budget APIs, preserved category budget create/update/delete behavior, and set the next allowed phase to 11.2.
+- 2026-07-04: Phase 11.2 savings goal month targeting passed. Replaced savings goal target-date entry with selected target months, made Monthly Saving read-only and calculated from target amount divided by months, preserved existing savings-goal API compatibility by saving the calculated monthly target and derived target date, and set the next allowed phase to 11.3.
