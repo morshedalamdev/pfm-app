@@ -14,6 +14,9 @@ from app.modules.categories.models import Category
 from app.modules.categories.repositories import CategoryRepository
 from app.modules.idempotency.models import IdempotencyRecord
 from app.modules.idempotency.repositories import IdempotencyRepository
+from app.modules.savings.models import SavingsContribution, SavingsGoal
+from app.modules.savings.repositories import SavingsRepository
+from app.modules.savings.services import SavingsService
 from app.modules.transactions.models import Transaction, TransferLink
 from app.modules.transactions.pagination import (
     InvalidTransactionCursorError as CursorDecodeError,
@@ -29,6 +32,8 @@ from app.modules.transactions.schemas import (
     TransactionListResponse,
     TransactionResponse,
     TransactionUpdateRequest,
+    SavingsTransferCreateRequest,
+    SavingsTransferResponse,
     TransferCreateRequest,
     TransferResponse,
 )
@@ -55,6 +60,10 @@ class InvalidTransferRequestError(Exception):
     pass
 
 
+class InvalidSavingsTransferRequestError(Exception):
+    pass
+
+
 class InvalidTransactionCursorError(Exception):
     pass
 
@@ -77,11 +86,13 @@ class TransactionService:
         transactions: TransactionRepository,
         accounts: AccountRepository,
         categories: CategoryRepository,
+        savings: SavingsRepository | None = None,
         idempotency: IdempotencyRepository | None = None,
     ) -> None:
         self.transactions = transactions
         self.accounts = accounts
         self.categories = categories
+        self.savings = savings
         self.idempotency = idempotency
 
     async def create_transaction(
@@ -356,6 +367,86 @@ class TransactionService:
             credit_transaction,
         )
 
+    async def create_savings_transfer(
+        self,
+        request: SavingsTransferCreateRequest,
+        current_user: User,
+        idempotency_key: str | None = None,
+    ) -> SavingsTransferResponse:
+        if idempotency_key is not None:
+            existing_response = await self.get_idempotent_response(
+                operation="savings_transfers.create",
+                idempotency_key=idempotency_key,
+                request_payload=request.model_dump(mode="json"),
+                current_user=current_user,
+                response_model=SavingsTransferResponse,
+            )
+            if existing_response is not None:
+                return cast(SavingsTransferResponse, existing_response)
+
+        if self.savings is None:
+            raise RuntimeError("Savings repository is required")
+
+        from_account = await self.get_active_account(
+            request.from_account_id,
+            current_user,
+        )
+        savings_goal = await self.get_active_savings_goal(
+            request.savings_goal_id,
+            current_user,
+        )
+        if from_account.currency != savings_goal.currency:
+            raise InvalidSavingsTransferRequestError
+
+        debit_transaction = Transaction(
+            user_id=current_user.id,
+            account_id=from_account.id,
+            category_id=None,
+            type="transfer_debit",
+            amount=request.amount,
+            currency=from_account.currency,
+            transaction_at=request.transaction_at,
+            description=request.description,
+        )
+        contribution = SavingsContribution(
+            user_id=current_user.id,
+            goal_id=savings_goal.id,
+            amount=request.amount,
+            currency=savings_goal.currency,
+            contributed_at=request.transaction_at,
+            note=request.description,
+        )
+
+        try:
+            await self.transactions.create(debit_transaction)
+            await self.savings.create_contribution(contribution)
+            saved_amount = await self.savings.calculate_saved_amount(
+                savings_goal.id,
+                current_user.id,
+            )
+            SavingsService(self.savings).apply_completion_state(
+                savings_goal,
+                saved_amount,
+            )
+            await self.transactions.refresh(debit_transaction)
+            await self.savings.refresh_contribution(contribution)
+            response = self.build_savings_transfer_response(
+                debit_transaction,
+                contribution,
+            )
+            await self.store_idempotent_response(
+                operation="savings_transfers.create",
+                idempotency_key=idempotency_key,
+                request_payload=request.model_dump(mode="json"),
+                current_user=current_user,
+                response=response,
+            )
+            await self.transactions.commit()
+        except Exception:
+            await self.transactions.rollback()
+            raise
+        return response
+
     async def get_idempotent_response(
         self,
         *,
@@ -364,7 +455,7 @@ class TransactionService:
         request_payload: dict[str, object],
         current_user: User,
         response_model: type[TransactionResponse] | type[TransferResponse],
-    ) -> TransactionResponse | TransferResponse | None:
+    ) -> TransactionResponse | TransferResponse | SavingsTransferResponse | None:
         record = await self.get_idempotency_record(
             operation=operation,
             idempotency_key=idempotency_key,
@@ -384,7 +475,7 @@ class TransactionService:
         idempotency_key: str | None,
         request_payload: dict[str, object],
         current_user: User,
-        response: TransactionResponse | TransferResponse,
+        response: TransactionResponse | TransferResponse | SavingsTransferResponse,
     ) -> None:
         if idempotency_key is None:
             return
@@ -453,6 +544,18 @@ class TransactionService:
             raise InvalidTransactionReferenceError
         return category
 
+    async def get_active_savings_goal(
+        self,
+        savings_goal_id: uuid.UUID,
+        current_user: User,
+    ) -> SavingsGoal:
+        if self.savings is None:
+            raise RuntimeError("Savings repository is required")
+        goal = await self.savings.get_goal_owned(savings_goal_id, current_user.id)
+        if goal is None or goal.status != "active":
+            raise InvalidSavingsTransferRequestError
+        return goal
+
     @staticmethod
     def build_transfer_response(
         transfer_link: TransferLink,
@@ -470,6 +573,24 @@ class TransactionService:
             transaction_at=debit_transaction.transaction_at,
             description=debit_transaction.description,
             created_at=transfer_link.created_at,
+        )
+
+    @staticmethod
+    def build_savings_transfer_response(
+        debit_transaction: Transaction,
+        contribution: SavingsContribution,
+    ) -> SavingsTransferResponse:
+        return SavingsTransferResponse(
+            id=contribution.id,
+            from_account_id=debit_transaction.account_id,
+            savings_goal_id=contribution.goal_id,
+            debit_transaction_id=debit_transaction.id,
+            contribution_id=contribution.id,
+            amount=contribution.amount,
+            currency=contribution.currency,
+            transaction_at=debit_transaction.transaction_at,
+            description=debit_transaction.description,
+            created_at=contribution.created_at,
         )
 
     @staticmethod
