@@ -216,6 +216,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/loans/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Loan People */
+        get: operations["list_loan_people_api_v1_loans_people_get"];
+        put?: never;
+        /** Create Loan Person */
+        post: operations["create_loan_person_api_v1_loans_people_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loans/people/{person_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Loan Person */
+        get: operations["get_loan_person_api_v1_loans_people__person_id__get"];
+        put?: never;
+        post?: never;
+        /** Archive Loan Person */
+        delete: operations["archive_loan_person_api_v1_loans_people__person_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Loan Person */
+        patch: operations["update_loan_person_api_v1_loans_people__person_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/loans/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Loan Records */
+        get: operations["list_loan_records_api_v1_loans_records_get"];
+        put?: never;
+        /** Create Loan Record */
+        post: operations["create_loan_record_api_v1_loans_records_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loans/records/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Loan Record */
+        get: operations["get_loan_record_api_v1_loans_records__record_id__get"];
+        put?: never;
+        post?: never;
+        /** Archive Loan Record */
+        delete: operations["archive_loan_record_api_v1_loans_records__record_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Loan Record */
+        patch: operations["update_loan_record_api_v1_loans_records__record_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/loans/records/{record_id}/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Loan Settlements */
+        get: operations["list_loan_settlements_api_v1_loans_records__record_id__settlements_get"];
+        put?: never;
+        /** Create Loan Settlement */
+        post: operations["create_loan_settlement_api_v1_loans_records__record_id__settlements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loans/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Loan Summary */
+        get: operations["get_loan_summary_api_v1_loans_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -981,6 +1090,231 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /** LoanPersonCreateRequest */
+        LoanPersonCreateRequest: {
+            /** Name */
+            name: string;
+            /** Note */
+            note?: string | null;
+            /** Phone Number */
+            phone_number: string;
+        };
+        /** LoanPersonListResponse */
+        LoanPersonListResponse: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["LoanPersonResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** LoanPersonResponse */
+        LoanPersonResponse: {
+            /** Archived At */
+            archived_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string | null;
+            /** Phone Number */
+            phone_number: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** LoanPersonUpdateRequest */
+        LoanPersonUpdateRequest: {
+            /** Name */
+            name?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Phone Number */
+            phone_number?: string | null;
+        };
+        /** LoanRecordCreateRequest */
+        LoanRecordCreateRequest: {
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "given" | "taken";
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /**
+             * Principal Amount
+             * @description Decimal string with up to 18 digits and 4 decimal places.
+             * @example 12.3400
+             */
+            principal_amount: string;
+        };
+        /** LoanRecordListResponse */
+        LoanRecordListResponse: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["LoanRecordResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** LoanRecordResponse */
+        LoanRecordResponse: {
+            /** Archived At */
+            archived_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "given" | "taken";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Note */
+            note: string | null;
+            /** Outstanding Amount */
+            outstanding_amount: string;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /** Principal Amount */
+            principal_amount: string;
+            /** Settled Amount */
+            settled_amount: string;
+            /** Settled At */
+            settled_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "settled" | "archived";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** LoanRecordUpdateRequest */
+        LoanRecordUpdateRequest: {
+            /** Currency */
+            currency?: string | null;
+            /** Direction */
+            direction?: ("given" | "taken") | null;
+            /** Issued At */
+            issued_at?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Person Id */
+            person_id?: string | null;
+            /** Principal Amount */
+            principal_amount?: string | null;
+        };
+        /** LoanSettlementCreateRequest */
+        LoanSettlementCreateRequest: {
+            /**
+             * Amount
+             * @description Decimal string with up to 18 digits and 4 decimal places.
+             * @example 12.3400
+             */
+            amount: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Settled At
+             * Format: date-time
+             */
+            settled_at: string;
+        };
+        /** LoanSettlementListResponse */
+        LoanSettlementListResponse: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["LoanSettlementResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** LoanSettlementResponse */
+        LoanSettlementResponse: {
+            /** Amount */
+            amount: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /**
+             * Settled At
+             * Format: date-time
+             */
+            settled_at: string;
+        };
+        /** LoanSummaryResponse */
+        LoanSummaryResponse: {
+            /** Currency */
+            currency: string;
+            /** Due Loan */
+            due_loan: string;
+            /** Total Loan Given */
+            total_loan_given: string;
+            /** Total Loan Taken */
+            total_loan_taken: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -2492,6 +2826,435 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadyHealthResponse"];
+                };
+            };
+        };
+    };
+    list_loan_people_api_v1_loans_people_get: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanPersonListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_loan_person_api_v1_loans_people_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoanPersonCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanPersonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_loan_person_api_v1_loans_people__person_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanPersonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_loan_person_api_v1_loans_people__person_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanPersonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_loan_person_api_v1_loans_people__person_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoanPersonUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanPersonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_loan_records_api_v1_loans_records_get: {
+        parameters: {
+            query?: {
+                status?: "all" | "open" | "settled" | "archived";
+                direction?: ("given" | "taken") | null;
+                person_id?: string | null;
+                currency?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanRecordListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_loan_record_api_v1_loans_records_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoanRecordCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_loan_record_api_v1_loans_records__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_loan_record_api_v1_loans_records__record_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_loan_record_api_v1_loans_records__record_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoanRecordUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_loan_settlements_api_v1_loans_records__record_id__settlements_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanSettlementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_loan_settlement_api_v1_loans_records__record_id__settlements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoanSettlementCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanSettlementResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_loan_summary_api_v1_loans_summary_get: {
+        parameters: {
+            query?: {
+                currency?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

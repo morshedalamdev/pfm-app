@@ -155,7 +155,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 11 | 11.1 Budget setup UX repair | PASSED | phase commit created after this state update | Added milestone 11 plan, made budget setup Details read-only, kept Custom editable, renamed Monthly Budget labels, and loaded/saved current-month global budget amount. |
 | 11 | 11.2 Savings goal month targeting | PASSED | phase commit created after this state update | Savings goal create/edit now uses selected target months, calculates monthly saving as read-only, and persists compatible monthly target plus derived target date through existing APIs. |
 | 11 | 11.3 Savings transfer mutation | PASSED | phase commit created after this state update | Added atomic account-to-savings transfer mutation with idempotency, generated API contract updates, and transaction form savings-goal destinations. |
-| 11 | 11.4 Loan and debt backend | NOT_STARTED | — | — |
+| 11 | 11.4 Loan and debt backend | PASSED | phase commit created after this state update | Added loan/debt people, given/taken records, partial settlements, summaries, migration, OpenAPI contract updates, and backend coverage. |
 | 11 | 11.5 Loan and debt frontend | NOT_STARTED | — | — |
 | 11 | 11.6 Settings monthly currency guard | NOT_STARTED | — | — |
 | 11 | 11.V Product repair verification | NOT_STARTED | — | — |
@@ -1039,6 +1039,8 @@ Phase 11.2 added no backend endpoints and changed no backend API contracts. The 
 
 Phase 11.3 added `POST /api/v1/transactions/savings-transfers`, an authenticated retryable mutation that debits the selected source account with a `transfer_debit` transaction source record and creates a savings contribution for the selected active savings goal in the same database transaction. The endpoint requires `Idempotency-Key`, rejects invalid/cross-user/archived source accounts, inactive or cross-user savings goals, currency mismatches, float money payloads, and timezone-naive timestamps. The frontend transaction form now shows active savings goals as `To` destinations in the existing transfer tab.
 
+Phase 11.4 added authenticated loan/debt endpoints under `/api/v1/loans`: `POST /people`, `GET /people`, `GET /people/{person_id}`, `PATCH /people/{person_id}`, `DELETE /people/{person_id}`, `POST /records`, `GET /records`, `GET /records/{record_id}`, `PATCH /records/{record_id}`, `DELETE /records/{record_id}`, `POST /records/{record_id}/settlements`, `GET /records/{record_id}/settlements`, and `GET /summary`. People are owned by user, allow duplicate names, require unique phone numbers per user, and archive safely. Records support `given` and `taken` directions, source settlement rows support partial settlement, and summary totals derive outstanding given/taken amounts plus net due loan for the selected or profile currency. No frontend loan page integration was added in this phase.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1164,6 +1166,8 @@ Phase 11.1 created no migrations. It reuses the existing budget schema and endpo
 Phase 11.2 created no migrations. It reuses the existing savings goal schema and endpoints.
 
 Phase 11.3 created no migrations. It reuses the existing `transactions`, `savings_goals`, `savings_contributions`, and `idempotency_records` tables.
+
+Phase 11.4 created Alembic migration `202607061104_add_loan_debt_schema.py` for `loan_people`, `loan_records`, and `loan_settlements`. The migration enforces user ownership, per-user unique phone numbers, composite user-owned foreign keys, supported loan directions/statuses, positive NUMERIC money values, and settlement/archive consistency. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against a disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -1425,6 +1429,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 11.3 savings transfer mutation variables
+
+- No new environment variables were added.
+
+### Phase 11.4 loan and debt backend variables
 
 - No new environment variables were added.
 
@@ -2352,6 +2360,22 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
 | `git diff --check` | PASS | Whitespace check passed. |
 
+### Phase 11.4 loan and debt backend commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 156 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL after 58 DB-free tests passed; approved full backend suite passed: 154 passed, 1 warning. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Applied all migrations through `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | PASS with approval | Downgraded the loan/debt migration from `202607061104` to `202607031004` against disposable PostgreSQL. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Reapplied `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL. |
+| `cd client && npm run api:generate` | PASS | Regenerated committed OpenAPI JSON and TypeScript API types for the loan/debt endpoints. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2417,6 +2441,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 11.1 budget setup UX repair is passed. Next allowed phase is 11.2, Savings goal month targeting, after user permission.
 - Phase 11.2 savings goal month targeting is passed. Next allowed phase is 11.3, Savings transfer mutation, after user permission.
 - Phase 11.3 savings transfer mutation is passed. Next allowed phase is 11.4, Loan and debt backend, after user permission.
+- Phase 11.4 loan and debt backend is passed. Next allowed phase is 11.5, Loan and debt frontend, after user permission.
 
 ## 14. Progress log
 
@@ -2489,3 +2514,4 @@ Append a dated entry after every completed phase.
 - 2026-07-04: Phase 11.1 budget setup UX repair passed. Added `milestones/11_PRODUCT_REPAIRS.md`, moved budget setup to a read-only Details tab by default, kept Custom as the only editable tab, changed Monthly Income wording to Monthly Budget, loaded/saved the current-month global monthly budget amount with existing budget APIs, preserved category budget create/update/delete behavior, and set the next allowed phase to 11.2.
 - 2026-07-04: Phase 11.2 savings goal month targeting passed. Replaced savings goal target-date entry with selected target months, made Monthly Saving read-only and calculated from target amount divided by months, preserved existing savings-goal API compatibility by saving the calculated monthly target and derived target date, and set the next allowed phase to 11.3.
 - 2026-07-06: Phase 11.3 savings transfer mutation passed. Added authenticated account-to-savings transfer mutation with atomic account debit and savings contribution source records, idempotent replay/conflict protection, generated OpenAPI TypeScript updates, transaction form `To` savings-goal destinations, backend validation/rollback/replay coverage, and set the next allowed phase to 11.4.
+- 2026-07-06: Phase 11.4 loan and debt backend passed. Added user-owned loan people with per-user unique phone numbers, given/taken loan records, partial settlement source rows, outstanding and net due summaries, Alembic migration `202607061104`, generated OpenAPI TypeScript updates, backend validation/ownership/settlement coverage, and set the next allowed phase to 11.5.
