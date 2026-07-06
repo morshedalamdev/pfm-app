@@ -2532,6 +2532,127 @@
         "title": "SavingsGoalUpdateRequest",
         "type": "object"
       },
+      "SavingsTransferCreateRequest": {
+        "properties": {
+          "amount": {
+            "description": "Decimal string with up to 18 digits and 4 decimal places.",
+            "examples": [
+              "12.3400"
+            ],
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "from_account_id": {
+            "format": "uuid",
+            "title": "From Account Id",
+            "type": "string"
+          },
+          "savings_goal_id": {
+            "format": "uuid",
+            "title": "Savings Goal Id",
+            "type": "string"
+          },
+          "transaction_at": {
+            "format": "date-time",
+            "title": "Transaction At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_account_id",
+          "savings_goal_id",
+          "amount",
+          "transaction_at"
+        ],
+        "title": "SavingsTransferCreateRequest",
+        "type": "object"
+      },
+      "SavingsTransferResponse": {
+        "properties": {
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "contribution_id": {
+            "format": "uuid",
+            "title": "Contribution Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "debit_transaction_id": {
+            "format": "uuid",
+            "title": "Debit Transaction Id",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "from_account_id": {
+            "format": "uuid",
+            "title": "From Account Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "savings_goal_id": {
+            "format": "uuid",
+            "title": "Savings Goal Id",
+            "type": "string"
+          },
+          "transaction_at": {
+            "format": "date-time",
+            "title": "Transaction At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from_account_id",
+          "savings_goal_id",
+          "debit_transaction_id",
+          "contribution_id",
+          "amount",
+          "currency",
+          "transaction_at",
+          "description",
+          "created_at"
+        ],
+        "title": "SavingsTransferResponse",
+        "type": "object"
+      },
       "SpendingByCategoryItemResponse": {
         "properties": {
           "amount": {
@@ -5941,6 +6062,72 @@
           }
         ],
         "summary": "Create Transaction",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
+    "/api/v1/transactions/savings-transfers": {
+      "post": {
+        "operationId": "create_savings_transfer_api_v1_transactions_savings_transfers_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsTransferCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsTransferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Savings Transfer",
         "tags": [
           "transactions"
         ]

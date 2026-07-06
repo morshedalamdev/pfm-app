@@ -549,6 +549,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transactions/savings-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Savings Transfer */
+        post: operations["create_savings_transfer_api_v1_transactions_savings_transfers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions/transfers": {
         parameters: {
             query?: never;
@@ -1523,6 +1540,76 @@ export interface components {
             target_amount?: string | null;
             /** Target Date */
             target_date?: string | null;
+        };
+        /** SavingsTransferCreateRequest */
+        SavingsTransferCreateRequest: {
+            /**
+             * Amount
+             * @description Decimal string with up to 18 digits and 4 decimal places.
+             * @example 12.3400
+             */
+            amount: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * From Account Id
+             * Format: uuid
+             */
+            from_account_id: string;
+            /**
+             * Savings Goal Id
+             * Format: uuid
+             */
+            savings_goal_id: string;
+            /**
+             * Transaction At
+             * Format: date-time
+             */
+            transaction_at: string;
+        };
+        /** SavingsTransferResponse */
+        SavingsTransferResponse: {
+            /** Amount */
+            amount: string;
+            /**
+             * Contribution Id
+             * Format: uuid
+             */
+            contribution_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Debit Transaction Id
+             * Format: uuid
+             */
+            debit_transaction_id: string;
+            /** Description */
+            description: string | null;
+            /**
+             * From Account Id
+             * Format: uuid
+             */
+            from_account_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Savings Goal Id
+             * Format: uuid
+             */
+            savings_goal_id: string;
+            /**
+             * Transaction At
+             * Format: date-time
+             */
+            transaction_at: string;
         };
         /** SpendingByCategoryItemResponse */
         SpendingByCategoryItemResponse: {
@@ -3311,6 +3398,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_savings_transfer_api_v1_transactions_savings_transfers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavingsTransferCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsTransferResponse"];
                 };
             };
             /** @description Validation Error */

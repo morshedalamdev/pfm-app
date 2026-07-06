@@ -27,13 +27,13 @@ from app.modules.transactions.pagination import (
 )
 from app.modules.transactions.repositories import TransactionRepository
 from app.modules.transactions.schemas import (
+    SavingsTransferCreateRequest,
+    SavingsTransferResponse,
     TransactionCreateRequest,
     TransactionFilterType,
     TransactionListResponse,
     TransactionResponse,
     TransactionUpdateRequest,
-    SavingsTransferCreateRequest,
-    SavingsTransferResponse,
     TransferCreateRequest,
     TransferResponse,
 )
@@ -454,7 +454,11 @@ class TransactionService:
         idempotency_key: str,
         request_payload: dict[str, object],
         current_user: User,
-        response_model: type[TransactionResponse] | type[TransferResponse],
+        response_model: (
+            type[TransactionResponse]
+            | type[TransferResponse]
+            | type[SavingsTransferResponse]
+        ),
     ) -> TransactionResponse | TransferResponse | SavingsTransferResponse | None:
         record = await self.get_idempotency_record(
             operation=operation,

@@ -154,7 +154,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.V Final readiness verification | PASSED | verification commit created after this state update | Ran the final backend, frontend, contract, E2E, Compose, migration, health, frontend reachability, and worker-log verification matrix; added release readiness documentation and confirmed readiness with documented external configuration. |
 | 11 | 11.1 Budget setup UX repair | PASSED | phase commit created after this state update | Added milestone 11 plan, made budget setup Details read-only, kept Custom editable, renamed Monthly Budget labels, and loaded/saved current-month global budget amount. |
 | 11 | 11.2 Savings goal month targeting | PASSED | phase commit created after this state update | Savings goal create/edit now uses selected target months, calculates monthly saving as read-only, and persists compatible monthly target plus derived target date through existing APIs. |
-| 11 | 11.3 Savings transfer mutation | NOT_STARTED | — | — |
+| 11 | 11.3 Savings transfer mutation | PASSED | phase commit created after this state update | Added atomic account-to-savings transfer mutation with idempotency, generated API contract updates, and transaction form savings-goal destinations. |
 | 11 | 11.4 Loan and debt backend | NOT_STARTED | — | — |
 | 11 | 11.5 Loan and debt frontend | NOT_STARTED | — | — |
 | 11 | 11.6 Settings monthly currency guard | NOT_STARTED | — | — |
@@ -1037,6 +1037,8 @@ Phase 11.1 added no backend endpoints and changed no backend API contracts. The 
 
 Phase 11.2 added no backend endpoints and changed no backend API contracts. The frontend savings goal create/edit form now uses selected target months while continuing to persist through the existing savings-goal create/update payload fields `monthly_target_amount` and `target_date`.
 
+Phase 11.3 added `POST /api/v1/transactions/savings-transfers`, an authenticated retryable mutation that debits the selected source account with a `transfer_debit` transaction source record and creates a savings contribution for the selected active savings goal in the same database transaction. The endpoint requires `Idempotency-Key`, rejects invalid/cross-user/archived source accounts, inactive or cross-user savings goals, currency mismatches, float money payloads, and timezone-naive timestamps. The frontend transaction form now shows active savings goals as `To` destinations in the existing transfer tab.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1160,6 +1162,8 @@ Phase 10.4 post-verification repair created no migrations.
 Phase 11.1 created no migrations. It reuses the existing budget schema and endpoints.
 
 Phase 11.2 created no migrations. It reuses the existing savings goal schema and endpoints.
+
+Phase 11.3 created no migrations. It reuses the existing `transactions`, `savings_goals`, `savings_contributions`, and `idempotency_records` tables.
 
 ## 11. Environment variables
 
@@ -1417,6 +1421,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 11.2 savings goal month targeting variables
+
+- No new environment variables were added.
+
+### Phase 11.3 savings transfer mutation variables
 
 - No new environment variables were added.
 
@@ -2325,6 +2333,25 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
 | `git diff --check` | PASS | Whitespace check passed. |
 
+### Phase 11.3 savings transfer mutation commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` before continuing phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full backend format check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_transactions.py` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL; approved focused transaction suite passed: 16 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_finance_contracts.py` | PASS | Finance OpenAPI contract tests passed: 3 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL after 58 DB-free tests passed; approved full backend suite passed: 151 passed, 1 warning. |
+| `cd client && npm run api:generate` | PASS | Regenerated committed OpenAPI JSON and TypeScript API types for the savings-transfer endpoint. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after transaction form savings destination wiring. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2389,6 +2416,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 10.4 post-verification Compose frontend API URL repair is passed with external Docker/network verification blocked by the environment usage limit. Next allowed action is to run the local Compose rebuild and push the `final-audit` branch after user permission.
 - Phase 11.1 budget setup UX repair is passed. Next allowed phase is 11.2, Savings goal month targeting, after user permission.
 - Phase 11.2 savings goal month targeting is passed. Next allowed phase is 11.3, Savings transfer mutation, after user permission.
+- Phase 11.3 savings transfer mutation is passed. Next allowed phase is 11.4, Loan and debt backend, after user permission.
 
 ## 14. Progress log
 
@@ -2460,3 +2488,4 @@ Append a dated entry after every completed phase.
 - 2026-07-03: Phase 10.4 post-verification Compose frontend API URL repair passed. Added runtime frontend API configuration generated by the container entrypoint, derived default Compose `NEXT_PUBLIC_API_BASE_URL` from `API_PORT`, tagged frontend images by API port to avoid stale wrong-port reuse after failed builds, documented the port override workflow, and recorded that Docker/network verification was blocked by the local usage limit.
 - 2026-07-04: Phase 11.1 budget setup UX repair passed. Added `milestones/11_PRODUCT_REPAIRS.md`, moved budget setup to a read-only Details tab by default, kept Custom as the only editable tab, changed Monthly Income wording to Monthly Budget, loaded/saved the current-month global monthly budget amount with existing budget APIs, preserved category budget create/update/delete behavior, and set the next allowed phase to 11.2.
 - 2026-07-04: Phase 11.2 savings goal month targeting passed. Replaced savings goal target-date entry with selected target months, made Monthly Saving read-only and calculated from target amount divided by months, preserved existing savings-goal API compatibility by saving the calculated monthly target and derived target date, and set the next allowed phase to 11.3.
+- 2026-07-06: Phase 11.3 savings transfer mutation passed. Added authenticated account-to-savings transfer mutation with atomic account debit and savings contribution source records, idempotent replay/conflict protection, generated OpenAPI TypeScript updates, transaction form `To` savings-goal destinations, backend validation/rollback/replay coverage, and set the next allowed phase to 11.4.

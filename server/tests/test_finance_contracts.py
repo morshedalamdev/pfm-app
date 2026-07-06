@@ -17,6 +17,8 @@ def test_finance_openapi_money_fields_are_decimal_strings() -> None:
         ("TransactionResponse", "amount"),
         ("TransferCreateRequest", "amount"),
         ("TransferResponse", "amount"),
+        ("SavingsTransferCreateRequest", "amount"),
+        ("SavingsTransferResponse", "amount"),
     ]:
         assert_decimal_string_schema(schemas[schema_name]["properties"][field_name])
 
@@ -58,7 +60,11 @@ def test_finance_openapi_transaction_list_contract() -> None:
 def test_finance_openapi_idempotency_headers_on_retryable_creates() -> None:
     schema = create_app().openapi()
 
-    for path in ["/api/v1/transactions", "/api/v1/transactions/transfers"]:
+    for path in [
+        "/api/v1/transactions",
+        "/api/v1/transactions/transfers",
+        "/api/v1/transactions/savings-transfers",
+    ]:
         post_operation = schema["paths"][path]["post"]
         headers = {
             parameter["name"]: parameter

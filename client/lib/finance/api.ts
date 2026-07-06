@@ -21,6 +21,8 @@ export type SavingsGoalCreate =
   components["schemas"]["SavingsGoalCreateRequest"];
 export type SavingsGoalUpdate =
   components["schemas"]["SavingsGoalUpdateRequest"];
+export type SavingsTransferCreate =
+  components["schemas"]["SavingsTransferCreateRequest"];
 export type Transaction = components["schemas"]["TransactionResponse"];
 export type TransactionCreate =
   components["schemas"]["TransactionCreateRequest"];
@@ -33,6 +35,8 @@ type BudgetList = components["schemas"]["BudgetListResponse"];
 type CategoryList = components["schemas"]["CategoryListResponse"];
 type RecurringRule = components["schemas"]["RecurringRuleResponse"];
 type SavingsGoalList = components["schemas"]["SavingsGoalListResponse"];
+type SavingsTransferResponse =
+  components["schemas"]["SavingsTransferResponse"];
 type TransactionList = components["schemas"]["TransactionListResponse"];
 type TransferResponse = components["schemas"]["TransferResponse"];
 
@@ -136,6 +140,16 @@ export function createTransfer(body: TransferCreate) {
     "/api/v1/transactions/transfers",
     body,
     { headers: { "Idempotency-Key": createIdempotencyKey("transfer") } },
+  );
+}
+
+export function createSavingsTransfer(body: SavingsTransferCreate) {
+  return apiPost<SavingsTransferCreate, SavingsTransferResponse>(
+    "/api/v1/transactions/savings-transfers",
+    body,
+    {
+      headers: { "Idempotency-Key": createIdempotencyKey("savings-transfer") },
+    },
   );
 }
 
