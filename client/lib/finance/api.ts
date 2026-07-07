@@ -12,6 +12,21 @@ export type Budget = components["schemas"]["BudgetResponse"];
 export type BudgetCreate = components["schemas"]["BudgetCreateRequest"];
 export type BudgetUpdate = components["schemas"]["BudgetUpdateRequest"];
 export type Category = components["schemas"]["CategoryResponse"];
+export type LoanPerson = components["schemas"]["LoanPersonResponse"];
+export type LoanPersonCreate =
+  components["schemas"]["LoanPersonCreateRequest"];
+export type LoanPersonUpdate =
+  components["schemas"]["LoanPersonUpdateRequest"];
+export type LoanRecord = components["schemas"]["LoanRecordResponse"];
+export type LoanRecordCreate =
+  components["schemas"]["LoanRecordCreateRequest"];
+export type LoanRecordUpdate =
+  components["schemas"]["LoanRecordUpdateRequest"];
+export type LoanSettlement =
+  components["schemas"]["LoanSettlementResponse"];
+export type LoanSettlementCreate =
+  components["schemas"]["LoanSettlementCreateRequest"];
+export type LoanSummary = components["schemas"]["LoanSummaryResponse"];
 export type RecurringRuleCreate =
   components["schemas"]["RecurringRuleCreateRequest"];
 export type SavingsContributionCreate =
@@ -33,6 +48,9 @@ export type TransferCreate = components["schemas"]["TransferCreateRequest"];
 type AccountList = components["schemas"]["AccountListResponse"];
 type BudgetList = components["schemas"]["BudgetListResponse"];
 type CategoryList = components["schemas"]["CategoryListResponse"];
+type LoanPersonList = components["schemas"]["LoanPersonListResponse"];
+type LoanRecordList = components["schemas"]["LoanRecordListResponse"];
+type LoanSettlementList = components["schemas"]["LoanSettlementListResponse"];
 type RecurringRule = components["schemas"]["RecurringRuleResponse"];
 type SavingsGoalList = components["schemas"]["SavingsGoalListResponse"];
 type SavingsTransferResponse =
@@ -45,6 +63,8 @@ export type TransactionTypeFilter =
   | "income"
   | "expense"
   | "transfer";
+export type LoanDirectionFilter = "all" | "given" | "taken";
+export type LoanStatusFilter = "all" | "open" | "settled" | "archived";
 
 export function apiPath(path: string): ApiPath {
   return path as ApiPath;
@@ -217,6 +237,94 @@ export function createSavingsContribution(
 export function createRecurringRule(body: RecurringRuleCreate) {
   return apiPost<RecurringRuleCreate, RecurringRule>(
     "/api/v1/recurring-rules",
+    body,
+  );
+}
+
+export async function listLoanPeople(
+  includeArchived = false,
+): Promise<LoanPerson[]> {
+  const response = await apiGet<LoanPersonList>("/api/v1/loans/people", {
+    params: { include_archived: includeArchived, limit: 100 },
+  });
+  return response.items;
+}
+
+export function createLoanPerson(body: LoanPersonCreate) {
+  return apiPost<LoanPersonCreate, LoanPerson>("/api/v1/loans/people", body);
+}
+
+export function updateLoanPerson(id: string, body: LoanPersonUpdate) {
+  return apiPatch<LoanPersonUpdate, LoanPerson>(
+    apiPath(`/api/v1/loans/people/${id}`),
+    body,
+  );
+}
+
+export function deleteLoanPerson(id: string) {
+  return apiDelete<LoanPerson>(apiPath(`/api/v1/loans/people/${id}`));
+}
+
+export async function listLoanRecords(params?: {
+  direction?: LoanDirectionFilter;
+  personId?: string;
+  status?: LoanStatusFilter;
+}): Promise<LoanRecord[]> {
+  const response = await apiGet<LoanRecordList>("/api/v1/loans/records", {
+    params: {
+      direction:
+        params?.direction && params.direction !== "all"
+          ? params.direction
+          : undefined,
+      limit: 100,
+      person_id: params?.personId,
+      status: params?.status ?? "all",
+    },
+  });
+  return response.items;
+}
+
+export function getLoanRecord(id: string) {
+  return apiGet<LoanRecord>(apiPath(`/api/v1/loans/records/${id}`));
+}
+
+export function createLoanRecord(body: LoanRecordCreate) {
+  return apiPost<LoanRecordCreate, LoanRecord>("/api/v1/loans/records", body);
+}
+
+export function updateLoanRecord(id: string, body: LoanRecordUpdate) {
+  return apiPatch<LoanRecordUpdate, LoanRecord>(
+    apiPath(`/api/v1/loans/records/${id}`),
+    body,
+  );
+}
+
+export function deleteLoanRecord(id: string) {
+  return apiDelete<LoanRecord>(apiPath(`/api/v1/loans/records/${id}`));
+}
+
+export function getLoanSummary(currency?: string) {
+  return apiGet<LoanSummary>("/api/v1/loans/summary", {
+    params: { currency },
+  });
+}
+
+export async function listLoanSettlements(
+  recordId: string,
+): Promise<LoanSettlement[]> {
+  const response = await apiGet<LoanSettlementList>(
+    apiPath(`/api/v1/loans/records/${recordId}/settlements`),
+    { params: { limit: 100 } },
+  );
+  return response.items;
+}
+
+export function createLoanSettlement(
+  recordId: string,
+  body: LoanSettlementCreate,
+) {
+  return apiPost<LoanSettlementCreate, LoanSettlement>(
+    apiPath(`/api/v1/loans/records/${recordId}/settlements`),
     body,
   );
 }

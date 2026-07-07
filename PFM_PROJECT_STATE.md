@@ -156,7 +156,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 11 | 11.2 Savings goal month targeting | PASSED | phase commit created after this state update | Savings goal create/edit now uses selected target months, calculates monthly saving as read-only, and persists compatible monthly target plus derived target date through existing APIs. |
 | 11 | 11.3 Savings transfer mutation | PASSED | phase commit created after this state update | Added atomic account-to-savings transfer mutation with idempotency, generated API contract updates, and transaction form savings-goal destinations. |
 | 11 | 11.4 Loan and debt backend | PASSED | phase commit created after this state update | Added loan/debt people, given/taken records, partial settlements, summaries, migration, OpenAPI contract updates, and backend coverage. |
-| 11 | 11.5 Loan and debt frontend | NOT_STARTED | — | — |
+| 11 | 11.5 Loan and debt frontend | PASSED | phase commit created after this state update | Connected loan/debt frontend pages to server data for people, given/taken records, summaries, create/edit, and partial settlement behavior. |
 | 11 | 11.6 Settings monthly currency guard | NOT_STARTED | — | — |
 | 11 | 11.V Product repair verification | NOT_STARTED | — | — |
 
@@ -1041,6 +1041,8 @@ Phase 11.3 added `POST /api/v1/transactions/savings-transfers`, an authenticated
 
 Phase 11.4 added authenticated loan/debt endpoints under `/api/v1/loans`: `POST /people`, `GET /people`, `GET /people/{person_id}`, `PATCH /people/{person_id}`, `DELETE /people/{person_id}`, `POST /records`, `GET /records`, `GET /records/{record_id}`, `PATCH /records/{record_id}`, `DELETE /records/{record_id}`, `POST /records/{record_id}/settlements`, `GET /records/{record_id}/settlements`, and `GET /summary`. People are owned by user, allow duplicate names, require unique phone numbers per user, and archive safely. Records support `given` and `taken` directions, source settlement rows support partial settlement, and summary totals derive outstanding given/taken amounts plus net due loan for the selected or profile currency. No frontend loan page integration was added in this phase.
 
+Phase 11.5 added no backend endpoints and changed no backend API contracts. The frontend loan/debt list and create/edit routes now consume the existing `/api/v1/loans/people`, `/api/v1/loans/records`, `/api/v1/loans/records/{record_id}/settlements`, and `/api/v1/loans/summary` endpoints for people management, given/taken records, summaries, and partial settlements.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1168,6 +1170,8 @@ Phase 11.2 created no migrations. It reuses the existing savings goal schema and
 Phase 11.3 created no migrations. It reuses the existing `transactions`, `savings_goals`, `savings_contributions`, and `idempotency_records` tables.
 
 Phase 11.4 created Alembic migration `202607061104_add_loan_debt_schema.py` for `loan_people`, `loan_records`, and `loan_settlements`. The migration enforces user ownership, per-user unique phone numbers, composite user-owned foreign keys, supported loan directions/statuses, positive NUMERIC money values, and settlement/archive consistency. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against a disposable PostgreSQL database.
+
+Phase 11.5 created no migrations. The required E2E check applied existing migrations through `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -1433,6 +1437,10 @@ Committed template: `server/.env.example`.
 - No new environment variables were added.
 
 ### Phase 11.4 loan and debt backend variables
+
+- No new environment variables were added.
+
+### Phase 11.5 loan and debt frontend variables
 
 - No new environment variables were added.
 
@@ -2376,6 +2384,19 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
 | `git diff --check` | PASS | Whitespace check passed. |
 
+### Phase 11.5 loan and debt frontend commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` with Phase 11.5 frontend worktree changes. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after loan/debt API helper, list, form, item, filter, and E2E changes. |
+| `cd client && npm run build` | PASS with approval | Required production build passed with approved network access for Google Fonts after final E2E edits. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run e2e` | PASS with approval after repair | Required full-stack E2E started disposable PostgreSQL, applied migrations through `202607061104_add_loan_debt_schema.py`, started FastAPI and Next.js, seeded loan people/records/settlements, verified loan/debt server data including two `E2E Friend` rows and visible `$250.00` outstanding, checked loan responsiveness at mobile/tablet/desktop widths, and confirmed transaction create account/category/date-picker dependencies. Final result: 1 passed. |
+| `git diff --check` | PASS | Whitespace check passed after final E2E edits and state recording preparation. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2442,6 +2463,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 11.2 savings goal month targeting is passed. Next allowed phase is 11.3, Savings transfer mutation, after user permission.
 - Phase 11.3 savings transfer mutation is passed. Next allowed phase is 11.4, Loan and debt backend, after user permission.
 - Phase 11.4 loan and debt backend is passed. Next allowed phase is 11.5, Loan and debt frontend, after user permission.
+- Phase 11.5 loan and debt frontend is passed. Next allowed phase is 11.6, Settings monthly currency guard, after user permission.
 
 ## 14. Progress log
 
@@ -2515,3 +2537,5 @@ Append a dated entry after every completed phase.
 - 2026-07-04: Phase 11.2 savings goal month targeting passed. Replaced savings goal target-date entry with selected target months, made Monthly Saving read-only and calculated from target amount divided by months, preserved existing savings-goal API compatibility by saving the calculated monthly target and derived target date, and set the next allowed phase to 11.3.
 - 2026-07-06: Phase 11.3 savings transfer mutation passed. Added authenticated account-to-savings transfer mutation with atomic account debit and savings contribution source records, idempotent replay/conflict protection, generated OpenAPI TypeScript updates, transaction form `To` savings-goal destinations, backend validation/rollback/replay coverage, and set the next allowed phase to 11.4.
 - 2026-07-06: Phase 11.4 loan and debt backend passed. Added user-owned loan people with per-user unique phone numbers, given/taken loan records, partial settlement source rows, outstanding and net due summaries, Alembic migration `202607061104`, generated OpenAPI TypeScript updates, backend validation/ownership/settlement coverage, and set the next allowed phase to 11.5.
+- 2026-07-06: Phase 11.5 loan and debt frontend blocked. Implemented server-backed loan/debt people management, given/taken records, summaries, create/edit form, filters, list items, detail drawers, and partial settlement UI, and added E2E seeding/assertions for loan records. TypeScript, optional lint/test no-ops, API contract, and whitespace checks pass; production build passed with approval before final E2E-only edits. Final E2E verification remains blocked by the environment approval usage limit after the last selector repair, so the next allowed action is rerunning Phase 11.5 E2E verification after approval capacity is restored.
+- 2026-07-07: Phase 11.5 loan and debt frontend passed on retry. Connected loan/debt list and create/edit pages to `/api/v1/loans` people, records, settlement, and summary APIs; added people management, given/taken filters, summary cards, detail drawers, partial settlement UI, loading/empty/error/mutation states, loan-focused E2E seeding and responsive assertions; verified required TypeScript, production build, optional lint/test, API contract, E2E, and whitespace checks; and set the next allowed phase to 11.6.
