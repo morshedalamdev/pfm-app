@@ -18,6 +18,7 @@ class UserResponse(BaseModel):
     occupation: str | None
     about: str | None
     base_currency: str = DEFAULT_BASE_CURRENCY
+    base_currency_changed_at: datetime | None
     is_active: bool
     created_at: datetime
 

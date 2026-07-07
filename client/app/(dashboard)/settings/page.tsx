@@ -47,6 +47,9 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const isLoading = status === "loading" && !user;
+  const currentCurrency =
+    CURRENCY_OPTIONS.find((option) => option.value === user?.base_currency) ??
+    CURRENCY_OPTIONS[0];
 
   useEffect(() => {
     if (status === "idle") {
@@ -74,11 +77,15 @@ export default function SettingsPage() {
       useAuthStore.setState({ user: updatedUser });
       setMessage("Settings updated.");
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unable to update settings. Please try again.",
-      );
+      if (err instanceof ApiError && err.kind === "conflict") {
+        setError("Currency can only be changed once per month.");
+      } else {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Unable to update settings. Please try again.",
+        );
+      }
     } finally {
       setIsSaving(false);
     }
@@ -94,6 +101,9 @@ export default function SettingsPage() {
           <FieldSet>
             <FieldGroup>
               <Field data-invalid={Boolean(error)}>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Current currency: {currentCurrency.label}
+                </p>
                 <InputGroup>
                   <Select
                     value={currency}

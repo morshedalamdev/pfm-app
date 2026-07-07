@@ -31,12 +31,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await openFooterMenu(page);
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/settings$/);
-  await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: "BDT - Bangladeshi Taka" }).click();
-  await page.getByRole("button", { name: "Save Settings" }).click();
-  await expect(page.getByText("Settings updated.")).toBeVisible();
-  await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: "USD - US Dollar" }).click();
+  await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
   await page.getByRole("button", { name: "Save Settings" }).click();
   await expect(page.getByText("Settings updated.")).toBeVisible();
   await page.goto("/");
@@ -184,6 +179,20 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
   await page.keyboard.press("Escape");
   await assertDateSelectionStyle(page);
+
+  await page.goto("/settings");
+  await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "BDT - Bangladeshi Taka" }).click();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Settings updated.")).toBeVisible();
+  await expect(page.getByText("Current currency: BDT - Bangladeshi Taka")).toBeVisible();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "USD - US Dollar" }).click();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(
+    page.getByText("Currency can only be changed once per month."),
+  ).toBeVisible();
 });
 
 async function postJson(api, path, body, headers = {}) {

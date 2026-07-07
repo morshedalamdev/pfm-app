@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,6 +27,19 @@ async def update_current_user(
 ) -> UserResponse:
     repository = UserRepository(session)
     updates = request.model_dump(exclude_unset=True)
+    requested_currency = updates.get("base_currency")
+    if (
+        isinstance(requested_currency, str)
+        and requested_currency != current_user.base_currency
+    ):
+        now = datetime.now(UTC)
+        if was_changed_this_month(current_user.base_currency_changed_at, now):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Currency can only be changed once per month.",
+            )
+        current_user.base_currency_changed_at = now
+
     for field_name, value in updates.items():
         setattr(current_user, field_name, value)
 
@@ -40,3 +54,14 @@ async def update_current_user(
 
     await repository.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+def was_changed_this_month(
+    changed_at: datetime | None,
+    now: datetime,
+) -> bool:
+    if changed_at is None:
+        return False
+    changed_at_utc = changed_at.astimezone(UTC)
+    now_utc = now.astimezone(UTC)
+    return changed_at_utc.year == now_utc.year and changed_at_utc.month == now_utc.month

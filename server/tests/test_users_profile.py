@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from app.core.database import (
     get_session_from_factory,
 )
 from app.main import create_app
+from app.modules.users.router import was_changed_this_month
 
 
 def build_alembic_config(database_url: str) -> Config:
@@ -76,6 +78,7 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     assert body["occupation"] == "business"
     assert body["about"] == "Building a calmer money cockpit."
     assert body["base_currency"] == "EUR"
+    assert body["base_currency_changed_at"] is not None
     assert "password" not in body
     assert "password_hash" not in body
 
@@ -86,6 +89,74 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     assert me_response.status_code == 200
     assert me_response.json()["full_name"] == "Profile Owner"
     assert me_response.json()["base_currency"] == "EUR"
+    assert (
+        me_response.json()["base_currency_changed_at"]
+        == body["base_currency_changed_at"]
+    )
+
+
+def test_current_user_profile_allows_same_currency_after_monthly_change(
+    profile_client: TestClient,
+) -> None:
+    tokens = register_and_login(profile_client, "profile-same-currency@example.com")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    first_response = profile_client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "BDT"},
+    )
+    assert first_response.status_code == 200
+
+    same_currency_response = profile_client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "BDT", "full_name": "Same Currency"},
+    )
+
+    assert same_currency_response.status_code == 200
+    body = same_currency_response.json()
+    assert body["base_currency"] == "BDT"
+    assert body["full_name"] == "Same Currency"
+    assert (
+        body["base_currency_changed_at"]
+        == first_response.json()["base_currency_changed_at"]
+    )
+
+
+def test_current_user_profile_rejects_second_currency_change_this_month(
+    profile_client: TestClient,
+) -> None:
+    tokens = register_and_login(profile_client, "profile-monthly-guard@example.com")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    first_response = profile_client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "BDT"},
+    )
+    assert first_response.status_code == 200
+
+    second_response = profile_client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "EUR"},
+    )
+
+    assert second_response.status_code == 409
+    assert (
+        second_response.json()["error"]["message"]
+        == "Currency can only be changed once per month."
+    )
+
+
+def test_currency_change_month_check_uses_utc_calendar_month() -> None:
+    now = datetime(2026, 7, 7, 12, 0, tzinfo=UTC)
+
+    assert was_changed_this_month(datetime(2026, 7, 1, 0, 1, tzinfo=UTC), now) is True
+    assert (
+        was_changed_this_month(datetime(2026, 6, 30, 23, 59, tzinfo=UTC), now) is False
+    )
 
 
 def test_current_user_profile_rejects_invalid_base_currency(

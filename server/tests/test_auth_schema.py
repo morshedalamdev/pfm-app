@@ -43,6 +43,7 @@ def test_user_model_schema() -> None:
         "occupation",
         "about",
         "base_currency",
+        "base_currency_changed_at",
         "is_active",
         "created_at",
         "updated_at",
@@ -55,6 +56,7 @@ def test_user_model_schema() -> None:
     assert table.columns.about.type.length == 1000
     assert table.columns.base_currency.type.length == 3
     assert table.columns.base_currency.nullable is False
+    assert table.columns.base_currency_changed_at.nullable is True
     assert table.columns.is_active.nullable is False
     assert "uq_users_email" in constraint_names(
         [

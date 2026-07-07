@@ -3739,6 +3739,18 @@
             "title": "Base Currency",
             "type": "string"
           },
+          "base_currency_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Currency Changed At"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -3798,6 +3810,7 @@
           "phone_number",
           "occupation",
           "about",
+          "base_currency_changed_at",
           "is_active",
           "created_at"
         ],

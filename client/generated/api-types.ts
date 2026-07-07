@@ -2139,6 +2139,8 @@ export interface components {
              * @default USD
              */
             base_currency: string;
+            /** Base Currency Changed At */
+            base_currency_changed_at: string | null;
             /**
              * Created At
              * Format: date-time

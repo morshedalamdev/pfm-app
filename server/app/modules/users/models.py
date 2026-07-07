@@ -30,6 +30,10 @@ class User(Base):
         default="USD",
         server_default="USD",
     )
+    base_currency_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
