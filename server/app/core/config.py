@@ -1,8 +1,12 @@
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+LOCAL_ACCESS_TOKEN_SECRET = "local-development-access-token-secret-change-me"
+LOCAL_REFRESH_TOKEN_SECRET = "local-development-refresh-token-secret-change-me"
 
 
 class Settings(BaseSettings):
@@ -17,17 +21,14 @@ class Settings(BaseSettings):
         ]
     )
     database_url: str = "postgresql+asyncpg://pfm_app@localhost:5432/pfm_app"
+    migration_database_url: str | None = None
     database_echo: bool = False
     database_pool_size: int = 5
     database_max_overflow: int = 10
-    access_token_secret_key: SecretStr = SecretStr(
-        "local-development-access-token-secret-change-me",
-    )
+    access_token_secret_key: SecretStr = SecretStr(LOCAL_ACCESS_TOKEN_SECRET)
     access_token_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=15, gt=0, le=60)
-    refresh_token_secret_key: SecretStr = SecretStr(
-        "local-development-refresh-token-secret-change-me",
-    )
+    refresh_token_secret_key: SecretStr = SecretStr(LOCAL_REFRESH_TOKEN_SECRET)
     refresh_token_expire_days: int = Field(default=30, gt=0, le=365)
     recurring_worker_batch_size: int = Field(default=25, gt=0, le=1000)
     recurring_worker_lock_seconds: int = Field(default=60, gt=0, le=3600)
@@ -55,6 +56,69 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("database_url", "migration_database_url", mode="before")
+    @classmethod
+    def normalize_postgres_url(cls, value: object) -> object:
+        if value is None or not isinstance(value, str):
+            return value
+
+        parsed = urlsplit(value)
+        if parsed.scheme in {"postgres", "postgresql"}:
+            scheme = "postgresql+asyncpg"
+        elif parsed.scheme == "postgresql+asyncpg":
+            scheme = parsed.scheme
+        else:
+            raise ValueError("PostgreSQL URLs must use the asyncpg driver")
+
+        query: list[tuple[str, str]] = []
+        for key, query_value in parse_qsl(parsed.query, keep_blank_values=True):
+            if key == "channel_binding":
+                continue
+            if key == "sslmode":
+                key = "ssl"
+            query.append((key, query_value))
+
+        return urlunsplit(
+            (
+                scheme,
+                parsed.netloc,
+                parsed.path,
+                urlencode(query),
+                parsed.fragment,
+            )
+        )
+
+    @model_validator(mode="after")
+    def validate_production_safety(self) -> "Settings":
+        if self.app_env != "production":
+            return self
+
+        if self.debug:
+            raise ValueError("DEBUG must be false in production")
+
+        secrets = {
+            "ACCESS_TOKEN_SECRET_KEY": (
+                self.access_token_secret_key.get_secret_value(),
+                LOCAL_ACCESS_TOKEN_SECRET,
+            ),
+            "REFRESH_TOKEN_SECRET_KEY": (
+                self.refresh_token_secret_key.get_secret_value(),
+                LOCAL_REFRESH_TOKEN_SECRET,
+            ),
+        }
+        for name, (value, local_default) in secrets.items():
+            if value == local_default or len(value) < 32:
+                raise ValueError(f"{name} must be a unique secret of at least 32 chars")
+
+        if not self.cors_origins or any(
+            not origin.startswith("https://") for origin in self.cors_origins
+        ):
+            raise ValueError(
+                "CORS_ORIGINS must contain explicit HTTPS origins in production"
+            )
+
+        return self
 
 
 @lru_cache

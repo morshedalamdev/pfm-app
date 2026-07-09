@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +20,7 @@ def test_database_settings_defaults_are_safe_local_values() -> None:
     assert (
         settings.database_url == "postgresql+asyncpg://pfm_app@localhost:5432/pfm_app"
     )
+    assert settings.migration_database_url is None
     assert settings.database_echo is False
     assert settings.database_pool_size == 5
     assert settings.database_max_overflow == 10
@@ -40,6 +42,62 @@ def test_database_settings_defaults_are_safe_local_values() -> None:
         "image/png",
         "image/webp",
     ]
+
+
+def test_neon_database_urls_are_normalized_for_sqlalchemy_asyncpg() -> None:
+    settings = Settings(
+        database_url=(
+            "postgresql://user:password@example-pooler.neon.tech/database"
+            "?sslmode=require&channel_binding=require"
+        ),
+        migration_database_url=(
+            "postgres://user:password@example.neon.tech/database"
+            "?sslmode=require&channel_binding=require"
+        ),
+    )
+
+    assert settings.database_url == (
+        "postgresql+asyncpg://user:password@example-pooler.neon.tech/database"
+        "?ssl=require"
+    )
+    assert settings.migration_database_url == (
+        "postgresql+asyncpg://user:password@example.neon.tech/database?ssl=require"
+    )
+
+
+def test_database_url_rejects_non_async_postgres_drivers() -> None:
+    with pytest.raises(ValidationError, match="asyncpg driver"):
+        Settings(database_url="sqlite+aiosqlite:///pfm.db")
+
+
+def test_production_settings_reject_local_secrets() -> None:
+    with pytest.raises(ValidationError, match="ACCESS_TOKEN_SECRET_KEY"):
+        Settings(
+            app_env="production",
+            cors_origins=["https://pfm.example.com"],
+        )
+
+
+def test_production_settings_require_https_cors_origins() -> None:
+    with pytest.raises(ValidationError, match="explicit HTTPS origins"):
+        Settings(
+            app_env="production",
+            cors_origins=["http://pfm.example.com"],
+            access_token_secret_key="a" * 32,
+            refresh_token_secret_key="b" * 32,
+        )
+
+
+def test_production_settings_accept_secure_explicit_values() -> None:
+    settings = Settings(
+        app_env="production",
+        debug=False,
+        cors_origins=["https://pfm.example.com"],
+        access_token_secret_key="a" * 32,
+        refresh_token_secret_key="b" * 32,
+    )
+
+    assert settings.app_env == "production"
 
 
 def test_base_metadata_uses_naming_convention() -> None:

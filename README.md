@@ -234,6 +234,7 @@ disposable local PostgreSQL, FastAPI, and Next.js stack.
 - UI/API mapping: `docs/architecture/UI_API_MATRIX.md`
 - CI: `docs/development/CI.md`
 - Deployment: `docs/deployment/DEPLOYMENT.md`
+- Render + Neon: `docs/deployment/RENDER_NEON.md`
 - Backend details: `server/README.md`
 
 ## Milestone Workflow

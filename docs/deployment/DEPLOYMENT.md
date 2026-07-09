@@ -1,9 +1,11 @@
 # Production Deployment
 
 This document records the production deployment topology and environment setup
-for the implemented FastAPI, worker, PostgreSQL, and Next.js application. It is
-provider-neutral until a hosting target, image registry, API domain, storage
-provider, and email provider are selected.
+for the implemented FastAPI, worker, PostgreSQL, and Next.js application.
+
+The selected database and backend providers are Neon and Render. Follow
+[`RENDER_NEON.md`](./RENDER_NEON.md) for the concrete deployment procedure.
+Storage and email providers remain unselected.
 
 ## Topology
 
@@ -37,6 +39,7 @@ Backend API and worker:
 - `API_V1_PREFIX`
 - `CORS_ORIGINS`
 - `DATABASE_URL`
+- `MIGRATION_DATABASE_URL`
 - `DATABASE_ECHO=false`
 - `DATABASE_POOL_SIZE`
 - `DATABASE_MAX_OVERFLOW`
@@ -58,6 +61,8 @@ Backend API and worker:
 - `EMAIL_FROM_ADDRESS`
 - `RECEIPT_MAX_UPLOAD_BYTES`
 - `RECEIPT_ALLOWED_CONTENT_TYPES`
+- `PORT`
+- `RUN_MIGRATIONS`
 
 Frontend:
 
@@ -166,7 +171,7 @@ object cleanup path.
 
 ## Provider-Specific Files
 
-Concrete deployment manifests are intentionally not generated in this phase.
-They require user decisions for hosting provider, container registry, API
-domain, TLS termination method, production database service, object-storage
-provider, and email provider.
+The Neon and Render settings are documented in
+[`RENDER_NEON.md`](./RENDER_NEON.md). The repository-root `render.yaml`
+Blueprint builds `server/Dockerfile` without storing secret values. Production
+object storage and email delivery still require provider decisions.
