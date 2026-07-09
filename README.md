@@ -90,12 +90,13 @@ docker compose up
 ```
 
 The API runs at `http://localhost:8000`, and the frontend runs at
-`http://localhost:3000`.
+`http://localhost:3000`. PostgreSQL is published on host port `5433` by
+default so it does not collide with a PostgreSQL server already using `5432`.
 
 Override host ports without editing committed files:
 
 ```bash
-POSTGRES_PORT=5433 API_PORT=8000 FRONTEND_PORT=3000 docker compose up
+POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 docker compose up
 ```
 
 The frontend container writes its browser API origin from
@@ -105,6 +106,10 @@ builds and runs the frontend against `http://localhost:58000`. If a Docker
 metadata or registry timeout stops `docker compose build`, rerun the build
 before `docker compose up`; Compose tags the frontend image by API port so a
 stale wrong-port frontend image is not silently reused.
+
+Compose also derives local API CORS origins from `FRONTEND_PORT` for both
+`localhost` and `127.0.0.1`. Set `CORS_ORIGINS` to an explicit JSON array when
+using another browser hostname.
 
 Stop the stack:
 

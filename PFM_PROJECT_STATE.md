@@ -159,6 +159,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 11 | 11.5 Loan and debt frontend | PASSED | phase commit created after this state update | Connected loan/debt frontend pages to server data for people, given/taken records, summaries, create/edit, and partial settlement behavior. |
 | 11 | 11.6 Settings monthly currency guard | PASSED | phase completion commit created after this state update | Added persisted monthly currency-change tracking, clear conflict handling, current-currency UI messaging, generated contracts, and passing backend, migration, frontend, and E2E verification. |
 | 11 | 11.V Product repair verification | PASSED | verification commit created after this state update | Verified backend quality, migrations, frontend production build, API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions. |
+| 11 | 11.7 Compose startup and CORS repair | PASSED | phase commit created after this state update | Changed the default PostgreSQL host port to 5433, derived local CORS origins from the frontend port, allowed localhost and loopback browser origins, disabled the worker's inherited API healthcheck, and verified the reported Docker workflow live. |
 
 ## 6. Architecture Decision Log
 
@@ -1047,6 +1048,8 @@ Phase 11.6 changed no backend endpoint paths. It changed `GET /api/v1/users/me` 
 
 Phase 11.V added or changed no endpoints. Verification exercised the milestone 11 budget, savings, savings-transfer, loan/debt, and settings contracts through the full backend suite, generated API drift check, and integrated E2E journey.
 
+Phase 11.7 added or changed no endpoint paths or response contracts. It changed local API CORS configuration so preflight requests from both `http://localhost:<FRONTEND_PORT>` and `http://127.0.0.1:<FRONTEND_PORT>` are accepted in Compose, while an explicit `CORS_ORIGINS` JSON array still overrides the local defaults.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1180,6 +1183,8 @@ Phase 11.5 created no migrations. The required E2E check applied existing migrat
 Phase 11.6 created Alembic migration `202607071106_add_user_currency_change_guard.py` for nullable `users.base_currency_changed_at`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL. The successful full-stack E2E retry also applied all migrations through `202607071106` against a fresh disposable PostgreSQL database.
 
 Phase 11.V created no migrations. Verification applied all existing migrations through `202607071106_add_user_currency_change_guard.py` with `alembic upgrade head` against an isolated disposable PostgreSQL database and again through the full-stack E2E harness.
+
+Phase 11.7 created no migrations. The reported Compose migration command applied existing migrations through `202607071106_add_user_currency_change_guard.py` successfully after PostgreSQL started on host port `5433`.
 
 ## 11. Environment variables
 
@@ -1455,6 +1460,13 @@ Committed template: `server/.env.example`.
 ### Phase 11.6 settings monthly currency guard variables
 
 - No new environment variables were added.
+
+### Phase 11.7 Compose startup and CORS variables
+
+- `POSTGRES_PORT` remains optional and now defaults to host port `5433`, avoiding the common host PostgreSQL collision on `5432`.
+- `FRONTEND_PORT` remains optional and now also drives the default Compose CORS origins.
+- `CORS_ORIGINS` remains an optional explicit JSON-array override for custom browser origins.
+- `NEXT_PUBLIC_API_BASE_URL` remains optional in Compose and continues to derive from `API_PORT` by default.
 
 ## 12. Test command registry
 
@@ -2451,6 +2463,35 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `git diff --name-only b315c4a^..HEAD -- 'client/app/**' 'client/components/**' 'client/lib/**' 'server/app/**' \| xargs rg -n '(\$[0-9]\|amount:\s*[0-9]+\|amount\s*=\s*[0-9]+\|monthly[^\n]*:\s*[0-9]+)'` | PASS / reviewed matches | Numeric matches were a real budget percentage calculation and empty-input `$0.00` placeholders only; no hardcoded finance records were found. |
 | `git diff --check` | PASS | Whitespace check passed after final state recording. |
 
+### Phase 11.7 Compose startup and CORS repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `docker compose config` | PASS | Default render publishes PostgreSQL on host port `5433`, configures API CORS for localhost and loopback on port 3000, and disables the worker's inherited healthcheck. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 docker compose config` | PASS | Override render publishes the requested ports and derives the frontend API URL plus local CORS origins from those ports. |
+| `CORS_ORIGINS='["https://pfm.example.com"]' docker compose config` | PASS | Explicit custom CORS JSON overrides the API's Compose local defaults. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app/core/config.py tests/test_app_core.py` | PASS | Focused backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app/core/config.py tests/test_app_core.py` | PASS | Focused format check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_app_core.py` | PASS with approval | Focused application and CORS preflight coverage passed for both local origins: 12 passed, 1 dependency warning. |
+| `docker compose up -d postgres && docker compose run --rm api alembic upgrade head && docker compose up -d && docker compose ps` | PASS with approval | Reproduced the reported workflow successfully; PostgreSQL started on `5433`, migrations reached `202607071106`, and all services started. |
+| `curl -fsS http://127.0.0.1:8000/api/v1/health/live` | PASS with approval | Running Compose API returned HTTP 200 health JSON. |
+| `curl -sS -D - -o /dev/null -X OPTIONS http://127.0.0.1:8000/api/v1/health/live -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: GET'` | PASS with approval | Live preflight returned HTTP 200 and allowed `http://localhost:3000`. |
+| `curl -sS -D - -o /dev/null -X OPTIONS http://127.0.0.1:8000/api/v1/health/live -H 'Origin: http://127.0.0.1:3000' -H 'Access-Control-Request-Method: GET'` | PASS with approval | Live preflight returned HTTP 200 and allowed `http://127.0.0.1:3000`. |
+| `curl -fsSI http://127.0.0.1:3000/` | PASS with approval | Running Compose frontend returned HTTP 200. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full backend format check passed: 157 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Full backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Full backend suite passed: 159 passed, 1 dependency warning. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract is current. |
+| `cd client && npm run build` | PASS with approval | Production build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | PASS with approval | Integrated full-stack Chromium journey passed: 1 passed. |
+| `docker compose up -d worker && docker compose logs --tail=20 worker && docker compose ps` | PASS with approval | Worker remained `Up` without the invalid API healthcheck and logged `recurring_worker_tick`. |
+| `git diff --check` | PASS | Whitespace check passed before final state recording. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2519,7 +2560,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 11.4 loan and debt backend is passed. Next allowed phase is 11.5, Loan and debt frontend, after user permission.
 - Phase 11.5 loan and debt frontend is passed. Next allowed phase is 11.6, Settings monthly currency guard, after user permission.
 - Phase 11.6 settings monthly currency guard is passed.
-- Milestone 11 product repair verification is passed and the `product-repairs` branch is ready to push after user permission.
+- Milestone 11 product repair verification passed before the post-verification Phase 11.7 repair.
+- Phase 11.7 Compose startup and CORS repair is passed. The next allowed phase is a Milestone 11 verification rerun before pushing.
 
 ## 14. Progress log
 
@@ -2598,3 +2640,4 @@ Append a dated entry after every completed phase.
 - 2026-07-07: Phase 11.6 settings monthly currency guard blocked. Added persisted `users.base_currency_changed_at`, enforced one actual base-currency change per UTC calendar month with HTTP 409 conflict messaging, kept same-currency saves allowed, regenerated OpenAPI TypeScript contracts, updated settings UI to show the current currency and blocked-change message, and added backend/E2E coverage. Required backend checks, migration smoke, frontend TypeScript/build/API checks, and whitespace check passed; final E2E rerun after the navigation repair is blocked by the environment approval usage limit, so the next allowed action is retrying Phase 11.6 E2E verification after approval capacity is restored.
 - 2026-07-09: Phase 11.6 settings monthly currency guard passed on retry. The repaired full-stack E2E journey started fresh PostgreSQL, applied migrations through `202607071106`, verified the current selected currency, accepted one actual currency change, rejected a second same-month change with HTTP 409, and finished with 1 passed; set the next allowed phase to 11.V.
 - 2026-07-09: Phase 11.V product repair verification passed. Verified backend lint, formatting, typing, 157 tests, isolated Alembic upgrade through `202607071106`, frontend TypeScript and production build, optional checks, generated API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions; the `product-repairs` branch is ready to push after user permission.
+- 2026-07-09: Phase 11.7 Compose startup and CORS repair passed. Changed the default PostgreSQL host port from 5432 to 5433, derived local Compose CORS origins from `FRONTEND_PORT` for localhost and loopback, preserved explicit CORS overrides, disabled the worker's inherited API-only healthcheck, reproduced the reported Docker startup and migration workflow, verified live API/frontend/CORS/worker behavior, passed 159 backend tests and the full frontend build/API/E2E checks, and set the next allowed phase to a Milestone 11 verification rerun.

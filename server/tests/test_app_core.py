@@ -1,5 +1,6 @@
 import logging
 
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -25,6 +26,34 @@ def test_application_starts() -> None:
         response = client.get("/api/v1/health/live")
 
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "origin",
+    ["http://localhost:3000", "http://127.0.0.1:3000"],
+)
+def test_local_browser_origins_pass_cors_preflight(origin: str) -> None:
+    app = create_app(
+        Settings(
+            app_env="test",
+            cors_origins=[
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+            ],
+        )
+    )
+
+    with TestClient(app) as client:
+        response = client.options(
+            "/api/v1/health/live",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
 
 
 def test_openapi_metadata_and_versioned_route() -> None:

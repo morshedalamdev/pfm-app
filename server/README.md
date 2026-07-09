@@ -117,12 +117,17 @@ docker compose up
 ```
 
 The API is exposed on `http://localhost:8000`, and the frontend is exposed on
-`http://localhost:3000`. Override host ports or local-only credentials without
-editing committed files:
+`http://localhost:3000`. PostgreSQL uses host port `5433` by default to avoid
+colliding with a host PostgreSQL service on `5432`. Override host ports or
+local-only credentials without editing committed files:
 
 ```bash
-API_PORT=8001 FRONTEND_PORT=3001 POSTGRES_PORT=5433 docker compose up
+API_PORT=8001 FRONTEND_PORT=3001 POSTGRES_PORT=55432 docker compose up
 ```
+
+Compose derives local API CORS origins from `FRONTEND_PORT` for both
+`localhost` and `127.0.0.1`. Provide `CORS_ORIGINS` as a JSON array to use a
+different browser hostname.
 
 Stop the stack while keeping named volumes:
 
