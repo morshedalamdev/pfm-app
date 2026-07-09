@@ -158,7 +158,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 11 | 11.4 Loan and debt backend | PASSED | phase commit created after this state update | Added loan/debt people, given/taken records, partial settlements, summaries, migration, OpenAPI contract updates, and backend coverage. |
 | 11 | 11.5 Loan and debt frontend | PASSED | phase commit created after this state update | Connected loan/debt frontend pages to server data for people, given/taken records, summaries, create/edit, and partial settlement behavior. |
 | 11 | 11.6 Settings monthly currency guard | PASSED | phase completion commit created after this state update | Added persisted monthly currency-change tracking, clear conflict handling, current-currency UI messaging, generated contracts, and passing backend, migration, frontend, and E2E verification. |
-| 11 | 11.V Product repair verification | NOT_STARTED | — | — |
+| 11 | 11.V Product repair verification | PASSED | verification commit created after this state update | Verified backend quality, migrations, frontend production build, API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions. |
 
 ## 6. Architecture Decision Log
 
@@ -1045,6 +1045,8 @@ Phase 11.5 added no backend endpoints and changed no backend API contracts. The 
 
 Phase 11.6 changed no backend endpoint paths. It changed `GET /api/v1/users/me` responses to include nullable `base_currency_changed_at`, changed authenticated `PATCH /api/v1/users/me` to persist the timestamp when `base_currency` actually changes, and returns HTTP 409 with `Currency can only be changed once per month.` when a user attempts a second currency change in the same UTC calendar month. Saving the same current currency remains allowed and does not consume the monthly change.
 
+Phase 11.V added or changed no endpoints. Verification exercised the milestone 11 budget, savings, savings-transfer, loan/debt, and settings contracts through the full backend suite, generated API drift check, and integrated E2E journey.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1176,6 +1178,8 @@ Phase 11.4 created Alembic migration `202607061104_add_loan_debt_schema.py` for 
 Phase 11.5 created no migrations. The required E2E check applied existing migrations through `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL.
 
 Phase 11.6 created Alembic migration `202607071106_add_user_currency_change_guard.py` for nullable `users.base_currency_changed_at`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL. The successful full-stack E2E retry also applied all migrations through `202607071106` against a fresh disposable PostgreSQL database.
+
+Phase 11.V created no migrations. Verification applied all existing migrations through `202607071106_add_user_currency_change_guard.py` with `alembic upgrade head` against an isolated disposable PostgreSQL database and again through the full-stack E2E harness.
 
 ## 11. Environment variables
 
@@ -2426,6 +2430,27 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run e2e` | FAIL, BLOCKED, then PASS with approval on retry | The first approved run exposed an invalid footer-menu navigation from `/transaction/create`; the navigation was repaired to `page.goto("/settings")`, but approval capacity initially blocked the rerun. The 2026-07-09 retry started fresh PostgreSQL, applied migrations through `202607071106`, started FastAPI and Next.js, verified the current currency, accepted the first actual currency change, returned HTTP 409 for the second same-month change, and finished with 1 passed. |
 | `git diff --check` | PASS | Whitespace check passed after the successful E2E retry and final state update. |
 
+### Phase 11.V product repair verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed clean `product-repairs` branch before verification, one local commit ahead of `origin/product-repairs`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full backend format check passed: 157 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Full backend suite passed against disposable PostgreSQL: 157 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Applied all migrations through `202607071106_add_user_currency_change_guard.py` against an isolated temporary PostgreSQL cluster and stopped the cluster afterward. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run build` | PASS with approval | Production build compiled successfully and generated all 17 application routes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated OpenAPI JSON and TypeScript API contract are current. |
+| `cd client && npm run e2e` | PASS with approval | Fresh PostgreSQL migrated through `202607071106`; FastAPI and Next.js started; the integrated budget, savings, loan/debt, transaction, settings, and responsive journey passed in Chromium: 1 passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully for PostgreSQL, API, worker, and frontend services. |
+| `git diff --name-only b315c4a^..HEAD -- 'client/app/**' 'client/components/**' 'client/lib/**' 'server/app/**' \| xargs rg -n -i 'fixture\|mock(data)?\|dummy\|placeholder finance\|hardcoded'` | PASS / no matches | Milestone runtime source audit found no fixture, mock, dummy, placeholder-finance, or hardcoded references. |
+| `git diff --name-only b315c4a^..HEAD -- 'client/app/**' 'client/components/**' 'client/lib/**' 'server/app/**' \| xargs rg -n '(\$[0-9]\|amount:\s*[0-9]+\|amount\s*=\s*[0-9]+\|monthly[^\n]*:\s*[0-9]+)'` | PASS / reviewed matches | Numeric matches were a real budget percentage calculation and empty-input `$0.00` placeholders only; no hardcoded finance records were found. |
+| `git diff --check` | PASS | Whitespace check passed after final state recording. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2493,7 +2518,8 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 11.3 savings transfer mutation is passed. Next allowed phase is 11.4, Loan and debt backend, after user permission.
 - Phase 11.4 loan and debt backend is passed. Next allowed phase is 11.5, Loan and debt frontend, after user permission.
 - Phase 11.5 loan and debt frontend is passed. Next allowed phase is 11.6, Settings monthly currency guard, after user permission.
-- Phase 11.6 settings monthly currency guard is passed. Next allowed phase is 11.V, Product repair verification, after user permission.
+- Phase 11.6 settings monthly currency guard is passed.
+- Milestone 11 product repair verification is passed and the `product-repairs` branch is ready to push after user permission.
 
 ## 14. Progress log
 
@@ -2571,3 +2597,4 @@ Append a dated entry after every completed phase.
 - 2026-07-07: Phase 11.5 loan and debt frontend passed on retry. Connected loan/debt list and create/edit pages to `/api/v1/loans` people, records, settlement, and summary APIs; added people management, given/taken filters, summary cards, detail drawers, partial settlement UI, loading/empty/error/mutation states, loan-focused E2E seeding and responsive assertions; verified required TypeScript, production build, optional lint/test, API contract, E2E, and whitespace checks; and set the next allowed phase to 11.6.
 - 2026-07-07: Phase 11.6 settings monthly currency guard blocked. Added persisted `users.base_currency_changed_at`, enforced one actual base-currency change per UTC calendar month with HTTP 409 conflict messaging, kept same-currency saves allowed, regenerated OpenAPI TypeScript contracts, updated settings UI to show the current currency and blocked-change message, and added backend/E2E coverage. Required backend checks, migration smoke, frontend TypeScript/build/API checks, and whitespace check passed; final E2E rerun after the navigation repair is blocked by the environment approval usage limit, so the next allowed action is retrying Phase 11.6 E2E verification after approval capacity is restored.
 - 2026-07-09: Phase 11.6 settings monthly currency guard passed on retry. The repaired full-stack E2E journey started fresh PostgreSQL, applied migrations through `202607071106`, verified the current selected currency, accepted one actual currency change, rejected a second same-month change with HTTP 409, and finished with 1 passed; set the next allowed phase to 11.V.
+- 2026-07-09: Phase 11.V product repair verification passed. Verified backend lint, formatting, typing, 157 tests, isolated Alembic upgrade through `202607071106`, frontend TypeScript and production build, optional checks, generated API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions; the `product-repairs` branch is ready to push after user permission.
