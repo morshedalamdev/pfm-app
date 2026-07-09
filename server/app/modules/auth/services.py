@@ -54,6 +54,9 @@ class AuthService:
         user = User(
             email=request.email,
             password_hash=hash_password(request.password),
+            full_name=request.full_name,
+            phone_number=request.phone_number,
+            occupation=request.occupation,
         )
 
         try:

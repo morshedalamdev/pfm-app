@@ -10,8 +10,11 @@ from app.modules.accounts.repositories import AccountRepository
 from app.modules.auth.dependencies import CurrentUserDependency
 from app.modules.categories.repositories import CategoryRepository
 from app.modules.idempotency.repositories import IdempotencyRepository
+from app.modules.savings.repositories import SavingsRepository
 from app.modules.transactions.repositories import TransactionRepository
 from app.modules.transactions.schemas import (
+    SavingsTransferCreateRequest,
+    SavingsTransferResponse,
     TransactionCreateRequest,
     TransactionFilterType,
     TransactionListResponse,
@@ -23,6 +26,7 @@ from app.modules.transactions.schemas import (
 from app.modules.transactions.services import (
     IdempotencyConflictError,
     IdempotencyInProgressError,
+    InvalidSavingsTransferRequestError,
     InvalidTransactionCursorError,
     InvalidTransactionFilterError,
     InvalidTransactionReferenceError,
@@ -42,6 +46,7 @@ def build_transaction_service(session: AsyncSession) -> TransactionService:
         transactions=TransactionRepository(session),
         accounts=AccountRepository(session),
         categories=CategoryRepository(session),
+        savings=SavingsRepository(session),
         idempotency=IdempotencyRepository(session),
     )
 
@@ -153,6 +158,36 @@ async def get_transfer(
         raise transfer_not_found_error() from exc
 
 
+@router.post(
+    "/savings-transfers",
+    response_model=SavingsTransferResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_savings_transfer(
+    request: SavingsTransferCreateRequest,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key", min_length=1, max_length=255),
+    ] = None,
+) -> SavingsTransferResponse:
+    try:
+        return await build_transaction_service(session).create_savings_transfer(
+            request,
+            current_user,
+            idempotency_key,
+        )
+    except InvalidTransactionReferenceError as exc:
+        raise invalid_savings_transfer_error() from exc
+    except InvalidSavingsTransferRequestError as exc:
+        raise invalid_savings_transfer_error() from exc
+    except IdempotencyConflictError as exc:
+        raise idempotency_conflict_error() from exc
+    except IdempotencyInProgressError as exc:
+        raise idempotency_in_progress_error() from exc
+
+
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: str,
@@ -253,6 +288,13 @@ def invalid_transfer_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="Transfer accounts or amount are invalid",
+    )
+
+
+def invalid_savings_transfer_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Savings transfer account, goal, or amount is invalid",
     )
 
 

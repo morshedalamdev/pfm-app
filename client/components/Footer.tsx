@@ -47,7 +47,6 @@ export default function Footer() {
   const status = useAuthStore((state) => state.status);
   const logout = useAuthStore((state) => state.logout);
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
-  console.log({ user });
   const displayName = user?.email?.split("@")[0] ?? "Profile";
   const displayEmail = user?.email ?? "Not signed in";
 
@@ -201,13 +200,15 @@ export default function Footer() {
                 <p className="text-xs font-black tracking-wide text-input uppercase mt-5">
                   preferences
                 </p>
-                <Button
-                  variant="ghost"
-                  className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
-                >
-                  <SettingsIcon />
-                  Settings
-                </Button>
+                <Link href="/settings">
+                  <Button
+                    variant="ghost"
+                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
+                  >
+                    <SettingsIcon />
+                    Settings
+                  </Button>
+                </Link>
                 <Link href="/auth/forgot-password">
                   <Button
                     variant="ghost"

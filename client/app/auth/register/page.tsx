@@ -43,7 +43,13 @@ export default function RegisterPage() {
     }
 
     try {
-      await register({ email, password });
+      await register({
+        email,
+        password,
+        full_name: emptyToNull(name),
+        phone_number: emptyToNull(phoneNumber),
+        occupation: emptyToNull(occupation),
+      });
       router.replace("/");
     } catch (err) {
       if (err instanceof ApiError && err.kind === "conflict") {
@@ -154,4 +160,9 @@ export default function RegisterPage() {
       </form>
     </section>
   );
+}
+
+function emptyToNull(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

@@ -74,6 +74,12 @@ def test_dashboard_report_empty_week_is_deterministic(
     report_context: ReportApiContext,
 ) -> None:
     headers = auth_headers(report_context, "empty-dashboard@example.com")
+    update_response = report_context.client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "bdt"},
+    )
+    assert update_response.status_code == 200
 
     response = report_context.client.get(
         "/api/v1/reports/dashboard",
@@ -88,7 +94,7 @@ def test_dashboard_report_empty_week_is_deterministic(
         "end_at": "2026-01-18T00:00:00Z",
         "timezone": "UTC",
     }
-    assert payload["currency"] == "USD"
+    assert payload["currency"] == "BDT"
     assert Decimal(payload["available_balance"]) == Decimal("0.0000")
     assert Decimal(payload["income_amount"]) == Decimal("0.0000")
     assert Decimal(payload["expense_amount"]) == Decimal("0.0000")

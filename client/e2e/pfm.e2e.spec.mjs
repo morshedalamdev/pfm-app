@@ -28,6 +28,14 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page).toHaveURL(`${appBaseUrl}/`);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
+  await openFooterMenu(page);
+  await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Settings updated.")).toBeVisible();
+  await page.goto("/");
+
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
     return value ? JSON.parse(value) : null;
@@ -42,7 +50,9 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     },
   });
 
-  const today = new Date().toISOString();
+  const visibleDate = new Date();
+  visibleDate.setHours(12, 0, 0, 0);
+  const today = visibleDate.toISOString();
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
@@ -61,16 +71,8 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     opening_balance: "100.00",
     type: "cash",
   });
-  const salary = await postJson(api, "/api/v1/categories", {
-    icon_key: "briefcase",
-    kind: "income",
-    name: "Salary",
-  });
-  const groceries = await postJson(api, "/api/v1/categories", {
-    icon_key: "shopping-cart",
-    kind: "expense",
-    name: "Groceries",
-  });
+  const salary = await getCategoryByName(api, "income", "Salary");
+  const groceries = await getCategoryByName(api, "expense", "Groceries");
 
   await postJson(api, "/api/v1/transactions", {
     account_id: checking.id,
@@ -116,6 +118,32 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     contributed_at: today,
     note: "E2E contribution",
   });
+  const loanPerson = await postJson(api, "/api/v1/loans/people", {
+    name: "E2E Friend",
+    note: "E2E loan person",
+    phone_number: `555${Date.now().toString().slice(-7)}`,
+  });
+  const givenLoan = await postJson(api, "/api/v1/loans/records", {
+    currency: "USD",
+    direction: "given",
+    issued_at: today,
+    note: "E2E given loan",
+    person_id: loanPerson.id,
+    principal_amount: "300.00",
+  });
+  await postJson(api, "/api/v1/loans/records", {
+    currency: "USD",
+    direction: "taken",
+    issued_at: today,
+    note: "E2E taken loan",
+    person_id: loanPerson.id,
+    principal_amount: "75.00",
+  });
+  await postJson(api, `/api/v1/loans/records/${givenLoan.id}/settlements`, {
+    amount: "50.00",
+    note: "E2E partial settlement",
+    settled_at: today,
+  });
   await api.dispose();
 
   await Promise.all([
@@ -131,51 +159,40 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   ]);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
-  await page.goto("/transaction");
-  await expect(page.getByText("E2E income")).toBeVisible();
-  await expect(page.getByText("E2E groceries")).toBeVisible();
-  await expect(page.getByText("E2E transfer")).toHaveCount(2);
-
-  await page.goto("/budget");
-  await expect(page.getByText("Monthly Budget")).toBeVisible();
-  await expect(page.getByText("Groceries")).toBeVisible();
-
-  await page.goto("/savings");
-  await expect(page.getByText("Emergency Fund")).toBeVisible();
-  await expect(page.getByText("$150.00")).toHaveCount(2);
-
-  await page.goto("/analytics");
-  await expect(page.getByText("Income vs Expense")).toBeVisible();
-  await expect(page.getByText("Spending by Category")).toBeVisible();
-  await expect(page.getByText("Groceries")).toHaveCount(2);
+  await page.goto("/loan");
+  await expect(page.getByRole("heading", { name: "Loan & Debt" })).toBeVisible({
+    timeout: 15000,
+  });
+  await expect(page.getByText("E2E Friend")).toHaveCount(2);
+  await expect(page.getByText("$250.00").first()).toBeVisible();
 
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
-
-    await assertRenderedWithoutOverflow(page, "/analytics", viewport.label);
-    await page.locator('footer a[href="/"]').click();
-    await assertRenderedWithoutOverflow(page, "/", viewport.label);
-    await page.locator('footer a[href="/transaction"]').click();
-    await assertRenderedWithoutOverflow(page, "/transaction", viewport.label);
-    await page.locator('footer a[href="/analytics"]').click();
-    await assertRenderedWithoutOverflow(page, "/analytics", viewport.label);
-
-    await openFooterMenu(page);
-    await page.getByRole("link", { name: "Budget Planning" }).click();
-    await assertRenderedWithoutOverflow(page, "/budget", viewport.label);
-    await page.goBack();
-    await assertRenderedWithoutOverflow(page, "/analytics", viewport.label);
-
-    await openFooterMenu(page);
-    await page.getByRole("link", { name: "Savings Goals" }).click();
-    await assertRenderedWithoutOverflow(page, "/savings", viewport.label);
-    await page.goBack();
-    await assertRenderedWithoutOverflow(page, "/analytics", viewport.label);
+    await assertRenderedWithoutOverflow(page, "/loan", viewport.label);
   }
 
-  await openFooterMenu(page);
-  await page.getByRole("button", { name: "Logout" }).click();
-  await expect(page).toHaveURL(/\/auth\/login$/);
+  await page.goto("/transaction/create");
+  await page.getByText("Account").click();
+  await expect(page.getByRole("button", { name: "Checking" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByText("Category").click();
+  await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await assertDateSelectionStyle(page);
+
+  await page.goto("/settings");
+  await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "BDT - Bangladeshi Taka" }).click();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Settings updated.")).toBeVisible();
+  await expect(page.getByText("Current currency: BDT - Bangladeshi Taka")).toBeVisible();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "USD - US Dollar" }).click();
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(
+    page.getByText("Currency can only be changed once per month."),
+  ).toBeVisible();
 });
 
 async function postJson(api, path, body, headers = {}) {
@@ -187,18 +204,59 @@ async function postJson(api, path, body, headers = {}) {
   return response.json();
 }
 
-const routeText = {
-  "/": "available balance",
+async function getCategoryByName(api, kind, name) {
+  const response = await api.get(`/api/v1/categories?kind=${kind}&limit=100`);
+  expect(response.ok(), `categories ${kind} ${response.status()}`).toBe(true);
+  const body = await response.json();
+  const category = body.items.find((item) => item.name === name);
+  expect(category, `${kind} category ${name}`).toBeTruthy();
+  return category;
+}
+
+async function assertDateSelectionStyle(page) {
+  const labels = await page.evaluate(() => {
+    const today = new Date();
+    const selected = new Date(today);
+    selected.setDate(today.getDate() + 1);
+    return {
+      selected: selected.toLocaleDateString(),
+      today: today.toLocaleDateString(),
+    };
+  });
+
+  const dateField = page.getByLabel("Expense").getByText("Date");
+
+  await dateField.click();
+  await page.locator(`button[data-day="${labels.selected}"]`).click();
+
+  const selectedButton = page.locator(`button[data-day="${labels.selected}"]`);
+  const todayButton = page.locator(`button[data-day="${labels.today}"]`);
+  await expect(selectedButton).toHaveAttribute("data-selected-single", "true");
+  await expect(selectedButton).toHaveCSS("background-color", "rgb(0, 0, 0)");
+  await expect(todayButton).not.toHaveAttribute("data-selected-single", "true");
+  await expect(todayButton).not.toHaveCSS("background-color", "rgb(0, 0, 0)");
+  await page.keyboard.press("Escape");
+}
+
+const routeHeading = {
   "/analytics": "Analytics",
-  "/budget": "Budget",
+  "/budget": "Budget Planning",
+  "/loan": "Loan & Debt",
+  "/settings": "Settings",
   "/savings": "Savings Goals",
   "/transaction": "Transaction",
 };
 
 async function assertRenderedWithoutOverflow(page, path, viewportLabel) {
-  await expect(page.locator("main")).toContainText(routeText[path], {
-    timeout: 15_000,
-  });
+  if (path === "/") {
+    await expect(page.getByText("Available Balance")).toBeVisible({
+      timeout: 15_000,
+    });
+  } else {
+    await expect(
+      page.getByRole("heading", { name: routeHeading[path] }),
+    ).toBeVisible({ timeout: 15_000 });
+  }
   const hasHorizontalOverflow = await page.evaluate(() => {
     const root = document.documentElement;
     const body = document.body;

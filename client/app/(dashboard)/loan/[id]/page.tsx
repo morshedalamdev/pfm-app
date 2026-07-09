@@ -1,20 +1,261 @@
-import { Fragment } from "react";
+"use client";
+
+import {
+  Fragment,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import BackBtn from "@/components/BackBtn";
 import Header from "@/components/Header";
+import TransactionInput from "@/components/inputs/TransactionInput";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
+import { useAuthStore } from "@/lib/auth/store";
+import {
+  createLoanRecord,
+  getLoanRecord,
+  listLoanPeople,
+  updateLoanRecord,
+  type LoanPerson,
+} from "@/lib/finance/api";
+import { decimalInput, toDateTime } from "@/lib/finance/format";
+import { DollarSignIcon } from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+
+type LoanDirection = "given" | "taken";
+
+function personLabel(person: LoanPerson): string {
+  return `${person.name} (${person.phone_number})`;
+}
 
 export default function LoanDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const recordId = params.id;
+  const isCreate = recordId === "create" || recordId === "edit";
+
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [direction, setDirection] = useState<LoanDirection>("given");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [note, setNote] = useState("");
+  const [people, setPeople] = useState<LoanPerson[]>([]);
+  const [selectedPersonLabel, setSelectedPersonLabel] = useState("");
+  const userCurrency = useAuthStore(
+    (state) => state.user?.base_currency ?? "USD",
+  );
+
+  const personOptions = useMemo(() => people.map(personLabel), [people]);
+  const selectedPerson = useMemo(
+    () => people.find((person) => personLabel(person) === selectedPersonLabel),
+    [people, selectedPersonLabel],
+  );
+
+  const loadForm = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [nextPeople, record] = await Promise.all([
+        listLoanPeople(),
+        isCreate ? Promise.resolve(null) : getLoanRecord(recordId),
+      ]);
+      setPeople(nextPeople);
+      if (record) {
+        setAmount(record.principal_amount);
+        setDate(new Date(record.issued_at));
+        setDirection(record.direction);
+        setNote(record.note ?? "");
+        const person = nextPeople.find((item) => item.id === record.person_id);
+        setSelectedPersonLabel(person ? personLabel(person) : "");
+      } else {
+        setSelectedPersonLabel((current) =>
+          current || (nextPeople[0] ? personLabel(nextPeople[0]) : ""),
+        );
+      }
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Loan record could not be loaded.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isCreate, recordId]);
+
+  useEffect(() => {
+    void loadForm();
+  }, [loadForm]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    if (!selectedPerson) {
+      setError("Add or select a person before saving this loan.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const body = {
+        currency: userCurrency,
+        direction,
+        issued_at: toDateTime(date),
+        note: note || null,
+        person_id: selectedPerson.id,
+        principal_amount: decimalInput(amount),
+      };
+      if (isCreate) {
+        await createLoanRecord(body);
+      } else {
+        await updateLoanRecord(recordId, body);
+      }
+      router.push("/loan");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Loan record could not be saved.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <Fragment>
-      <Header homeBtn={true} title="Loan & Debt">
+      <Header homeBtn={true} title={isCreate ? "Add New Loan" : "Edit Loan"}>
         <BackBtn />
       </Header>
-      <section className="p-3 pt-6">
-        <div className="border border-input rounded-md p-3 space-y-1.5">
-          <h2 className="font-bold text-base">No loan record available.</h2>
-          <p className="text-input text-sm">
-            Loan and debt records are not available yet.
-          </p>
-        </div>
+      <section className="px-3 pt-6">
+        {isLoading && <p className="text-input text-sm">Loading loan form...</p>}
+        {error && (
+          <div className="mb-3 space-y-2">
+            <p className="text-destructive text-sm">{error}</p>
+            {!isSaving && (
+              <Button type="button" variant="outline" onClick={() => void loadForm()}>
+                Retry
+              </Button>
+            )}
+          </div>
+        )}
+        {!isLoading && people.length === 0 && (
+          <div className="space-y-2 rounded-md border border-input p-3">
+            <p className="font-bold">Add a person first.</p>
+            <p className="text-input text-sm">
+              Loan records need a selected person for both given and taken money.
+            </p>
+            <Link href="/loan">
+              <Button variant="outline">Manage People</Button>
+            </Link>
+          </div>
+        )}
+        {!isLoading && people.length > 0 && (
+          <form onSubmit={handleSubmit}>
+            <FieldSet>
+              <InputGroup className="border-0 border-b rounded-none h-12">
+                <InputGroupAddon>
+                  <InputGroupText>
+                    <DollarSignIcon />
+                  </InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  placeholder="0.00"
+                  className="font-bold text-center text-5xl"
+                  required
+                />
+              </InputGroup>
+              <div className="bg-secondary text-primary inline-flex h-8 p-1 w-full items-center rounded-full">
+                <Button
+                  onClick={() => setDirection("given")}
+                  type="button"
+                  variant={direction === "given" ? "default" : "ghost"}
+                  className="w-1/2 rounded-full h-6"
+                >
+                  Given
+                </Button>
+                <Button
+                  onClick={() => setDirection("taken")}
+                  type="button"
+                  variant={direction === "taken" ? "default" : "ghost"}
+                  className="w-1/2 rounded-full h-6"
+                >
+                  Taken
+                </Button>
+              </div>
+              <FieldGroup>
+                <Field>
+                  <TransactionInput
+                    type="select"
+                    label="Person"
+                    list={personOptions}
+                    value={selectedPersonLabel}
+                    onChange={(value) =>
+                      typeof value === "string" && setSelectedPersonLabel(value)
+                    }
+                  />
+                  <FieldError />
+                </Field>
+                <Field>
+                  <TransactionInput
+                    type="date"
+                    label={direction === "given" ? "Given Date" : "Taken Date"}
+                    value={date}
+                    onChange={(value) => value instanceof Date && setDate(value)}
+                  />
+                  <FieldError />
+                </Field>
+                <Field>
+                  <InputGroup>
+                    <InputGroupTextarea
+                      value={note}
+                      onChange={(event) => setNote(event.target.value)}
+                      placeholder="Type here.."
+                      className="pt-0"
+                    />
+                    <InputGroupAddon
+                      align="block-start"
+                      className="text-white font-bold"
+                    >
+                      Note
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <FieldError />
+                </Field>
+                <Field>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving
+                      ? "Saving..."
+                      : isCreate
+                        ? direction === "given"
+                          ? "Add Given Loan"
+                          : "Add Taken Loan"
+                        : "Save Loan"}
+                  </Button>
+                </Field>
+              </FieldGroup>
+            </FieldSet>
+          </form>
+        )}
       </section>
     </Fragment>
   );

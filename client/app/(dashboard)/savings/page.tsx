@@ -13,6 +13,7 @@ import {
   listSavingsGoals,
   type SavingsGoal,
 } from "@/lib/finance/api";
+import { useAuthStore } from "@/lib/auth/store";
 import { decimalInput, formatMoney } from "@/lib/finance/format";
 
 export default function SavingsPage() {
@@ -25,6 +26,7 @@ export default function SavingsPage() {
   );
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const userCurrency = useAuthStore((state) => state.user?.base_currency ?? "USD");
 
   const loadGoals = useCallback(async () => {
     setIsLoading(true);
@@ -119,11 +121,13 @@ export default function SavingsPage() {
         <h2 className="text-input font-bold uppercase tracking-wide">
           Total Savings
         </h2>
-        <h3 className="text-5xl font-bold">{formatMoney(totals.saved)}</h3>
+        <h3 className="text-5xl font-bold">
+          {formatMoney(totals.saved, userCurrency)}
+        </h3>
         <h4 className="flex items-center mt-3">
           <span>{totals.active} Active Goals</span>
           <DotIcon />
-          <span>Total: {formatMoney(totals.target)}</span>
+          <span>Total: {formatMoney(totals.target, userCurrency)}</span>
         </h4>
         <div className="flex flex-wrap items-center justify-between gap-1.5 mt-3">
           <span>Overall Progress</span>

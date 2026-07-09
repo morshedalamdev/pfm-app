@@ -342,6 +342,104 @@ def test_analytics_reports_aggregate_source_records_and_isolate_users(
     )
 
 
+def test_analytics_reports_use_profile_currency_with_browser_datetime_shape(
+    report_context: ReportAnalyticsContext,
+) -> None:
+    context = report_context
+    headers = auth_headers(context, "analytics-currency@example.com")
+    currency_response = context.client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "bdt"},
+    )
+    assert currency_response.status_code == 200
+
+    account = create_account(context, headers, "BDT Checking", "bank", "0", "BDT")
+    groceries = create_category(context, headers, "Groceries", "expense", "cart")
+    salary = create_category(context, headers, "Salary", "income", "briefcase")
+
+    create_budget(
+        context,
+        headers,
+        category_id=groceries["id"],
+        period_start="2026-07-01",
+        period_end="2026-08-01",
+        limit_amount="500.0000",
+        currency="BDT",
+    )
+    goal_response = context.client.post(
+        "/api/v1/savings-goals",
+        headers=headers,
+        json={
+            "currency": "BDT",
+            "monthly_target_amount": "200.0000",
+            "name": "Emergency Fund",
+            "note": "E2E goal",
+            "target_amount": "1000.0000",
+            "target_date": None,
+        },
+    )
+    assert goal_response.status_code == 201
+    contribution_response = context.client.post(
+        f"/api/v1/savings-goals/{goal_response.json()['id']}/contributions",
+        headers=headers,
+        json={
+            "amount": "150.0000",
+            "contributed_at": "2026-07-03T00:00:00+00:00",
+            "note": "E2E contribution",
+        },
+    )
+    assert contribution_response.status_code == 201
+    create_transaction(
+        context,
+        headers,
+        account["id"],
+        salary["id"],
+        "income",
+        "1200.0000",
+        "2026-07-03T00:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        account["id"],
+        groceries["id"],
+        "expense",
+        "125.5000",
+        "2026-07-03T00:00:00+00:00",
+    )
+
+    monthly_response = context.client.get(
+        "/api/v1/reports/monthly-summary",
+        headers=headers,
+        params={"month": "2026-07"},
+    )
+    cash_flow_response = context.client.get(
+        "/api/v1/reports/cash-flow",
+        headers=headers,
+        params={
+            "date_from": "2026-07-01T00:00:00.000Z",
+            "date_to": "2026-08-01T00:00:00.000Z",
+            "interval": "day",
+        },
+    )
+    spending_response = context.client.get(
+        "/api/v1/reports/spending-by-category",
+        headers=headers,
+        params={
+            "date_from": "2026-07-01T00:00:00.000Z",
+            "date_to": "2026-08-01T00:00:00.000Z",
+        },
+    )
+
+    assert monthly_response.status_code == 200
+    assert cash_flow_response.status_code == 200
+    assert spending_response.status_code == 200
+    assert monthly_response.json()["currency"] == "BDT"
+    assert cash_flow_response.json()["currency"] == "BDT"
+    assert spending_response.json()["currency"] == "BDT"
+
+
 def test_cash_flow_week_and_month_groupings_respect_boundaries(
     report_context: ReportAnalyticsContext,
 ) -> None:
@@ -662,6 +760,7 @@ def create_account(
     name: str,
     account_type: str,
     opening_balance: str,
+    currency: str = "USD",
 ) -> dict[str, object]:
     response = context.client.post(
         "/api/v1/accounts",
@@ -669,6 +768,7 @@ def create_account(
         json={
             "name": name,
             "type": account_type,
+            "currency": currency,
             "opening_balance": opening_balance,
         },
     )
@@ -724,12 +824,14 @@ def create_budget(
     period_start: str,
     period_end: str,
     limit_amount: str,
+    currency: str = "USD",
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "period_type": "monthly",
         "period_start": period_start,
         "period_end": period_end,
         "limit_amount": limit_amount,
+        "currency": currency,
     }
     if category_id is not None:
         payload["category_id"] = category_id

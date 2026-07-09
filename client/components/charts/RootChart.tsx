@@ -27,6 +27,7 @@ const chartConfig = {
 
 type RootChartProps = {
   buckets: DashboardChartBucket[];
+  currency?: string;
   errorMessage?: string | null;
   isLoading?: boolean;
   onPeriodChange: (period: DashboardPeriod) => void;
@@ -38,6 +39,7 @@ type RootChartProps = {
 
 export function RootChart({
   buckets,
+  currency = "USD",
   errorMessage,
   isLoading = false,
   onPeriodChange,
@@ -127,7 +129,9 @@ export function RootChart({
                   <LabelList
                     dataKey="amount"
                     position="top"
-                    formatter={(value: number) => formatCompactCurrency(value)}
+                    formatter={(value: number) =>
+                      formatCompactCurrency(value, currency)
+                    }
                     className="fill-white text-xs font-bold"
                   />
                   {buckets.map((entry, index) => (
@@ -155,10 +159,10 @@ export function RootChart({
   );
 }
 
-function formatCompactCurrency(value: number) {
+function formatCompactCurrency(value: number, currency: string) {
   return new Intl.NumberFormat("en-US", {
     compactDisplay: "short",
-    currency: "USD",
+    currency,
     maximumFractionDigits: 1,
     notation: "compact",
     style: "currency",

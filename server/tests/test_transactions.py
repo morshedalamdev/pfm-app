@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -24,9 +25,14 @@ from app.core.database import (
 from app.main import create_app
 from app.modules.accounts.repositories import AccountRepository
 from app.modules.categories.repositories import CategoryRepository
+from app.modules.savings.models import SavingsContribution
+from app.modules.savings.repositories import SavingsRepository
 from app.modules.transactions.models import Transaction, TransferLink
 from app.modules.transactions.repositories import TransactionRepository
-from app.modules.transactions.schemas import TransferCreateRequest
+from app.modules.transactions.schemas import (
+    SavingsTransferCreateRequest,
+    TransferCreateRequest,
+)
 from app.modules.transactions.services import TransactionService
 from app.modules.users.models import User
 
@@ -551,6 +557,258 @@ def test_transfer_validation_and_ownership_rules(
     assert cross_user_detail_response.status_code == 404
 
 
+def test_savings_transfer_creates_account_debit_and_contribution(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "savings-transfer-owner@example.com")
+    checking = create_account(
+        context,
+        headers,
+        "Savings Transfer Checking",
+        "bank",
+        "100.0000",
+    )
+    goal = create_savings_goal(
+        context,
+        headers,
+        name="Emergency transfer goal",
+        target_amount="50.0000",
+    )
+
+    transfer = create_savings_transfer(
+        context,
+        headers,
+        checking["id"],
+        goal["id"],
+        "25.1250",
+        "2026-04-05T09:15:00+06:00",
+        "  Move to emergency  ",
+    )
+
+    assert transfer["from_account_id"] == checking["id"]
+    assert transfer["savings_goal_id"] == goal["id"]
+    assert transfer["amount"] == "25.1250"
+    assert transfer["currency"] == "USD"
+    assert transfer["description"] == "Move to emergency"
+    assert transfer["contribution_id"] == transfer["id"]
+
+    debit_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"type": "transfer_debit", "search": "emergency"},
+    )
+    assert debit_response.status_code == 200
+    assert [item["id"] for item in debit_response.json()["items"]] == [
+        transfer["debit_transaction_id"]
+    ]
+
+    goal_response = context.client.get(
+        f"/api/v1/savings-goals/{goal['id']}",
+        headers=headers,
+    )
+    assert goal_response.status_code == 200
+    assert Decimal(goal_response.json()["progress"]["saved_amount"]) == Decimal(
+        "25.1250"
+    )
+
+    dashboard_response = context.client.get(
+        "/api/v1/reports/dashboard",
+        headers=headers,
+        params={"period": "month", "type": "expense", "as_of": "2026-04-05"},
+    )
+    assert dashboard_response.status_code == 200
+    assert Decimal(dashboard_response.json()["available_balance"]) == Decimal("74.8750")
+
+    source_records = asyncio.run(
+        fetch_savings_transfer_source_records(
+            context.database_url,
+            uuid.UUID(str(transfer["debit_transaction_id"])),
+            uuid.UUID(str(transfer["contribution_id"])),
+        )
+    )
+    assert source_records == {
+        "debit_type": "transfer_debit",
+        "debit_amount": Decimal("25.1250"),
+        "debit_account_id": uuid.UUID(str(checking["id"])),
+        "debit_category_id": None,
+        "contribution_goal_id": uuid.UUID(str(goal["id"])),
+        "contribution_amount": Decimal("25.1250"),
+        "contribution_currency": "USD",
+        "contribution_note": "Move to emergency",
+    }
+
+
+def test_savings_transfer_validation_and_ownership_rules(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    owner_headers = auth_headers(context, "savings-transfer-rules@example.com")
+    other_headers = auth_headers(context, "savings-transfer-other@example.com")
+    checking = create_account(context, owner_headers, "Rules Checking", "bank", "0")
+    eur_account = create_account(
+        context,
+        owner_headers,
+        "Rules EUR",
+        "bank",
+        "0",
+        currency="EUR",
+    )
+    archived = create_account(context, owner_headers, "Archived Source", "bank", "0")
+    goal = create_savings_goal(
+        context,
+        owner_headers,
+        name="Rules Goal",
+        target_amount="100.0000",
+    )
+    eur_goal = create_savings_goal(
+        context,
+        owner_headers,
+        name="Rules EUR Goal",
+        target_amount="100.0000",
+        currency="EUR",
+    )
+    other_goal = create_savings_goal(
+        context,
+        other_headers,
+        name="Other Goal",
+        target_amount="100.0000",
+    )
+
+    cross_user_goal_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "savings_goal_id": other_goal["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-06T00:00:00+00:00",
+        },
+    )
+    assert cross_user_goal_response.status_code == 422
+
+    currency_mismatch_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "savings_goal_id": eur_goal["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-06T00:00:00+00:00",
+        },
+    )
+    assert currency_mismatch_response.status_code == 422
+
+    currency_match_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": eur_account["id"],
+            "savings_goal_id": eur_goal["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-06T00:00:00+00:00",
+        },
+    )
+    assert currency_match_response.status_code == 201
+
+    float_amount_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "savings_goal_id": goal["id"],
+            "amount": 1.2,
+            "transaction_at": "2026-04-06T00:00:00+00:00",
+        },
+    )
+    assert float_amount_response.status_code == 422
+    assert "1.2" in float_amount_response.text
+
+    naive_date_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "savings_goal_id": goal["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-06T00:00:00",
+        },
+    )
+    assert naive_date_response.status_code == 422
+
+    assert (
+        context.client.delete(
+            f"/api/v1/accounts/{archived['id']}",
+            headers=owner_headers,
+        ).status_code
+        == 200
+    )
+    archived_account_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": archived["id"],
+            "savings_goal_id": goal["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-06T00:00:00+00:00",
+        },
+    )
+    assert archived_account_response.status_code == 422
+
+    completed_goal = create_savings_goal(
+        context,
+        owner_headers,
+        name="Completed Goal",
+        target_amount="1.0000",
+    )
+    assert (
+        context.client.post(
+            f"/api/v1/savings-goals/{completed_goal['id']}/contributions",
+            headers=owner_headers,
+            json={
+                "amount": "1.0000",
+                "contributed_at": "2026-04-06T00:00:00+00:00",
+            },
+        ).status_code
+        == 201
+    )
+    completed_goal_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "savings_goal_id": completed_goal["id"],
+            "amount": "1.0000",
+            "transaction_at": "2026-04-06T00:00:00+00:00",
+        },
+    )
+    assert completed_goal_response.status_code == 422
+
+
+def test_savings_transfer_rolls_back_when_contribution_write_fails(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    email = "savings-transfer-rollback@example.com"
+    headers = auth_headers(context, email)
+    checking = create_account(context, headers, "Rollback Checking", "bank", "0")
+    goal = create_savings_goal(
+        context,
+        headers,
+        name="Rollback Goal",
+        target_amount="100.0000",
+    )
+
+    asyncio.run(
+        assert_failing_savings_transfer_rolls_back(
+            context.database_url,
+            email,
+            uuid.UUID(str(checking["id"])),
+            uuid.UUID(str(goal["id"])),
+        )
+    )
+
+
 def test_transfer_rolls_back_when_link_write_fails(
     transaction_context: TransactionApiContext,
 ) -> None:
@@ -902,6 +1160,74 @@ def test_transfer_create_idempotency(
     assert conflict_response.status_code == 409
 
 
+def test_savings_transfer_create_idempotency(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "savings-transfer-idempotency@example.com")
+    checking = create_account(context, headers, "Idempotent Checking", "bank", "0")
+    goal = create_savings_goal(
+        context,
+        headers,
+        name="Idempotent Goal",
+        target_amount="100.0000",
+    )
+
+    first = create_savings_transfer(
+        context,
+        headers,
+        checking["id"],
+        goal["id"],
+        "15.0000",
+        "2026-05-05T00:00:00+00:00",
+        "Idempotent savings transfer",
+        idempotency_key="savings-transfer-create-key",
+    )
+    second = create_savings_transfer(
+        context,
+        headers,
+        checking["id"],
+        goal["id"],
+        "15.0000",
+        "2026-05-05T00:00:00+00:00",
+        "Idempotent savings transfer",
+        idempotency_key="savings-transfer-create-key",
+    )
+    assert second == first
+
+    debit_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"type": "transfer_debit", "search": "idempotent"},
+    )
+    assert debit_response.status_code == 200
+    assert [item["id"] for item in debit_response.json()["items"]] == [
+        first["debit_transaction_id"]
+    ]
+
+    contributions_response = context.client.get(
+        f"/api/v1/savings-goals/{goal['id']}/contributions",
+        headers=headers,
+    )
+    assert contributions_response.status_code == 200
+    assert [item["id"] for item in contributions_response.json()["items"]] == [
+        first["contribution_id"]
+    ]
+
+    conflict_response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers={**headers, "Idempotency-Key": "savings-transfer-create-key"},
+        json={
+            "from_account_id": checking["id"],
+            "savings_goal_id": goal["id"],
+            "amount": "16.0000",
+            "transaction_at": "2026-05-05T00:00:00+00:00",
+            "description": "Idempotent savings transfer",
+        },
+    )
+    assert conflict_response.status_code == 409
+
+
 def test_transfer_idempotency_replay_survives_archived_references(
     transaction_context: TransactionApiContext,
 ) -> None:
@@ -1077,6 +1403,61 @@ def create_transfer(
     return dict(response.json())
 
 
+def create_savings_goal(
+    context: TransactionApiContext,
+    headers: dict[str, str],
+    *,
+    name: str,
+    target_amount: str,
+    currency: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "name": name,
+        "target_amount": target_amount,
+    }
+    if currency is not None:
+        payload["currency"] = currency
+    response = context.client.post(
+        "/api/v1/savings-goals",
+        headers=headers,
+        json=payload,
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def create_savings_transfer(
+    context: TransactionApiContext,
+    headers: dict[str, str],
+    from_account_id: object,
+    savings_goal_id: object,
+    amount: str,
+    transaction_at: str,
+    description: str | None = None,
+    idempotency_key: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "from_account_id": from_account_id,
+        "savings_goal_id": savings_goal_id,
+        "amount": amount,
+        "transaction_at": transaction_at,
+    }
+    if description is not None:
+        payload["description"] = description
+
+    request_headers = dict(headers)
+    if idempotency_key is not None:
+        request_headers["Idempotency-Key"] = idempotency_key
+
+    response = context.client.post(
+        "/api/v1/transactions/savings-transfers",
+        headers=request_headers,
+        json=payload,
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
 async def fetch_signed_transaction_total(
     database_url: str,
     transaction_ids: set[uuid.UUID],
@@ -1136,6 +1517,34 @@ async def fetch_transfer_source_records(
         await engine.dispose()
 
 
+async def fetch_savings_transfer_source_records(
+    database_url: str,
+    debit_transaction_id: uuid.UUID,
+    contribution_id: uuid.UUID,
+) -> dict[str, object]:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+
+    try:
+        async with session_factory() as session:
+            debit_transaction = await session.get(Transaction, debit_transaction_id)
+            contribution = await session.get(SavingsContribution, contribution_id)
+            assert debit_transaction is not None
+            assert contribution is not None
+            return {
+                "debit_type": debit_transaction.type,
+                "debit_amount": debit_transaction.amount,
+                "debit_account_id": debit_transaction.account_id,
+                "debit_category_id": debit_transaction.category_id,
+                "contribution_goal_id": contribution.goal_id,
+                "contribution_amount": contribution.amount,
+                "contribution_currency": contribution.currency,
+                "contribution_note": contribution.note,
+            }
+    finally:
+        await engine.dispose()
+
+
 class FailingTransferRepository(TransactionRepository):
     async def create_transfer_link(self, transfer_link: TransferLink) -> TransferLink:
         raise RuntimeError("forced transfer link failure")
@@ -1187,5 +1596,67 @@ async def assert_failing_transfer_rolls_back(
             )
             assert transaction_count_result.scalar_one() == 0
             assert transfer_link_count_result.scalar_one() == 0
+    finally:
+        await engine.dispose()
+
+
+class FailingSavingsRepository(SavingsRepository):
+    async def create_contribution(
+        self,
+        contribution: SavingsContribution,
+    ) -> SavingsContribution:
+        raise RuntimeError("forced savings contribution failure")
+
+
+async def assert_failing_savings_transfer_rolls_back(
+    database_url: str,
+    email: str,
+    from_account_id: uuid.UUID,
+    savings_goal_id: uuid.UUID,
+) -> None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+
+    try:
+        async with session_factory() as session:
+            user_result = await session.execute(select(User).where(User.email == email))
+            user = user_result.scalar_one()
+            user_id = user.id
+            service = TransactionService(
+                transactions=TransactionRepository(session),
+                accounts=AccountRepository(session),
+                categories=CategoryRepository(session),
+                savings=FailingSavingsRepository(session),
+            )
+
+            with pytest.raises(
+                RuntimeError,
+                match="forced savings contribution failure",
+            ):
+                await service.create_savings_transfer(
+                    SavingsTransferCreateRequest(
+                        from_account_id=from_account_id,
+                        savings_goal_id=savings_goal_id,
+                        amount=Decimal("12.5000"),
+                        transaction_at=datetime(2026, 4, 7, tzinfo=UTC),
+                    ),
+                    user,
+                )
+
+            transaction_count_result = await session.execute(
+                select(func.count())
+                .select_from(Transaction)
+                .where(
+                    Transaction.user_id == user_id,
+                    Transaction.type == "transfer_debit",
+                )
+            )
+            contribution_count_result = await session.execute(
+                select(func.count())
+                .select_from(SavingsContribution)
+                .where(SavingsContribution.user_id == user_id)
+            )
+            assert transaction_count_result.scalar_one() == 0
+            assert contribution_count_result.scalar_one() == 0
     finally:
         await engine.dispose()

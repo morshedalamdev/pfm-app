@@ -1,0 +1,470 @@
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Iterator
+from dataclasses import dataclass
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+from alembic.config import Config
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from alembic import command
+from app.core.config import Settings
+from app.core.database import (
+    build_async_engine,
+    build_session_factory,
+    get_session,
+    get_session_from_factory,
+)
+from app.main import create_app
+
+
+@dataclass(frozen=True)
+class LoanApiContext:
+    client: TestClient
+    database_url: str
+
+
+def build_alembic_config(database_url: str) -> Config:
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    return config
+
+
+def loan_test_app(database_url: str) -> FastAPI:
+    return create_app(
+        Settings(
+            app_name="PFM Test API",
+            app_env="test",
+            debug=False,
+            cors_origins=["http://testserver"],
+            database_url=database_url,
+            access_token_secret_key="loan-test-secret-with-at-least-32-bytes",
+        ),
+    )
+
+
+@pytest.fixture
+def loan_context(disposable_postgres_url: str) -> Iterator[LoanApiContext]:
+    command.upgrade(build_alembic_config(disposable_postgres_url), "head")
+    engine = build_async_engine(disposable_postgres_url)
+    session_factory = build_session_factory(engine)
+    app = loan_test_app(disposable_postgres_url)
+
+    async def test_session() -> object:
+        async for session in get_session_from_factory(session_factory):
+            yield session
+
+    app.dependency_overrides[get_session] = test_session
+
+    try:
+        with TestClient(app) as client:
+            yield LoanApiContext(client=client, database_url=disposable_postgres_url)
+    finally:
+        asyncio.run(engine.dispose())
+
+
+def test_loan_people_allow_duplicate_names_but_unique_user_phone(
+    loan_context: LoanApiContext,
+) -> None:
+    context = loan_context
+    owner_headers = auth_headers(context, "loan-people-owner@example.com")
+    other_headers = auth_headers(context, "loan-people-other@example.com")
+
+    first_person = create_person(
+        context,
+        owner_headers,
+        name="Alex",
+        phone_number="+8801711111111",
+    )
+    second_person = create_person(
+        context,
+        owner_headers,
+        name="Alex",
+        phone_number="+8801722222222",
+    )
+    assert first_person["name"] == second_person["name"]
+
+    duplicate_response = context.client.post(
+        "/api/v1/loans/people",
+        headers=owner_headers,
+        json={"name": "Different", "phone_number": "+8801711111111"},
+    )
+    assert duplicate_response.status_code == 409
+
+    other_user_duplicate = create_person(
+        context,
+        other_headers,
+        name="Same phone is allowed for another user",
+        phone_number="+8801711111111",
+    )
+    assert other_user_duplicate["phone_number"] == "+8801711111111"
+
+    update_duplicate_response = context.client.patch(
+        f"/api/v1/loans/people/{second_person['id']}",
+        headers=owner_headers,
+        json={"phone_number": "+8801711111111"},
+    )
+    assert update_duplicate_response.status_code == 409
+
+    archive_response = context.client.delete(
+        f"/api/v1/loans/people/{first_person['id']}",
+        headers=owner_headers,
+    )
+    assert archive_response.status_code == 200
+    assert archive_response.json()["archived_at"] is not None
+
+    default_list_response = context.client.get(
+        "/api/v1/loans/people",
+        headers=owner_headers,
+    )
+    assert default_list_response.status_code == 200
+    assert first_person["id"] not in {
+        item["id"] for item in default_list_response.json()["items"]
+    }
+
+    archived_list_response = context.client.get(
+        "/api/v1/loans/people",
+        headers=owner_headers,
+        params={"include_archived": True},
+    )
+    assert archived_list_response.status_code == 200
+    assert first_person["id"] in {
+        item["id"] for item in archived_list_response.json()["items"]
+    }
+
+    archived_record_response = context.client.post(
+        "/api/v1/loans/records",
+        headers=owner_headers,
+        json={
+            "person_id": first_person["id"],
+            "direction": "given",
+            "principal_amount": "10.0000",
+            "issued_at": "2026-07-01T10:00:00+00:00",
+        },
+    )
+    assert archived_record_response.status_code == 409
+
+
+def test_loan_record_partial_settlement_and_summary_lifecycle(
+    loan_context: LoanApiContext,
+) -> None:
+    context = loan_context
+    headers = auth_headers(context, "loan-lifecycle@example.com")
+    person = create_person(
+        context,
+        headers,
+        name="Taylor",
+        phone_number="+8801733333333",
+    )
+    given_record = create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        direction="given",
+        principal_amount="100.0000",
+        issued_at="2026-07-01T10:00:00+00:00",
+    )
+    taken_record = create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        direction="taken",
+        principal_amount="40.0000",
+        issued_at="2026-07-02T10:00:00+00:00",
+    )
+
+    summary = get_summary(context, headers)
+    assert Decimal(summary["total_loan_given"]) == Decimal("100.0000")
+    assert Decimal(summary["total_loan_taken"]) == Decimal("40.0000")
+    assert Decimal(summary["due_loan"]) == Decimal("60.0000")
+
+    first_settlement = create_settlement(
+        context,
+        headers,
+        given_record["id"],
+        amount="25.0000",
+        settled_at="2026-07-03T10:00:00+00:00",
+    )
+    assert Decimal(first_settlement["amount"]) == Decimal("25.0000")
+
+    detail_response = context.client.get(
+        f"/api/v1/loans/records/{given_record['id']}",
+        headers=headers,
+    )
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["status"] == "open"
+    assert Decimal(detail["settled_amount"]) == Decimal("25.0000")
+    assert Decimal(detail["outstanding_amount"]) == Decimal("75.0000")
+
+    over_settle_response = context.client.post(
+        f"/api/v1/loans/records/{given_record['id']}/settlements",
+        headers=headers,
+        json={"amount": "80.0000", "settled_at": "2026-07-04T10:00:00+00:00"},
+    )
+    assert over_settle_response.status_code == 409
+
+    final_settlement = create_settlement(
+        context,
+        headers,
+        given_record["id"],
+        amount="75.0000",
+        settled_at="2026-07-05T10:00:00+00:00",
+    )
+    assert Decimal(final_settlement["amount"]) == Decimal("75.0000")
+
+    settled_detail_response = context.client.get(
+        f"/api/v1/loans/records/{given_record['id']}",
+        headers=headers,
+    )
+    assert settled_detail_response.status_code == 200
+    settled_detail = settled_detail_response.json()
+    assert settled_detail["status"] == "settled"
+    assert settled_detail["settled_at"] is not None
+    assert Decimal(settled_detail["outstanding_amount"]) == Decimal("0.0000")
+
+    settlement_list_response = context.client.get(
+        f"/api/v1/loans/records/{given_record['id']}/settlements",
+        headers=headers,
+    )
+    assert settlement_list_response.status_code == 200
+    assert [
+        Decimal(item["amount"]) for item in settlement_list_response.json()["items"]
+    ] == [Decimal("75.0000"), Decimal("25.0000")]
+
+    summary_after = get_summary(context, headers)
+    assert Decimal(summary_after["total_loan_given"]) == Decimal("0.0000")
+    assert Decimal(summary_after["total_loan_taken"]) == Decimal("40.0000")
+    assert Decimal(summary_after["due_loan"]) == Decimal("-40.0000")
+
+    update_taken_response = context.client.patch(
+        f"/api/v1/loans/records/{taken_record['id']}",
+        headers=headers,
+        json={"principal_amount": "50.0000", "note": "Updated amount"},
+    )
+    assert update_taken_response.status_code == 200
+    assert Decimal(update_taken_response.json()["outstanding_amount"]) == Decimal(
+        "50.0000"
+    )
+
+    settled_list_response = context.client.get(
+        "/api/v1/loans/records",
+        headers=headers,
+        params={"status": "settled"},
+    )
+    assert settled_list_response.status_code == 200
+    assert [item["id"] for item in settled_list_response.json()["items"]] == [
+        given_record["id"]
+    ]
+
+
+def test_loan_validation_ownership_cursors_and_openapi(
+    loan_context: LoanApiContext,
+) -> None:
+    context = loan_context
+    owner_headers = auth_headers(context, "loan-owner@example.com")
+    other_headers = auth_headers(context, "loan-other@example.com")
+    owner_person = create_person(
+        context,
+        owner_headers,
+        name="Owner person",
+        phone_number="+8801744444444",
+    )
+    other_person = create_person(
+        context,
+        other_headers,
+        name="Other person",
+        phone_number="+8801755555555",
+    )
+    record = create_record(
+        context,
+        owner_headers,
+        person_id=owner_person["id"],
+        direction="given",
+        principal_amount="25.0000",
+        issued_at="2026-07-01T10:00:00+00:00",
+    )
+
+    assert (
+        context.client.post(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            json={
+                "person_id": other_person["id"],
+                "direction": "given",
+                "principal_amount": "10.0000",
+                "issued_at": "2026-07-01T10:00:00+00:00",
+            },
+        ).status_code
+        == 404
+    )
+    assert (
+        context.client.get(
+            f"/api/v1/loans/records/{record['id']}",
+            headers=other_headers,
+        ).status_code
+        == 404
+    )
+    assert (
+        context.client.post(
+            f"/api/v1/loans/records/{record['id']}/settlements",
+            headers=other_headers,
+            json={"amount": "1.0000", "settled_at": "2026-07-02T10:00:00+00:00"},
+        ).status_code
+        == 404
+    )
+    assert (
+        context.client.post(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            json={
+                "person_id": owner_person["id"],
+                "direction": "taken",
+                "principal_amount": 1.2,
+                "issued_at": "2026-07-01T10:00:00+00:00",
+            },
+        ).status_code
+        == 422
+    )
+    assert (
+        context.client.post(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            json={
+                "person_id": owner_person["id"],
+                "direction": "taken",
+                "principal_amount": "10.0000",
+                "issued_at": "2026-07-01T10:00:00",
+            },
+        ).status_code
+        == 422
+    )
+    assert (
+        context.client.get(
+            "/api/v1/loans/people",
+            headers=owner_headers,
+            params={"cursor": "not-a-valid-cursor"},
+        ).status_code
+        == 422
+    )
+    assert (
+        context.client.get(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            params={"cursor": "not-a-valid-cursor"},
+        ).status_code
+        == 422
+    )
+    assert (
+        context.client.get(
+            f"/api/v1/loans/records/{record['id']}/settlements",
+            headers=owner_headers,
+            params={"cursor": "not-a-valid-cursor"},
+        ).status_code
+        == 422
+    )
+    assert (
+        context.client.get(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            params={"person_id": "not-a-uuid"},
+        ).status_code
+        == 422
+    )
+
+    openapi = context.client.get("/openapi.json").json()
+    assert "/api/v1/loans/people" in openapi["paths"]
+    assert "/api/v1/loans/records" in openapi["paths"]
+    assert "/api/v1/loans/records/{record_id}/settlements" in openapi["paths"]
+    assert "/api/v1/loans/summary" in openapi["paths"]
+    assert openapi["paths"]["/api/v1/loans/records"]["post"]["security"] == [
+        {"HTTPBearer": []}
+    ]
+
+
+def auth_headers(context: LoanApiContext, email: str) -> dict[str, str]:
+    register_response = context.client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+    assert register_response.status_code == 201
+
+    login_response = context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+    assert login_response.status_code == 200
+    return {"Authorization": f"Bearer {login_response.json()['access_token']}"}
+
+
+def create_person(
+    context: LoanApiContext,
+    headers: dict[str, str],
+    *,
+    name: str,
+    phone_number: str,
+    note: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {"name": name, "phone_number": phone_number}
+    if note is not None:
+        payload["note"] = note
+    response = context.client.post(
+        "/api/v1/loans/people",
+        headers=headers,
+        json=payload,
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def create_record(
+    context: LoanApiContext,
+    headers: dict[str, str],
+    *,
+    person_id: object,
+    direction: str,
+    principal_amount: str,
+    issued_at: str,
+) -> dict[str, object]:
+    response = context.client.post(
+        "/api/v1/loans/records",
+        headers=headers,
+        json={
+            "person_id": person_id,
+            "direction": direction,
+            "principal_amount": principal_amount,
+            "issued_at": issued_at,
+        },
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def create_settlement(
+    context: LoanApiContext,
+    headers: dict[str, str],
+    record_id: object,
+    *,
+    amount: str,
+    settled_at: str,
+) -> dict[str, object]:
+    response = context.client.post(
+        f"/api/v1/loans/records/{record_id}/settlements",
+        headers=headers,
+        json={"amount": amount, "settled_at": settled_at},
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def get_summary(
+    context: LoanApiContext,
+    headers: dict[str, str],
+) -> dict[str, object]:
+    response = context.client.get("/api/v1/loans/summary", headers=headers)
+    assert response.status_code == 200
+    return dict(response.json())

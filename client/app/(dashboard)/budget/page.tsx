@@ -23,6 +23,7 @@ import {
   listBudgets,
   type Budget,
 } from "@/lib/finance/api";
+import { useAuthStore } from "@/lib/auth/store";
 import { formatMoney, formatPercent, monthKey } from "@/lib/finance/format";
 
 function monthOptions() {
@@ -43,26 +44,37 @@ export default function BudgetPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [month, setMonth] = useState(monthKey());
   const [open, setOpen] = useState(false);
+  const userCurrency = useAuthStore((state) => state.user?.base_currency ?? "USD");
   const months = useMemo(monthOptions, []);
 
-  const loadBudgets = useCallback(async () => {
+  const loadBudgets = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
-      setBudgets(await listBudgets(month));
+      const budgetItems = await listBudgets(month, { signal });
+      if (!signal?.aborted) {
+        setBudgets(budgetItems);
+      }
     } catch (loadError) {
+      if (signal?.aborted) {
+        return;
+      }
       setError(
         loadError instanceof Error
           ? loadError.message
           : "Budgets could not be loaded.",
       );
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [month]);
 
   useEffect(() => {
-    void loadBudgets();
+    const controller = new AbortController();
+    void loadBudgets(controller.signal);
+    return () => controller.abort();
   }, [loadBudgets]);
 
   const totals = useMemo(() => {
@@ -152,16 +164,20 @@ export default function BudgetPage() {
         <h2 className="text-input font-bold uppercase tracking-wide">
           Monthly Budget
         </h2>
-        <h3 className="text-5xl font-bold">{formatMoney(totals.limit)}</h3>
+        <h3 className="text-5xl font-bold">
+          {formatMoney(totals.limit, userCurrency)}
+        </h3>
         <div className="flex flex-wrap items-center justify-between gap-1.5 mt-3">
           <div>
             <span className="text-input">Spent</span>
-            <h4 className="font-bold text-2xl">{formatMoney(totals.spent)}</h4>
+            <h4 className="font-bold text-2xl">
+              {formatMoney(totals.spent, userCurrency)}
+            </h4>
           </div>
           <div>
             <span className="text-input">Remaining</span>
             <h4 className="font-bold text-2xl">
-              {formatMoney(totals.remaining)}
+              {formatMoney(totals.remaining, userCurrency)}
             </h4>
           </div>
           <Progress value={Math.min(totals.percent, 100)} className="h-2" />

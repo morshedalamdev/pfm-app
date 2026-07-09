@@ -10,7 +10,12 @@ class Settings(BaseSettings):
     app_env: Literal["local", "test", "development", "staging", "production"] = "local"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+    )
     database_url: str = "postgresql+asyncpg://pfm_app@localhost:5432/pfm_app"
     database_echo: bool = False
     database_pool_size: int = 5

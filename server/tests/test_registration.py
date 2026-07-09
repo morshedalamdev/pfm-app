@@ -70,12 +70,18 @@ def test_register_user_success_stores_normalized_email_and_argon2_hash(
         json={
             "email": "  New.User+Signup@Example.COM ",
             "password": "CorrectHorse42",
+            "full_name": "  New User ",
+            "phone_number": "  +15550001111 ",
+            "occupation": " student ",
         },
     )
 
     assert response.status_code == 201
     body = response.json()
     assert body["email"] == "new.user+signup@example.com"
+    assert body["full_name"] == "New User"
+    assert body["phone_number"] == "+15550001111"
+    assert body["occupation"] == "student"
     assert body["is_active"] is True
     assert body["id"]
     assert body["created_at"]
@@ -89,6 +95,9 @@ def test_register_user_success_stores_normalized_email_and_argon2_hash(
     assert user.password_hash != "CorrectHorse42"
     assert user.password_hash.startswith("$argon2")
     assert verify_password("CorrectHorse42", user.password_hash) is True
+    assert user.full_name == "New User"
+    assert user.phone_number == "+15550001111"
+    assert user.occupation == "student"
 
 
 def test_register_user_duplicate_email_returns_deterministic_error(

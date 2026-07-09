@@ -20,7 +20,16 @@ import {
 } from "@/components/ui/input-group";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createBudget, listCategories, type Category } from "@/lib/finance/api";
+import {
+  createBudget,
+  deleteBudget,
+  listBudgets,
+  listCategories,
+  updateBudget,
+  type Budget,
+  type Category,
+} from "@/lib/finance/api";
+import { useAuthStore } from "@/lib/auth/store";
 import {
   decimalInput,
   formatMoney,
@@ -33,35 +42,73 @@ import { useRouter } from "next/navigation";
 import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
 
 type BudgetAmounts = Record<string, string>;
+type BudgetLookup = Record<string, Budget>;
+type BudgetSetupTab = "details" | "custom";
 
 export default function SetupBudgetPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<BudgetSetupTab>("details");
   const [amounts, setAmounts] = useState<BudgetAmounts>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [income, setIncome] = useState("");
+  const [existingBudgets, setExistingBudgets] = useState<BudgetLookup>({});
+  const [existingMonthlyBudget, setExistingMonthlyBudget] =
+    useState<Budget | null>(null);
+  const [monthlyBudget, setMonthlyBudget] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const userCurrency = useAuthStore(
+    (state) => state.user?.base_currency ?? "USD",
+  );
   const currentMonth = monthKey();
 
   useEffect(() => {
-    async function loadCategories() {
+    async function loadBudgetSetup() {
       setIsLoading(true);
       setError(null);
       try {
-        setCategories(await listCategories("expense"));
+        const [expenseCategories, currentBudgets] = await Promise.all([
+          listCategories("expense"),
+          listBudgets(currentMonth),
+        ]);
+        const budgetLookup = currentBudgets.reduce<BudgetLookup>(
+          (lookup, budget) => {
+            if (budget.category_id) {
+              lookup[budget.category_id] = budget;
+            }
+            return lookup;
+          },
+          {},
+        );
+        const globalBudget =
+          currentBudgets.find((budget) => budget.category_id === null) ?? null;
+        setCategories(expenseCategories);
+        setExistingBudgets(budgetLookup);
+        setExistingMonthlyBudget(globalBudget);
+        setMonthlyBudget(
+          globalBudget ? Number(globalBudget.limit_amount).toFixed(2) : "",
+        );
+        setAmounts(
+          expenseCategories.reduce<BudgetAmounts>((nextAmounts, category) => {
+            const budget = budgetLookup[category.id];
+            if (budget) {
+              nextAmounts[category.id] = Number(budget.limit_amount).toFixed(2);
+            }
+            return nextAmounts;
+          }, {}),
+        );
       } catch (loadError) {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Expense categories could not be loaded.",
+            : "Budget setup data could not be loaded.",
         );
       } finally {
         setIsLoading(false);
       }
     }
-    void loadCategories();
-  }, []);
+    void loadBudgetSetup();
+  }, [currentMonth]);
 
   const allocated = useMemo(
     () =>
@@ -71,42 +118,81 @@ export default function SetupBudgetPage() {
       ),
     [amounts],
   );
-  const incomeAmount = Number(income || 0);
-  const remaining = incomeAmount - allocated;
-  const allocatedPercent = incomeAmount > 0 ? (allocated / incomeAmount) * 100 : 0;
+  const monthlyBudgetAmount = Number(monthlyBudget || 0);
+  const remaining = monthlyBudgetAmount - allocated;
+  const allocatedPercent =
+    monthlyBudgetAmount > 0 ? (allocated / monthlyBudgetAmount) * 100 : 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSaving(true);
 
-    const entries = categories
-      .map((category) => ({
-        category,
-        value: amounts[category.id] ?? "",
-      }))
-      .filter((entry) => Number(entry.value) > 0);
+    const bounds = monthBounds(currentMonth);
+    const operations: Promise<unknown>[] = [];
+    const monthlyBudgetValue = Number(monthlyBudget || 0);
 
-    if (entries.length === 0) {
-      setError("Enter at least one category budget.");
+    if (monthlyBudgetValue > 0) {
+      const body = {
+        currency: userCurrency,
+        limit_amount: decimalInput(monthlyBudget),
+      };
+      operations.push(
+        existingMonthlyBudget
+          ? updateBudget(existingMonthlyBudget.id, body)
+          : createBudget({
+              ...body,
+              category_id: null,
+              period_end: bounds.end,
+              period_start: bounds.start,
+              period_type: "monthly",
+            }),
+      );
+    } else if (existingMonthlyBudget) {
+      operations.push(deleteBudget(existingMonthlyBudget.id));
+    }
+
+    categories.forEach((category) => {
+      const value = amounts[category.id] ?? "";
+      const budget = existingBudgets[category.id];
+      const hasAmount = Number(value) > 0;
+
+      if (hasAmount) {
+        const body = {
+          currency: userCurrency,
+          limit_amount: decimalInput(value),
+        };
+        operations.push(
+          budget
+            ? updateBudget(budget.id, body)
+            : createBudget({
+                ...body,
+                category_id: category.id,
+                period_end: bounds.end,
+                period_start: bounds.start,
+                period_type: "monthly",
+              }),
+        );
+        return;
+      }
+
+      if (budget) {
+        operations.push(deleteBudget(budget.id));
+      }
+    });
+
+    const hasPositiveAmount =
+      monthlyBudgetValue > 0 ||
+      categories.some((category) => Number(amounts[category.id] || 0) > 0);
+
+    if (!hasPositiveAmount && operations.length === 0) {
+      setError("Enter a monthly budget or at least one category budget.");
       setIsSaving(false);
       return;
     }
 
-    const bounds = monthBounds(currentMonth);
     try {
-      await Promise.all(
-        entries.map((entry) =>
-          createBudget({
-            category_id: entry.category.id,
-            currency: "USD",
-            limit_amount: decimalInput(entry.value),
-            period_end: bounds.end,
-            period_start: bounds.start,
-            period_type: "monthly",
-          }),
-        ),
-      );
+      await Promise.all(operations);
       router.push("/budget");
     } catch (saveError) {
       setError(
@@ -123,6 +209,70 @@ export default function SetupBudgetPage() {
     setAmounts((current) => ({ ...current, [categoryId]: value }));
   }
 
+  const details = (
+    <div className="space-y-3">
+      <div className="bg-secondary/60 p-3 rounded-lg">
+        <div className="flex flex-wrap justify-between gap-3 mb-1.5">
+          <div>
+            <span className="text-input">Monthly Budget</span>
+            <h4 className="font-bold text-xl">
+              {formatMoney(monthlyBudgetAmount, userCurrency)}
+            </h4>
+          </div>
+          <div>
+            <span className="text-input">Allocated</span>
+            <h4 className="font-bold text-xl">
+              {formatMoney(allocated, userCurrency)}
+            </h4>
+          </div>
+          <div>
+            <span className="text-input">Remaining</span>
+            <h4
+              className={`font-bold text-xl ${
+                remaining < 0 ? "text-red-500" : "text-green-500"
+              }`}
+            >
+              {formatMoney(remaining, userCurrency)}
+            </h4>
+          </div>
+        </div>
+        <Progress value={Math.min(allocatedPercent, 100)} className="h-2 mb-0.5" />
+        <div className="flex items-center justify-between">
+          <span className="text-input">
+            {formatPercent(allocatedPercent)} allocated
+          </span>
+        </div>
+      </div>
+      <FieldSet>
+        <FieldGroup>
+          <FieldLegend variant="legend">Current Budget Details</FieldLegend>
+          {categories.map((category) => {
+            const amount = amounts[category.id] ?? "";
+            const amountNumber = Number(amount || 0);
+            return (
+              <div
+                className="border border-input rounded-md p-3 flex items-center justify-between gap-3"
+                key={category.id}
+              >
+                <div>
+                  <h3 className="font-bold text-base">{category.name}</h3>
+                  <p className="text-input text-sm">
+                    {monthlyBudgetAmount > 0
+                      ? `${formatPercent((amountNumber / monthlyBudgetAmount) * 100)} of monthly budget`
+                      : "No monthly budget set"}
+                  </p>
+                </div>
+                <p className="font-bold text-base">
+                  {formatMoney(amountNumber, userCurrency)}
+                </p>
+              </div>
+            );
+          })}
+        </FieldGroup>
+      </FieldSet>
+    </div>
+  );
+
   const form = (
     <form onSubmit={handleSubmit}>
       <FieldSet>
@@ -134,15 +284,15 @@ export default function SetupBudgetPage() {
             <div className="bg-secondary/60 p-3 rounded-lg">
               <div className="flex flex-wrap justify-between gap-3 mb-1.5">
                 <div>
-                  <span className="text-input">Income</span>
+                  <span className="text-input">Monthly Budget</span>
                   <h4 className="font-bold text-xl">
-                    {formatMoney(incomeAmount)}
+                    {formatMoney(monthlyBudgetAmount, userCurrency)}
                   </h4>
                 </div>
                 <div>
                   <span className="text-input">Allocated</span>
                   <h4 className="font-bold text-xl">
-                    {formatMoney(allocated)}
+                    {formatMoney(allocated, userCurrency)}
                   </h4>
                 </div>
                 <div>
@@ -152,7 +302,7 @@ export default function SetupBudgetPage() {
                       remaining < 0 ? "text-red-500" : "text-green-500"
                     }`}
                   >
-                    {formatMoney(remaining)}
+                    {formatMoney(remaining, userCurrency)}
                   </h4>
                 </div>
               </div>
@@ -182,9 +332,10 @@ export default function SetupBudgetPage() {
                   placeholder="0.00"
                 />
                 <InputGroupAddon align="inline-end">
-                  {incomeAmount > 0
+                  {monthlyBudgetAmount > 0
                     ? formatPercent(
-                        (Number(amounts[category.id] || 0) / incomeAmount) *
+                        (Number(amounts[category.id] || 0) /
+                          monthlyBudgetAmount) *
                           100,
                       )
                     : "0%"}
@@ -210,9 +361,9 @@ export default function SetupBudgetPage() {
       </Header>
       <section className="p-3 pt-6">
         <Field className="mb-6">
-          <FieldLabel>Monthly Income</FieldLabel>
+          <FieldLabel>Monthly Budget</FieldLabel>
           <FieldDescription>
-            Include all sources of monthly income after taxes.
+            Set the total amount available for this month's budget.
           </FieldDescription>
           <InputGroup className="border-0 border-b rounded-none h-12">
             <InputGroupAddon>
@@ -224,10 +375,11 @@ export default function SetupBudgetPage() {
               type="number"
               min="0"
               step="0.01"
-              value={income}
-              onChange={(event) => setIncome(event.target.value)}
+              value={monthlyBudget}
+              onChange={(event) => setMonthlyBudget(event.target.value)}
               placeholder="00,000.00"
               className="font-bold text-center text-5xl"
+              readOnly={activeTab === "details"}
             />
           </InputGroup>
         </Field>
@@ -237,12 +389,16 @@ export default function SetupBudgetPage() {
           <p className="text-input text-sm">No expense categories found.</p>
         )}
         {!isLoading && categories.length > 0 && (
-          <Tabs defaultValue="default" className="gap-3">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as BudgetSetupTab)}
+            className="gap-3"
+          >
             <TabsList>
-              <TabsTrigger value="default">Default</TabsTrigger>
+              <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="custom">Custom</TabsTrigger>
             </TabsList>
-            <TabsContent value="default">{form}</TabsContent>
+            <TabsContent value="details">{details}</TabsContent>
             <TabsContent value="custom">{form}</TabsContent>
           </Tabs>
         )}

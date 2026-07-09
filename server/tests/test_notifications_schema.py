@@ -97,13 +97,13 @@ def test_notification_migration_up_down_up_table(
     config = build_alembic_config(disposable_postgres_url)
 
     command.downgrade(config, "base")
-    command.upgrade(config, "head")
+    command.upgrade(config, "202607010703")
     assert asyncio.run(table_exists(disposable_postgres_url, "notifications"))
 
     command.downgrade(config, "-1")
     assert not asyncio.run(table_exists(disposable_postgres_url, "notifications"))
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "202607010703")
     assert asyncio.run(table_exists(disposable_postgres_url, "notifications"))
 
 

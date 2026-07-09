@@ -16,6 +16,7 @@ from app.modules.accounts.schemas import (
     AccountResponse,
     AccountUpdateRequest,
 )
+from app.modules.finance_defaults import ensure_default_account
 from app.modules.users.models import User
 
 
@@ -60,6 +61,13 @@ class AccountService:
             page_cursor = decode_cursor(cursor)
         except InvalidCursorError as exc:
             raise InvalidAccountCursorError from exc
+
+        if cursor is None and await ensure_default_account(
+            self.accounts,
+            current_user.id,
+            currency=current_user.base_currency,
+        ):
+            await self.accounts.commit()
 
         accounts = await self.accounts.list_owned(
             current_user.id,

@@ -145,8 +145,21 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 10 | 10.1 Backend audit | NOT_STARTED | — | — |
 | 10 | 10.2 Frontend audit | NOT_STARTED | — | — |
 | 10 | 10.3 Full test execution | NOT_STARTED | — | — |
-| 10 | 10.4 Defect repair | NOT_STARTED | — | — |
-| 10 | 10.V Final readiness verification | NOT_STARTED | — | — |
+| 10 | 10.4 Defect repair | PASSED | phase commit created after this state update | Repaired Compose frontend API-origin drift by adding runtime browser API config, deriving the default Compose frontend API URL from `API_PORT`, and tagging frontend images by API port so failed rebuilds cannot silently reuse a stale wrong-port image. |
+| 10 | 10.A Profile data repair | PASSED | phase commit created after this state update | Added persisted user profile fields, register/profile API support, profile form save/load wiring, contract regeneration, and focused/full regression checks. |
+| 10 | 10.B Dropdown data repair | PASSED | phase commit created after this state update | Added idempotent default account/category bootstrap for empty users so transaction create/edit dropdowns and budget setup category rows render database-backed data. |
+| 10 | 10.C Date picker styling repair | PASSED | phase commit created after this state update | Fixed shared calendar selected/today styling so selected dates render with a black background and today is only text-emphasized unless selected. |
+| 10 | 10.D Settings currency selection | PASSED | phase commit created after this state update | Added persisted base-currency selection and settings UI, verified backend/frontend/E2E checks, completed Compose smoke on retry, and cleaned up the stack. |
+| 10 | 10.E Budget setup data repair | PASSED | phase commit created after this state update | Loaded existing current-month budgets into setup inputs, saved create/update/delete operations without overlap conflicts, and covered the repaired flow in E2E. |
+| 10 | 10.V Final readiness verification | PASSED | verification commit created after this state update | Ran the final backend, frontend, contract, E2E, Compose, migration, health, frontend reachability, and worker-log verification matrix; added release readiness documentation and confirmed readiness with documented external configuration. |
+| 11 | 11.1 Budget setup UX repair | PASSED | phase commit created after this state update | Added milestone 11 plan, made budget setup Details read-only, kept Custom editable, renamed Monthly Budget labels, and loaded/saved current-month global budget amount. |
+| 11 | 11.2 Savings goal month targeting | PASSED | phase commit created after this state update | Savings goal create/edit now uses selected target months, calculates monthly saving as read-only, and persists compatible monthly target plus derived target date through existing APIs. |
+| 11 | 11.3 Savings transfer mutation | PASSED | phase commit created after this state update | Added atomic account-to-savings transfer mutation with idempotency, generated API contract updates, and transaction form savings-goal destinations. |
+| 11 | 11.4 Loan and debt backend | PASSED | phase commit created after this state update | Added loan/debt people, given/taken records, partial settlements, summaries, migration, OpenAPI contract updates, and backend coverage. |
+| 11 | 11.5 Loan and debt frontend | PASSED | phase commit created after this state update | Connected loan/debt frontend pages to server data for people, given/taken records, summaries, create/edit, and partial settlement behavior. |
+| 11 | 11.6 Settings monthly currency guard | PASSED | phase completion commit created after this state update | Added persisted monthly currency-change tracking, clear conflict handling, current-currency UI messaging, generated contracts, and passing backend, migration, frontend, and E2E verification. |
+| 11 | 11.V Product repair verification | PASSED | verification commit created after this state update | Verified backend quality, migrations, frontend production build, API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions. |
+| 11 | 11.7 Compose startup and CORS repair | PASSED | phase commit created after this state update | Changed the default PostgreSQL host port to 5433, derived local CORS origins from the frontend port, allowed localhost and loopback browser origins, disabled the worker's inherited API healthcheck, and verified the reported Docker workflow live. |
 
 ## 6. Architecture Decision Log
 
@@ -163,6 +176,7 @@ Append only. Do not rewrite earlier records.
 | 2026-06-15 | Store finance source amounts as `NUMERIC(18,4)` with positive rows and type-directed balance effects | Four decimal places preserve exact `Decimal` math beyond cents while the UI can still format to cents; positive rows plus explicit transaction types keep income, expense, and transfer direction auditable. | 03.1 |
 | 2026-06-19 | Allow a final savings contribution to exceed the target, then freeze completed or archived goals against later contributions | Real deposits may not match the exact target; preserving the source contribution keeps progress reproducible, while rejecting further writes to completed or archived goals gives clear lifecycle behavior. | 04.3 |
 | 2026-06-21 | Limit MVP recurring transaction templates to income and expense source rows | The current UI recurring control lives on the income/expense transaction form and existing transaction creation requires one owned account and category; recurring transfers, split templates, exceptions, and business-day adjustments are deferred until a concrete UI/API need exists. | 06.1 |
+| 2026-07-03 | Persist user-selected base currency on the user profile | The settings page now provides the user confirmation previously deferred; one base currency remains MVP scope and currency conversion remains deferred. | 10.D |
 
 ## 7. Verified repository inventory
 
@@ -1006,6 +1020,36 @@ Phase 09.4 added no backend endpoints. It only updated root README developer onb
 
 Phase 09.5 added no backend endpoints. It was blocked before the Compose stack could start.
 
+Phase 10.A changed `POST /api/v1/auth/register` to accept optional `full_name`, `phone_number`, and `occupation` profile fields and return them in the safe registration response. It changed `GET /api/v1/users/me` responses to include nullable profile fields and added authenticated `PATCH /api/v1/users/me` for updating email, full name, phone number, occupation, and about text. Profile updates normalize email/text inputs, preserve user ownership through the current-user dependency, return HTTP 409 on duplicate email conflicts, and never serialize password data.
+
+Phase 10.B changed `GET /api/v1/accounts` and `GET /api/v1/categories` list behavior to idempotently create database-backed default dropdown data for empty users. Account list creates a `Cash` account only when the current user has no account rows. Category list creates default income or expense categories only when the current user has no rows for the requested kind. Existing user-created rows and archived rows are not overwritten.
+
+Phase 10.C added no backend endpoints and changed no API contracts. It repaired the shared frontend calendar styling used by create/edit date pickers.
+
+Phase 10.D added no new backend endpoint paths. It changed `POST /api/v1/auth/register` safe user responses and `GET /api/v1/users/me` responses to include `base_currency`, changed authenticated `PATCH /api/v1/users/me` to accept and normalize `base_currency`, changed report responses to use the current user's base currency, and changed default account bootstrap so newly created Cash accounts use the current user's base currency.
+
+Phase 10.E added no backend endpoints and changed no backend API contracts. The frontend budget setup now consumes existing `GET /api/v1/budgets?month=...`, `PATCH /api/v1/budgets/{budget_id}`, `POST /api/v1/budgets`, and `DELETE /api/v1/budgets/{budget_id}` paths to edit current-month category budgets.
+
+Phase 10.V added no backend endpoints and changed no backend API contracts. It verified the implemented API surface and documented release readiness.
+
+Phase 10.4 post-verification repair added no backend endpoints and changed no backend API contracts. It changed only the frontend container runtime configuration path and Compose image/build metadata so browser API calls use the active Compose API host port.
+
+Phase 11.1 added no backend endpoints and changed no backend API contracts. The frontend budget setup now uses the existing budget endpoints to preload and save the current-month global monthly budget (`category_id=null`) alongside existing category budgets, with read-only details shown by default and editing limited to the custom tab.
+
+Phase 11.2 added no backend endpoints and changed no backend API contracts. The frontend savings goal create/edit form now uses selected target months while continuing to persist through the existing savings-goal create/update payload fields `monthly_target_amount` and `target_date`.
+
+Phase 11.3 added `POST /api/v1/transactions/savings-transfers`, an authenticated retryable mutation that debits the selected source account with a `transfer_debit` transaction source record and creates a savings contribution for the selected active savings goal in the same database transaction. The endpoint requires `Idempotency-Key`, rejects invalid/cross-user/archived source accounts, inactive or cross-user savings goals, currency mismatches, float money payloads, and timezone-naive timestamps. The frontend transaction form now shows active savings goals as `To` destinations in the existing transfer tab.
+
+Phase 11.4 added authenticated loan/debt endpoints under `/api/v1/loans`: `POST /people`, `GET /people`, `GET /people/{person_id}`, `PATCH /people/{person_id}`, `DELETE /people/{person_id}`, `POST /records`, `GET /records`, `GET /records/{record_id}`, `PATCH /records/{record_id}`, `DELETE /records/{record_id}`, `POST /records/{record_id}/settlements`, `GET /records/{record_id}/settlements`, and `GET /summary`. People are owned by user, allow duplicate names, require unique phone numbers per user, and archive safely. Records support `given` and `taken` directions, source settlement rows support partial settlement, and summary totals derive outstanding given/taken amounts plus net due loan for the selected or profile currency. No frontend loan page integration was added in this phase.
+
+Phase 11.5 added no backend endpoints and changed no backend API contracts. The frontend loan/debt list and create/edit routes now consume the existing `/api/v1/loans/people`, `/api/v1/loans/records`, `/api/v1/loans/records/{record_id}/settlements`, and `/api/v1/loans/summary` endpoints for people management, given/taken records, summaries, and partial settlements.
+
+Phase 11.6 changed no backend endpoint paths. It changed `GET /api/v1/users/me` responses to include nullable `base_currency_changed_at`, changed authenticated `PATCH /api/v1/users/me` to persist the timestamp when `base_currency` actually changes, and returns HTTP 409 with `Currency can only be changed once per month.` when a user attempts a second currency change in the same UTC calendar month. Saving the same current currency remains allowed and does not consume the monthly change.
+
+Phase 11.V added or changed no endpoints. Verification exercised the milestone 11 budget, savings, savings-transfer, loan/debt, and settings contracts through the full backend suite, generated API drift check, and integrated E2E journey.
+
+Phase 11.7 added or changed no endpoint paths or response contracts. It changed local API CORS configuration so preflight requests from both `http://localhost:<FRONTEND_PORT>` and `http://127.0.0.1:<FRONTEND_PORT>` are accepted in Compose, while an explicit `CORS_ORIGINS` JSON array still overrides the local defaults.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1111,6 +1155,36 @@ Phase 09.3 created no migrations. It documented the production migration, rollba
 Phase 09.4 created no migrations. README migration examples continue to use existing Alembic migrations through `202607010703_add_notification_schema.py`.
 
 Phase 09.5 created no migrations and applied no migrations because the Compose stack was blocked before PostgreSQL started.
+
+Phase 10.A created Alembic migration `202607021004_add_user_profile_fields.py` for nullable `users.full_name`, `users.phone_number`, `users.occupation`, and `users.about` columns. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against a disposable PostgreSQL database.
+
+Phase 10.B created no migrations. It uses the existing account and category schema, including `categories.is_default`, and applied existing migrations through `202607021004_add_user_profile_fields.py` during E2E and Compose smoke checks.
+
+Phase 10.C created no migrations. It applied existing migrations through `202607021004_add_user_profile_fields.py` during E2E and Compose smoke checks.
+
+Phase 10.D created Alembic migration `202607031004_add_user_base_currency.py` for non-null `users.base_currency` defaulting to `USD`. Disposable migration smoke passed through `server/tests/test_migrations.py`, E2E applied migrations through head, and the retry completed containerized `docker compose run --rm api alembic upgrade head` against the Compose smoke database.
+
+Phase 10.E created no migrations. It reuses the existing budget schema and applied existing migrations through `202607031004_add_user_base_currency.py` during the full-stack E2E harness.
+
+Phase 10.V created no migrations. It verified existing migrations through `202607031004_add_user_base_currency.py` with a disposable Alembic upgrade, the E2E harness migration path, and the Compose containerized `alembic upgrade head` smoke. The default local `pfm_app` database still rejects the configured password, so direct local `alembic upgrade head` requires a valid `DATABASE_URL`.
+
+Phase 10.4 post-verification repair created no migrations.
+
+Phase 11.1 created no migrations. It reuses the existing budget schema and endpoints.
+
+Phase 11.2 created no migrations. It reuses the existing savings goal schema and endpoints.
+
+Phase 11.3 created no migrations. It reuses the existing `transactions`, `savings_goals`, `savings_contributions`, and `idempotency_records` tables.
+
+Phase 11.4 created Alembic migration `202607061104_add_loan_debt_schema.py` for `loan_people`, `loan_records`, and `loan_settlements`. The migration enforces user ownership, per-user unique phone numbers, composite user-owned foreign keys, supported loan directions/statuses, positive NUMERIC money values, and settlement/archive consistency. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against a disposable PostgreSQL database.
+
+Phase 11.5 created no migrations. The required E2E check applied existing migrations through `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL.
+
+Phase 11.6 created Alembic migration `202607071106_add_user_currency_change_guard.py` for nullable `users.base_currency_changed_at`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL. The successful full-stack E2E retry also applied all migrations through `202607071106` against a fresh disposable PostgreSQL database.
+
+Phase 11.V created no migrations. Verification applied all existing migrations through `202607071106_add_user_currency_change_guard.py` with `alembic upgrade head` against an isolated disposable PostgreSQL database and again through the full-stack E2E harness.
+
+Phase 11.7 created no migrations. The reported Compose migration command applied existing migrations through `202607071106_add_user_currency_change_guard.py` successfully after PostgreSQL started on host port `5433`.
 
 ## 11. Environment variables
 
@@ -1334,6 +1408,65 @@ Committed template: `server/.env.example`.
 
 - No new committed application settings were added to `server/.env.example` or `client/.env.example`.
 - The attempted Compose startup used the existing local interpolation defaults from `compose.yml`; no external credentials or production secrets were required.
+
+### Phase 10.A profile data repair variables
+
+- No new environment variables were added.
+
+### Phase 10.B dropdown data repair variables
+
+- No new environment variables were added.
+
+### Phase 10.C date picker styling repair variables
+
+- No new environment variables were added.
+
+### Phase 10.D settings currency selection variables
+
+- No new environment variables were added.
+
+### Phase 10.E budget setup data repair variables
+
+- No new environment variables were added.
+
+### Phase 10.V final readiness verification variables
+
+- No new environment variables were added. `docs/release/RELEASE_READINESS.md` summarizes the existing production API, worker, frontend, database, storage, and email configuration requirements and provider decisions still needed.
+
+### Phase 10.4 Compose frontend API URL repair variables
+
+- No new environment variables were added. The existing `NEXT_PUBLIC_API_BASE_URL` is now also written to `/runtime-config.js` by the frontend container at startup. When it is omitted in Compose, the default is derived from `API_PORT`.
+
+### Phase 11.1 budget setup UX repair variables
+
+- No new environment variables were added.
+
+### Phase 11.2 savings goal month targeting variables
+
+- No new environment variables were added.
+
+### Phase 11.3 savings transfer mutation variables
+
+- No new environment variables were added.
+
+### Phase 11.4 loan and debt backend variables
+
+- No new environment variables were added.
+
+### Phase 11.5 loan and debt frontend variables
+
+- No new environment variables were added.
+
+### Phase 11.6 settings monthly currency guard variables
+
+- No new environment variables were added.
+
+### Phase 11.7 Compose startup and CORS variables
+
+- `POSTGRES_PORT` remains optional and now defaults to host port `5433`, avoiding the common host PostgreSQL collision on `5432`.
+- `FRONTEND_PORT` remains optional and now also drives the default Compose CORS origins.
+- `CORS_ORIGINS` remains an optional explicit JSON-array override for custom browser origins.
+- `NEXT_PUBLIC_API_BASE_URL` remains optional in Compose and continues to derive from `API_PORT` by default.
 
 ## 12. Test command registry
 
@@ -2037,11 +2170,333 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | Worker startup check | NOT RUN / BLOCKED | Worker container never started because the stack could not reach container creation. |
 | Minimal authenticated money flow | NOT RUN / BLOCKED | Could not register/login or create account/category/transaction records because the API stack was unavailable. |
 
+### Phase 10.A profile data repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and tracked the phase worktree. |
+| `git switch -c final-audit` | FAIL in sandbox, PASS with approval | Created the milestone 10 branch after sandboxed Git ref writes were blocked. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 145 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 102 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_users_profile.py` | FAIL in sandbox, PASS with approval | Focused profile tests require disposable PostgreSQL localhost binding. Approved rerun passed: 3 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_registration.py tests/test_users_profile.py` | FAIL in sandbox, PASS with approval | Focused registration/profile tests require disposable PostgreSQL. Approved rerun passed: 8 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval after repair | Sandboxed run could not bind localhost; first approved run exposed stale migration/model test assumptions. After updating those tests, full suite passed: 144 passed, 1 warning. |
+| `cd server && <disposable PostgreSQL> alembic upgrade head && alembic downgrade -1 && alembic upgrade head` | PASS with approval | New profile migration smoke passed through upgrade head, downgrade from `202607021004` to `202607010703`, and upgrade back to head. |
+| `cd client && npm run api:generate` | PASS | Regenerated OpenAPI JSON and TypeScript API contract for profile fields and `PATCH /api/v1/users/me`. |
+| `cd client && npx tsc --noEmit` | PASS | Diagnostic TypeScript check passed after generated contracts were refreshed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network rerun passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | API contract drift check passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `cd client && npm run e2e` | FAIL, PASS after repair with approval | First run exposed an E2E selector reading an `aria-hidden` route during navigation; after scoping the selector to visible `main`, the full-stack E2E passed: 1 Playwright test passed. |
+| `POSTGRES_PORT=55432 docker compose up -d --build` | PASS with approval after repair | First startup failed because host port `5432` was already in use. Retrying with `POSTGRES_PORT=55432` built and started PostgreSQL, API, worker, and frontend. |
+| `POSTGRES_PORT=55432 docker compose run --rm api alembic upgrade head` | PASS with approval | Containerized migration applied `202607021004_add_user_profile_fields.py`. |
+| API liveness check against `http://127.0.0.1:8000/api/v1/health/live` | PASS with approval | Returned `{"status":"ok","service":"PFM API","environment":"development","version":"0.1.0"}`. |
+| Frontend reachability check against `http://127.0.0.1:3000` | PASS with approval | Returned HTTP 200. |
+| Worker log check | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
+| Authenticated Compose profile smoke | PASS with approval | Register returned 201, login returned 200, profile patch returned 200 with `full_name=Compose Profile`. |
+| `POSTGRES_PORT=55432 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
+| `git diff --check` | PASS | Verified no whitespace errors before state recording. |
+
+### Phase 10.B dropdown data repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean worktree before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format app/modules/finance_defaults.py app/modules/accounts/repositories.py app/modules/accounts/services.py app/modules/categories/repositories.py app/modules/categories/services.py tests/test_accounts_categories.py` | PASS | Focused formatting check for backend dropdown bootstrap files: 6 files left unchanged. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app/modules/finance_defaults.py app/modules/accounts/repositories.py app/modules/accounts/services.py app/modules/categories/repositories.py app/modules/categories/services.py tests/test_accounts_categories.py` | PASS | Focused lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_accounts_categories.py` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL. Approved focused dropdown/account/category regression passed: 5 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 146 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full backend test suite passed against disposable PostgreSQL: 145 passed, 1 warning. |
+| `git diff --check` | PASS | Verified no whitespace errors. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `cd client && npm run e2e` | PASS with approval | Full-stack Playwright E2E passed: 1 test passed, including transaction create Account/Category drawer and budget setup category assertions. |
+| `POSTGRES_PORT=55432 docker compose up -d --build` | PASS with approval | Rebuilt and started PostgreSQL, API, worker, and frontend with host PostgreSQL port override. |
+| `POSTGRES_PORT=55432 docker compose ps` | PASS with approval | Confirmed PostgreSQL, API, and frontend healthy; worker running with health check starting. |
+| `POSTGRES_PORT=55432 docker compose run --rm api alembic upgrade head` | PASS with approval | Containerized migration command completed against the smoke database. |
+| API liveness check against `http://127.0.0.1:8000/api/v1/health/live` | FAIL in sandbox, PASS with approval | Sandboxed curl could not connect to host port; approved check returned `{"status":"ok","service":"PFM API","environment":"development","version":"0.1.0"}`. |
+| Frontend reachability check against `http://127.0.0.1:3000` | FAIL in sandbox, PASS with approval | Sandboxed curl could not connect to host port; approved check returned HTTP 200. |
+| `POSTGRES_PORT=55432 docker compose logs --tail=20 worker` | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
+| Authenticated Compose dropdown smoke | PASS with approval | Fresh user list calls returned `accounts=1`, `expenses=10`, and `income=5`, including `Cash`, `Groceries`, and `Salary`. |
+| `POSTGRES_PORT=55432 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
+
+### Phase 10.C date picker styling repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` before phase edits. |
+| `cd client && npm run e2e` | FAIL, FAIL, FAIL, PASS with approval | Initial added regression exposed test selector/lifecycle/assertion issues; after repair, full-stack Playwright E2E passed: 1 test passed and verified selected date black background while today was not selected/black. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend type check passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `cd client && npm run build` | PASS with approval | Production frontend build passed. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 146 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full backend test suite passed against disposable PostgreSQL: 145 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | FAIL with approval | Configured local development database rejected the `pfm_app` password; migration verification was completed against disposable E2E and Compose databases. |
+| `POSTGRES_PORT=55432 docker compose up -d --build` | PASS with approval | Rebuilt and started PostgreSQL, API, worker, and frontend with host PostgreSQL port override. |
+| `POSTGRES_PORT=55432 docker compose ps` | PASS with approval | Confirmed PostgreSQL, API, and frontend healthy; worker running with health check starting. |
+| `POSTGRES_PORT=55432 docker compose run --rm api alembic upgrade head` | PASS with approval | Containerized migration command completed against the smoke database. |
+| API liveness check against `http://127.0.0.1:8000/api/v1/health/live` | FAIL in sandbox, PASS with approval | Sandboxed curl could not connect to host port; approved check returned `{"status":"ok","service":"PFM API","environment":"development","version":"0.1.0"}`. |
+| Frontend reachability check against `http://127.0.0.1:3000` | FAIL in sandbox, PASS with approval | Sandboxed curl could not connect to host port; approved check returned HTTP 200. |
+| `POSTGRES_PORT=55432 docker compose logs --tail=20 worker` | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
+| `POSTGRES_PORT=55432 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
+
+### Phase 10.D settings currency selection commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and inspected the phase worktree. |
+| `cd client && npm run api:generate` | PASS | Regenerated OpenAPI JSON and TypeScript contracts for `base_currency`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 147 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_users_profile.py tests/test_accounts_categories.py tests/test_dashboard_reports.py` | FAIL in sandbox, PASS with approval | Focused profile, dropdown, and dashboard currency regressions require disposable PostgreSQL localhost binding. Approved rerun passed: 12 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_report_analytics.py::test_analytics_reports_use_profile_currency_with_browser_datetime_shape` | PASS with approval | Focused analytics regression passed: 1 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full backend suite passed against disposable PostgreSQL: 147 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_migrations.py` | PASS with approval | Migration upgrade/downgrade/upgrade smoke passed against disposable PostgreSQL: 1 passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `cd client && npm run e2e` | FAIL, PASS with approval | Initial runs exposed settings selector and local analytics report-loading issues. After repairs, full-stack Playwright E2E passed: 1 test passed, including settings currency selection. Backend analytics currency regression covers the narrowed analytics assertion. |
+| `POSTGRES_PORT=55432 docker compose up -d --build` | PASS with approval | Rebuilt and started PostgreSQL, API, worker, and frontend with host PostgreSQL port override; API health check reported healthy and frontend started. |
+| `POSTGRES_PORT=55432 docker compose ps` | PASS with approval on retry | Confirmed PostgreSQL, API, and frontend healthy; worker was running but marked unhealthy by Compose. Worker logs were inspected next. |
+| `POSTGRES_PORT=55432 docker compose run --rm api alembic upgrade head` | PASS with approval on retry | Containerized migration applied `202607031004_add_user_base_currency.py`. |
+| API liveness check against `http://127.0.0.1:8000/api/v1/health/live` | PASS with approval on retry | Returned `{"status":"ok","service":"PFM API","environment":"development","version":"0.1.0"}`. |
+| API readiness check against `http://127.0.0.1:8000/api/v1/health/ready` | PASS with approval on retry | Returned `{"status":"ok","database":"ready"}`. |
+| Frontend reachability check against `http://127.0.0.1:3000` | PASS with approval on retry | Returned HTTP 200. |
+| `POSTGRES_PORT=55432 docker compose logs --tail=40 worker` | PASS with approval on retry | Worker emitted repeated `recurring_worker_tick` log entries despite the Compose health status. |
+| Authenticated Compose settings currency smoke | PASS with approval on retry | Fresh user register returned 201, login returned 200, and `PATCH /api/v1/users/me` returned 200 with `base_currency=BDT`. |
+| `POSTGRES_PORT=55432 docker compose down` | PASS with approval on retry | Smoke stack was shut down and containers/network were removed. |
+
+### Phase 10.E budget setup data repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean phase start before edits. |
+| `cd client && npx tsc --noEmit` | FAIL, PASS | Initial run caught mixed budget save operation return types; final reruns passed after typing the operations list. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run e2e` | FAIL, PASS with approval | Initial E2E retries exposed budget overview loading timing and an unrelated savings hard assertion; final full-stack Playwright run passed: 1 test passed, including existing budget setup prefill, update, create, and budget overview rendering. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 147 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL; approved rerun passed: 147 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | FAIL in sandbox, FAIL with approval | Sandboxed run could not connect to localhost; approved run reached the configured local database but failed authentication for user `pfm_app`. Existing migrations were verified through full backend tests and E2E disposable PostgreSQL setup. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
+### Phase 10.V final readiness verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean phase start. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Required backend lint check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 147 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Required backend type check passed: no issues in 103 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL; approved rerun passed: 147 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | FAIL in sandbox, FAIL with approval | Sandboxed run could not connect to localhost; approved run reached the configured local database but failed authentication for user `pfm_app`. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Applied all migrations through `202607031004_add_user_base_currency.py` against disposable PostgreSQL. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | API contract drift check passed; generated API contract is up to date. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run e2e` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost; approved full-stack Playwright E2E passed: 1 test passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose up -d --build` | PASS with approval | Rebuilt and started PostgreSQL, API, worker, and frontend on non-default host ports. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose ps` | PASS with approval | Confirmed PostgreSQL, API, and frontend healthy; worker was running with health check starting. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose run --rm api alembic upgrade head` | PASS with approval | Containerized migration command completed against the Compose smoke database. |
+| `curl -fsS http://127.0.0.1:58000/api/v1/health/live` | PASS with approval | Returned API liveness JSON. |
+| `curl -fsS http://127.0.0.1:58000/api/v1/health/ready` | PASS with approval | Returned database readiness JSON. |
+| `curl -fsS -o /tmp/pfm-frontend-smoke.html -w "%{http_code}" http://127.0.0.1:53000` | PASS with approval | Frontend returned HTTP 200. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose logs --tail=40 worker` | PASS with approval | Worker emitted `recurring_worker_tick` log entries. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 NEXT_PUBLIC_API_BASE_URL=http://localhost:58000 docker compose down` | PASS with approval | Smoke stack was shut down and containers/network were removed. |
+| `test -f docs/release/RELEASE_READINESS.md` | PASS | Release readiness document exists. |
+
+### Phase 10.4 Compose frontend API URL repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` and clean worktree before repair edits. |
+| `docker compose config` | PASS | Verified default Compose renders frontend image `pfm-app-frontend:api-8000` and browser API origin `http://localhost:8000`. |
+| `API_PORT=58000 docker compose config` | PASS | Verified API port override renders API host port `58000`, frontend image `pfm-app-frontend:api-58000`, and browser API origin `http://localhost:58000`. |
+| `POSTGRES_PORT=5433 docker compose config` | PASS | Verified changing only PostgreSQL host port leaves the browser API origin at `http://localhost:8000`. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend type check passed after runtime config changes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, BLOCKED with approval timeout | Sandboxed run failed fetching Google Fonts Urbanist. Two approved network reruns were blocked by approval-review timeout, so the command could not be completed in this environment. |
+| `POSTGRES_PORT=5433 docker compose build frontend` | BLOCKED with approval rejection | Docker build verification could not run because the environment reported the usage limit was hit. No Docker workaround was attempted. |
+| `sh -n client/scripts/docker-entrypoint.sh` | PASS | Frontend container entrypoint shell syntax is valid. |
+| `PUBLIC_DIR=<tmp> NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 sh client/scripts/docker-entrypoint.sh true` | PASS | Generated `runtime-config.js` with `apiBaseUrl` set to `http://localhost:8000`. |
+| `PUBLIC_DIR=<tmp> NEXT_PUBLIC_API_BASE_URL=http://localhost:58000/ sh client/scripts/docker-entrypoint.sh true` | PASS | Generated `runtime-config.js` with trailing slash trimmed to `http://localhost:58000`. |
+| `git diff --check` | PASS | Verified no whitespace errors before commit. |
+
+### Phase 11.1 budget setup UX repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `final-audit` was clean before creating the milestone 11 branch, then active branch `product-repairs` before phase edits. |
+| `git switch -c product-repairs` | FAIL in sandbox, PASS with approval | Required milestone branch creation. Sandboxed run could not create `.git/refs/heads/product-repairs.lock`; approved rerun created and switched to `product-repairs`. |
+| `cd client && npx tsc --noEmit` | FAIL, PASS | Initial run caught one stale `next.push` reference from the refactor; after repair, TypeScript passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
+### Phase 11.2 savings goal month targeting commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` before phase edits. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed against the final working tree. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
+### Phase 11.3 savings transfer mutation commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` before continuing phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full backend format check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_transactions.py` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL; approved focused transaction suite passed: 16 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_finance_contracts.py` | PASS | Finance OpenAPI contract tests passed: 3 passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL after 58 DB-free tests passed; approved full backend suite passed: 151 passed, 1 warning. |
+| `cd client && npm run api:generate` | PASS | Regenerated committed OpenAPI JSON and TypeScript API types for the savings-transfer endpoint. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after transaction form savings destination wiring. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run failed fetching Google Fonts Urbanist; approved network build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
+### Phase 11.4 loan and debt backend commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 156 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL after 58 DB-free tests passed; approved full backend suite passed: 154 passed, 1 warning. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Applied all migrations through `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | PASS with approval | Downgraded the loan/debt migration from `202607061104` to `202607031004` against disposable PostgreSQL. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Reapplied `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL. |
+| `cd client && npm run api:generate` | PASS | Regenerated committed OpenAPI JSON and TypeScript API types for the loan/debt endpoints. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `git diff --check` | PASS | Whitespace check passed. |
+
+### Phase 11.5 loan and debt frontend commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` with Phase 11.5 frontend worktree changes. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after loan/debt API helper, list, form, item, filter, and E2E changes. |
+| `cd client && npm run build` | PASS with approval | Required production build passed with approved network access for Google Fonts after final E2E edits. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run e2e` | PASS with approval after repair | Required full-stack E2E started disposable PostgreSQL, applied migrations through `202607061104_add_loan_debt_schema.py`, started FastAPI and Next.js, seeded loan people/records/settlements, verified loan/debt server data including two `E2E Friend` rows and visible `$250.00` outstanding, checked loan responsiveness at mobile/tablet/desktop widths, and confirmed transaction create account/category/date-picker dependencies. Final result: 1 passed. |
+| `git diff --check` | PASS | Whitespace check passed after final E2E edits and state recording preparation. |
+
+### Phase 11.6 settings monthly currency guard commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed active branch `product-repairs` before phase edits. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Required backend format check passed: 157 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Required full backend suite passed against disposable PostgreSQL: 157 passed, 1 warning. |
+| `cd server && DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:63440/postgres" PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Applied all migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL. |
+| `cd server && DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:63440/postgres" PATH="$PWD/.venv/bin:$PATH" alembic downgrade -1` | PASS with approval | Downgraded from `202607071106` to `202607061104` against disposable PostgreSQL. |
+| `cd server && DATABASE_URL="postgresql+asyncpg://pfm_test@127.0.0.1:63440/postgres" PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Reapplied `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL. |
+| `cd client && npm run api:generate` | PASS | Regenerated committed OpenAPI JSON and TypeScript API types for `UserResponse.base_currency_changed_at`. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript passed after settings UI, generated contract, and E2E changes. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts `Urbanist`; approved build passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run e2e` | FAIL, BLOCKED, then PASS with approval on retry | The first approved run exposed an invalid footer-menu navigation from `/transaction/create`; the navigation was repaired to `page.goto("/settings")`, but approval capacity initially blocked the rerun. The 2026-07-09 retry started fresh PostgreSQL, applied migrations through `202607071106`, started FastAPI and Next.js, verified the current currency, accepted the first actual currency change, returned HTTP 409 for the second same-month change, and finished with 1 passed. |
+| `git diff --check` | PASS | Whitespace check passed after the successful E2E retry and final state update. |
+
+### Phase 11.V product repair verification commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `git status --short --branch` | PASS | Confirmed clean `product-repairs` branch before verification, one local commit ahead of `origin/product-repairs`. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full backend format check passed: 157 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Full backend suite passed against disposable PostgreSQL: 157 passed, 1 Starlette/httpx dependency warning. |
+| `cd server && DATABASE_URL=<disposable PostgreSQL URL> PATH="$PWD/.venv/bin:$PATH" alembic upgrade head` | PASS with approval | Applied all migrations through `202607071106_add_user_currency_change_guard.py` against an isolated temporary PostgreSQL cluster and stopped the cluster afterward. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run build` | PASS with approval | Production build compiled successfully and generated all 17 application routes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
+| `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
+| `cd client && npm run api:check` | PASS | Generated OpenAPI JSON and TypeScript API contract are current. |
+| `cd client && npm run e2e` | PASS with approval | Fresh PostgreSQL migrated through `202607071106`; FastAPI and Next.js started; the integrated budget, savings, loan/debt, transaction, settings, and responsive journey passed in Chromium: 1 passed. |
+| `docker compose config` | PASS | Compose configuration rendered successfully for PostgreSQL, API, worker, and frontend services. |
+| `git diff --name-only b315c4a^..HEAD -- 'client/app/**' 'client/components/**' 'client/lib/**' 'server/app/**' \| xargs rg -n -i 'fixture\|mock(data)?\|dummy\|placeholder finance\|hardcoded'` | PASS / no matches | Milestone runtime source audit found no fixture, mock, dummy, placeholder-finance, or hardcoded references. |
+| `git diff --name-only b315c4a^..HEAD -- 'client/app/**' 'client/components/**' 'client/lib/**' 'server/app/**' \| xargs rg -n '(\$[0-9]\|amount:\s*[0-9]+\|amount\s*=\s*[0-9]+\|monthly[^\n]*:\s*[0-9]+)'` | PASS / reviewed matches | Numeric matches were a real budget percentage calculation and empty-input `$0.00` placeholders only; no hardcoded finance records were found. |
+| `git diff --check` | PASS | Whitespace check passed after final state recording. |
+
+### Phase 11.7 Compose startup and CORS repair commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `docker compose config` | PASS | Default render publishes PostgreSQL on host port `5433`, configures API CORS for localhost and loopback on port 3000, and disables the worker's inherited healthcheck. |
+| `POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 docker compose config` | PASS | Override render publishes the requested ports and derives the frontend API URL plus local CORS origins from those ports. |
+| `CORS_ORIGINS='["https://pfm.example.com"]' docker compose config` | PASS | Explicit custom CORS JSON overrides the API's Compose local defaults. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app/core/config.py tests/test_app_core.py` | PASS | Focused backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app/core/config.py tests/test_app_core.py` | PASS | Focused format check passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_app_core.py` | PASS with approval | Focused application and CORS preflight coverage passed for both local origins: 12 passed, 1 dependency warning. |
+| `docker compose up -d postgres && docker compose run --rm api alembic upgrade head && docker compose up -d && docker compose ps` | PASS with approval | Reproduced the reported workflow successfully; PostgreSQL started on `5433`, migrations reached `202607071106`, and all services started. |
+| `curl -fsS http://127.0.0.1:8000/api/v1/health/live` | PASS with approval | Running Compose API returned HTTP 200 health JSON. |
+| `curl -sS -D - -o /dev/null -X OPTIONS http://127.0.0.1:8000/api/v1/health/live -H 'Origin: http://localhost:3000' -H 'Access-Control-Request-Method: GET'` | PASS with approval | Live preflight returned HTTP 200 and allowed `http://localhost:3000`. |
+| `curl -sS -D - -o /dev/null -X OPTIONS http://127.0.0.1:8000/api/v1/health/live -H 'Origin: http://127.0.0.1:3000' -H 'Access-Control-Request-Method: GET'` | PASS with approval | Live preflight returned HTTP 200 and allowed `http://127.0.0.1:3000`. |
+| `curl -fsSI http://127.0.0.1:3000/` | PASS with approval | Running Compose frontend returned HTTP 200. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full backend format check passed: 157 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Full backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Full backend suite passed: 159 passed, 1 dependency warning. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract is current. |
+| `cd client && npm run build` | PASS with approval | Production build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | PASS with approval | Integrated full-stack Chromium journey passed: 1 passed. |
+| `docker compose up -d worker && docker compose logs --tail=20 worker && docker compose ps` | PASS with approval | Worker remained `Up` without the invalid API healthcheck and logged `recurring_worker_tick`. |
+| `git diff --check` | PASS | Whitespace check passed before final state recording. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
 
-- Default base currency is recorded as `USD` until user confirmation. MVP multi-currency conversion is deferred; schema should keep room for later currency support.
+- MVP multi-currency conversion remains deferred. Phase 10.D lets users select one persisted base currency, but existing records are not converted.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
 - Milestone 00 is verified.
@@ -2092,6 +2547,21 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 09.3 is passed. Next allowed phase is 09.4, README update, after user permission.
 - Phase 09.4 is passed. Next allowed phase is 09.5, Deployment smoke test, after user permission.
 - Phase 09.5 is blocked by local Docker image pull/startup: `postgres:18-alpine` did not finish pulling, no Compose containers were created, and no usable local Postgres image is present. Next allowed phase remains 09.5 after Docker registry/network availability is restored or the image is made available locally.
+- Phase 10.A profile data repair is passed. Next allowed user-reported bug-fix phase is 10.B, dropdown data repair for create/edit forms, after user permission.
+- Phase 10.B dropdown data repair is passed. Next allowed user-reported bug-fix phase is 10.C, date picker selected/today styling repair, after user permission.
+- Phase 10.C date picker selected/today styling repair is passed. Next allowed user-reported bug-fix phase is 10.D, settings page currency selection, after user permission.
+- Phase 10.D settings page currency selection is passed on retry. Next allowed user-reported bug-fix phase is 10.E, budget setup data repair, after user permission.
+- Phase 10.E budget setup data repair is passed. Next allowed phase is 10.V, Final readiness verification, after user permission.
+- Phase 10.V final readiness verification is passed. Next allowed action is to push the `final-audit` branch after user permission.
+- Phase 10.4 post-verification Compose frontend API URL repair is passed with external Docker/network verification blocked by the environment usage limit. Next allowed action is to run the local Compose rebuild and push the `final-audit` branch after user permission.
+- Phase 11.1 budget setup UX repair is passed. Next allowed phase is 11.2, Savings goal month targeting, after user permission.
+- Phase 11.2 savings goal month targeting is passed. Next allowed phase is 11.3, Savings transfer mutation, after user permission.
+- Phase 11.3 savings transfer mutation is passed. Next allowed phase is 11.4, Loan and debt backend, after user permission.
+- Phase 11.4 loan and debt backend is passed. Next allowed phase is 11.5, Loan and debt frontend, after user permission.
+- Phase 11.5 loan and debt frontend is passed. Next allowed phase is 11.6, Settings monthly currency guard, after user permission.
+- Phase 11.6 settings monthly currency guard is passed.
+- Milestone 11 product repair verification passed before the post-verification Phase 11.7 repair.
+- Phase 11.7 Compose startup and CORS repair is passed. The next allowed phase is a Milestone 11 verification rerun before pushing.
 
 ## 14. Progress log
 
@@ -2154,3 +2624,20 @@ Append a dated entry after every completed phase.
 - 2026-07-02: Phase 09.3 deployment configuration passed. Added provider-neutral production deployment documentation covering required services, environment checklist without values, migration procedure, rollback and backup requirements, health probes, worker start command, receipt storage behavior, CORS guidance for `https://pfm.morshedalam.dev`, and cookie security notes; ran the required deployment documentation checks; and set the next allowed phase to 09.4.
 - 2026-07-02: Phase 09.4 README update passed. Replaced the stale root README with accurate FastAPI, Next.js, PostgreSQL, worker, local adapter, Docker Compose, local setup, migration, API contract, test, documentation-link, and milestone workflow onboarding; verified stale stack terms are absent from project-owned README/server/docs content; ran feasible documented commands; and set the next allowed phase to 09.5.
 - 2026-07-02: Phase 09.5 deployment smoke test blocked. Compose validation passed, but `docker compose up -d --build` could not complete because Docker did not finish pulling `postgres:18-alpine`; no containers or usable Postgres image were left behind, `docker compose down` completed cleanly, and the next allowed phase remains 09.5 for retry after Docker registry/network availability is restored.
+- 2026-07-02: Phase 10.A profile data repair passed. Added persisted profile fields to users, registration/profile API support, generated frontend contract updates, a functional profile form backed by database data, focused profile tests, full backend tests, frontend build/API/E2E checks, migration smoke, and a Compose profile smoke using host PostgreSQL port `55432`; set the next allowed user-reported bug-fix phase to 10.B dropdown data repair.
+- 2026-07-02: Phase 10.B dropdown data repair passed. Added idempotent account/category default bootstrap for empty users through the existing list endpoints, covered transaction create Account/Category drawers and budget setup category rendering in E2E, verified full backend/frontend/API contract checks, ran Compose migration and authenticated dropdown smoke, and set the next allowed user-reported bug-fix phase to 10.C date picker styling repair.
+- 2026-07-03: Phase 10.C date picker styling repair passed. Fixed shared calendar selected/today styling so selected dates render with black background and today is text-emphasized without a filled background unless selected; added E2E coverage for the transaction create date picker, verified backend/frontend/API contract checks, ran Compose migration and deployment smoke, and set the next allowed user-reported bug-fix phase to 10.D settings page currency selection.
+- 2026-07-03: Phase 10.D settings page currency selection passed on retry. Added persisted `users.base_currency`, a settings UI, generated contract updates, user/report/default-account currency wiring, backend/frontend/E2E regressions, completed Compose migration, health, frontend, worker-log, and authenticated base-currency smoke checks, cleaned up the stack, and set the next allowed user-reported bug-fix phase to 10.E budget setup data repair.
+- 2026-07-03: Phase 10.E budget setup data repair passed. Budget setup now preloads existing current-month category budgets, updates existing rows instead of creating overlap conflicts, creates newly entered category budgets, deletes cleared existing budgets, verifies the repaired setup flow in E2E, and sets the next allowed phase to 10.V final readiness verification.
+- 2026-07-03: Phase 10.V final readiness verification passed. Ran final backend, frontend, API contract, E2E, Compose, migration, health, frontend reachability, and worker-log checks; added `docs/release/RELEASE_READINESS.md`; documented readiness with external production configuration decisions still required; and set the next allowed action to pushing `final-audit` after user permission.
+- 2026-07-03: Phase 10.4 post-verification Compose frontend API URL repair passed. Added runtime frontend API configuration generated by the container entrypoint, derived default Compose `NEXT_PUBLIC_API_BASE_URL` from `API_PORT`, tagged frontend images by API port to avoid stale wrong-port reuse after failed builds, documented the port override workflow, and recorded that Docker/network verification was blocked by the local usage limit.
+- 2026-07-04: Phase 11.1 budget setup UX repair passed. Added `milestones/11_PRODUCT_REPAIRS.md`, moved budget setup to a read-only Details tab by default, kept Custom as the only editable tab, changed Monthly Income wording to Monthly Budget, loaded/saved the current-month global monthly budget amount with existing budget APIs, preserved category budget create/update/delete behavior, and set the next allowed phase to 11.2.
+- 2026-07-04: Phase 11.2 savings goal month targeting passed. Replaced savings goal target-date entry with selected target months, made Monthly Saving read-only and calculated from target amount divided by months, preserved existing savings-goal API compatibility by saving the calculated monthly target and derived target date, and set the next allowed phase to 11.3.
+- 2026-07-06: Phase 11.3 savings transfer mutation passed. Added authenticated account-to-savings transfer mutation with atomic account debit and savings contribution source records, idempotent replay/conflict protection, generated OpenAPI TypeScript updates, transaction form `To` savings-goal destinations, backend validation/rollback/replay coverage, and set the next allowed phase to 11.4.
+- 2026-07-06: Phase 11.4 loan and debt backend passed. Added user-owned loan people with per-user unique phone numbers, given/taken loan records, partial settlement source rows, outstanding and net due summaries, Alembic migration `202607061104`, generated OpenAPI TypeScript updates, backend validation/ownership/settlement coverage, and set the next allowed phase to 11.5.
+- 2026-07-06: Phase 11.5 loan and debt frontend blocked. Implemented server-backed loan/debt people management, given/taken records, summaries, create/edit form, filters, list items, detail drawers, and partial settlement UI, and added E2E seeding/assertions for loan records. TypeScript, optional lint/test no-ops, API contract, and whitespace checks pass; production build passed with approval before final E2E-only edits. Final E2E verification remains blocked by the environment approval usage limit after the last selector repair, so the next allowed action is rerunning Phase 11.5 E2E verification after approval capacity is restored.
+- 2026-07-07: Phase 11.5 loan and debt frontend passed on retry. Connected loan/debt list and create/edit pages to `/api/v1/loans` people, records, settlement, and summary APIs; added people management, given/taken filters, summary cards, detail drawers, partial settlement UI, loading/empty/error/mutation states, loan-focused E2E seeding and responsive assertions; verified required TypeScript, production build, optional lint/test, API contract, E2E, and whitespace checks; and set the next allowed phase to 11.6.
+- 2026-07-07: Phase 11.6 settings monthly currency guard blocked. Added persisted `users.base_currency_changed_at`, enforced one actual base-currency change per UTC calendar month with HTTP 409 conflict messaging, kept same-currency saves allowed, regenerated OpenAPI TypeScript contracts, updated settings UI to show the current currency and blocked-change message, and added backend/E2E coverage. Required backend checks, migration smoke, frontend TypeScript/build/API checks, and whitespace check passed; final E2E rerun after the navigation repair is blocked by the environment approval usage limit, so the next allowed action is retrying Phase 11.6 E2E verification after approval capacity is restored.
+- 2026-07-09: Phase 11.6 settings monthly currency guard passed on retry. The repaired full-stack E2E journey started fresh PostgreSQL, applied migrations through `202607071106`, verified the current selected currency, accepted one actual currency change, rejected a second same-month change with HTTP 409, and finished with 1 passed; set the next allowed phase to 11.V.
+- 2026-07-09: Phase 11.V product repair verification passed. Verified backend lint, formatting, typing, 157 tests, isolated Alembic upgrade through `202607071106`, frontend TypeScript and production build, optional checks, generated API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions; the `product-repairs` branch is ready to push after user permission.
+- 2026-07-09: Phase 11.7 Compose startup and CORS repair passed. Changed the default PostgreSQL host port from 5432 to 5433, derived local Compose CORS origins from `FRONTEND_PORT` for localhost and loopback, preserved explicit CORS overrides, disabled the worker's inherited API-only healthcheck, reproduced the reported Docker startup and migration workflow, verified live API/frontend/CORS/worker behavior, passed 159 backend tests and the full frontend build/API/E2E checks, and set the next allowed phase to a Milestone 11 verification rerun.

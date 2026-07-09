@@ -15,7 +15,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
 
@@ -27,7 +27,7 @@ services:
     environment:
       APP_ENV: development
       DEBUG: ${DEBUG:-false}
-      CORS_ORIGINS: '["http://localhost:3000"]'
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:${FRONTEND_PORT:-3000}","http://127.0.0.1:${FRONTEND_PORT:-3000}"]}'
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pfm_app}:${POSTGRES_PASSWORD:-pfm_app}@postgres:5432/${POSTGRES_DB:-pfm_app}
       ACCESS_TOKEN_SECRET_KEY: ${ACCESS_TOKEN_SECRET_KEY:-compose-local-access-token-secret-change-me}
       REFRESH_TOKEN_SECRET_KEY: ${REFRESH_TOKEN_SECRET_KEY:-compose-local-refresh-token-secret-change-me}
@@ -55,6 +55,8 @@ services:
   worker:
     build:
       context: ./server
+    healthcheck:
+      disable: true
     env_file:
       - ./server/.env.example
     environment:
@@ -72,14 +74,15 @@ services:
       - local_storage:/var/lib/pfm/storage
 
   frontend:
+    image: pfm-app-frontend:api-${API_PORT:-8000}
     build:
       context: ./client
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${API_PORT:-8000}}
     env_file:
       - ./client/.env.example
     environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${API_PORT:-8000}}
     depends_on:
       api:
         condition: service_healthy

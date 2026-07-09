@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Urbanist } from "next/font/google";
 import "./globals.css";
 import Image from "next/image";
+import Script from "next/script";
 import ellipseImg from "@/assets/ellipse.svg";
 
 const urbanist = Urbanist({
@@ -22,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-x-hidden">
       <body className={`${urbanist.variable} antialiased overflow-x-hidden`} suppressHydrationWarning>
+        <Script src="/runtime-config.js" strategy="beforeInteractive" />
         <div className="absolute -top-60 left-0 w-full overflow-hidden z-0">
           <Image
             src={ellipseImg}
