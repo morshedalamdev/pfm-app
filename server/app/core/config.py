@@ -2,7 +2,13 @@ from functools import lru_cache
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import (
+    Field,
+    SecretStr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LOCAL_ACCESS_TOKEN_SECRET = "local-development-access-token-secret-change-me"
@@ -59,9 +65,17 @@ class Settings(BaseSettings):
 
     @field_validator("database_url", "migration_database_url", mode="before")
     @classmethod
-    def normalize_postgres_url(cls, value: object) -> object:
+    def normalize_postgres_url(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
         if value is None or not isinstance(value, str):
             return value
+        if not value.strip():
+            if info.field_name == "migration_database_url":
+                return None
+            raise ValueError("DATABASE_URL must not be empty")
 
         parsed = urlsplit(value)
         if parsed.scheme in {"postgres", "postgresql"}:

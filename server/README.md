@@ -10,6 +10,13 @@ source .venv/bin/activate
 python -m pip install -e ".[dev,test]"
 ```
 
+Backend settings load from the ignored `server/.env` file. Copy `.env.example`
+when the local file is missing, and never commit real credentials:
+
+```bash
+cp .env.example .env
+```
+
 ## Phase 01.1 checks
 
 ```bash
