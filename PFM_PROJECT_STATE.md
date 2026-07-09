@@ -157,7 +157,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 11 | 11.3 Savings transfer mutation | PASSED | phase commit created after this state update | Added atomic account-to-savings transfer mutation with idempotency, generated API contract updates, and transaction form savings-goal destinations. |
 | 11 | 11.4 Loan and debt backend | PASSED | phase commit created after this state update | Added loan/debt people, given/taken records, partial settlements, summaries, migration, OpenAPI contract updates, and backend coverage. |
 | 11 | 11.5 Loan and debt frontend | PASSED | phase commit created after this state update | Connected loan/debt frontend pages to server data for people, given/taken records, summaries, create/edit, and partial settlement behavior. |
-| 11 | 11.6 Settings monthly currency guard | NOT_STARTED | — | — |
+| 11 | 11.6 Settings monthly currency guard | PASSED | phase completion commit created after this state update | Added persisted monthly currency-change tracking, clear conflict handling, current-currency UI messaging, generated contracts, and passing backend, migration, frontend, and E2E verification. |
 | 11 | 11.V Product repair verification | NOT_STARTED | — | — |
 
 ## 6. Architecture Decision Log
@@ -1175,7 +1175,7 @@ Phase 11.4 created Alembic migration `202607061104_add_loan_debt_schema.py` for 
 
 Phase 11.5 created no migrations. The required E2E check applied existing migrations through `202607061104_add_loan_debt_schema.py` against disposable PostgreSQL.
 
-Phase 11.6 created Alembic migration `202607071106_add_user_currency_change_guard.py` for nullable `users.base_currency_changed_at`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL, but final full-stack E2E verification after the last E2E navigation repair is blocked by the environment approval usage limit.
+Phase 11.6 created Alembic migration `202607071106_add_user_currency_change_guard.py` for nullable `users.base_currency_changed_at`. Alembic upgrade head, downgrade -1, and upgrade head smoke checks passed against disposable PostgreSQL. The successful full-stack E2E retry also applied all migrations through `202607071106` against a fresh disposable PostgreSQL database.
 
 ## 11. Environment variables
 
@@ -2423,8 +2423,8 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run lint --if-present` | PASS / no-op | No `lint` script is defined in `client/package.json`. |
 | `cd client && npm run test --if-present` | PASS / no-op | No `test` script is defined in `client/package.json`. |
 | `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
-| `cd client && npm run e2e` | FAIL, then BLOCKED | First approved E2E run applied migrations through `202607071106` and verified the journey until the new final settings check, where the test flow tried to open a footer menu from `/transaction/create`; that navigation was repaired to `page.goto("/settings")`. The required rerun after the repair was rejected by the approval system because the environment usage limit was reached, so final E2E verification remains unavailable. |
-| `git diff --check` | PASS | Whitespace check passed after final E2E navigation repair. |
+| `cd client && npm run e2e` | FAIL, BLOCKED, then PASS with approval on retry | The first approved run exposed an invalid footer-menu navigation from `/transaction/create`; the navigation was repaired to `page.goto("/settings")`, but approval capacity initially blocked the rerun. The 2026-07-09 retry started fresh PostgreSQL, applied migrations through `202607071106`, started FastAPI and Next.js, verified the current currency, accepted the first actual currency change, returned HTTP 409 for the second same-month change, and finished with 1 passed. |
+| `git diff --check` | PASS | Whitespace check passed after the successful E2E retry and final state update. |
 
 ## 13. Open blockers and deferred decisions
 
@@ -2433,7 +2433,6 @@ Record only active blockers or intentionally deferred decisions.
 - MVP multi-currency conversion remains deferred. Phase 10.D lets users select one persisted base currency, but existing records are not converted.
 - Add real lint/type/test scripts in later phases; current frontend optional lint/test commands are no-ops.
 - Decide in milestone 01 whether to replace `next/font/google` with local font loading or require network access for production builds.
-- Phase 11.6 settings monthly currency guard is blocked only by final E2E rerun approval capacity. The implementation, backend checks, migration smoke, frontend TypeScript/build/API checks, and whitespace check passed; rerun `cd client && npm run e2e` after approval capacity is restored.
 - Milestone 00 is verified.
 - Milestone 01 is verified.
 - Phase 02.1 is passed.
@@ -2494,7 +2493,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 11.3 savings transfer mutation is passed. Next allowed phase is 11.4, Loan and debt backend, after user permission.
 - Phase 11.4 loan and debt backend is passed. Next allowed phase is 11.5, Loan and debt frontend, after user permission.
 - Phase 11.5 loan and debt frontend is passed. Next allowed phase is 11.6, Settings monthly currency guard, after user permission.
-- Phase 11.6 settings monthly currency guard is blocked by the environment approval usage limit before the required final E2E rerun could execute after the E2E navigation repair. Next allowed phase remains 11.6 retry after approval capacity is restored.
+- Phase 11.6 settings monthly currency guard is passed. Next allowed phase is 11.V, Product repair verification, after user permission.
 
 ## 14. Progress log
 
@@ -2571,3 +2570,4 @@ Append a dated entry after every completed phase.
 - 2026-07-06: Phase 11.5 loan and debt frontend blocked. Implemented server-backed loan/debt people management, given/taken records, summaries, create/edit form, filters, list items, detail drawers, and partial settlement UI, and added E2E seeding/assertions for loan records. TypeScript, optional lint/test no-ops, API contract, and whitespace checks pass; production build passed with approval before final E2E-only edits. Final E2E verification remains blocked by the environment approval usage limit after the last selector repair, so the next allowed action is rerunning Phase 11.5 E2E verification after approval capacity is restored.
 - 2026-07-07: Phase 11.5 loan and debt frontend passed on retry. Connected loan/debt list and create/edit pages to `/api/v1/loans` people, records, settlement, and summary APIs; added people management, given/taken filters, summary cards, detail drawers, partial settlement UI, loading/empty/error/mutation states, loan-focused E2E seeding and responsive assertions; verified required TypeScript, production build, optional lint/test, API contract, E2E, and whitespace checks; and set the next allowed phase to 11.6.
 - 2026-07-07: Phase 11.6 settings monthly currency guard blocked. Added persisted `users.base_currency_changed_at`, enforced one actual base-currency change per UTC calendar month with HTTP 409 conflict messaging, kept same-currency saves allowed, regenerated OpenAPI TypeScript contracts, updated settings UI to show the current currency and blocked-change message, and added backend/E2E coverage. Required backend checks, migration smoke, frontend TypeScript/build/API checks, and whitespace check passed; final E2E rerun after the navigation repair is blocked by the environment approval usage limit, so the next allowed action is retrying Phase 11.6 E2E verification after approval capacity is restored.
+- 2026-07-09: Phase 11.6 settings monthly currency guard passed on retry. The repaired full-stack E2E journey started fresh PostgreSQL, applied migrations through `202607071106`, verified the current selected currency, accepted one actual currency change, rejected a second same-month change with HTTP 409, and finished with 1 passed; set the next allowed phase to 11.V.
