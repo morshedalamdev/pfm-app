@@ -167,6 +167,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | AGENT | Phase 5 Expense Account Source List | PASSED | phase commit created after this state update | Added Expense Account / Source list with labelled account, budget, and saving-account sources while preserving account-backed expense saves. |
 | AGENT | Phase 6 Income Account List | PASSED | phase commit created after this state update | Kept Income account selection on the account model only and verified Budget and Expense saving-account source labels do not appear in the Income account drawer. |
 | AGENT | Phase 7 Transfer Account List | PASSED | phase commit created after this state update | Updated Transfer destination choices to Budget plus account-model accounts, removed savings-goal destinations from the Transfer tab, and preserved account-backed transfer saves. |
+| Agent 00 | 00.1 Repository Structure and Baseline Audit | PASSED | phase commit created after this state update | Documented the current Next.js/FastAPI structure, scripts, environment files, state/API/storage markers, and baseline check results without product changes. |
 
 ## 6. Architecture Decision Log
 
@@ -2692,6 +2693,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 5 Expense Account Source List is passed. Next allowed phase is Phase 6, Income Account List, after user permission.
 - Phase 6 Income Account List is passed. Next allowed phase is Phase 7, Transfer Account List, after user permission.
 - Phase 7 Transfer Account List is passed. All AGENT backlog phases are complete; next allowed action is a final cleanup/refactor phase after user permission.
+- Agent 00 Phase 00.1 Repository Structure and Baseline Audit is passed. Next allowed phase is Agent 00 Phase 00.2, Frontend UI and Route Audit, after user permission.
 
 ## 14. Progress log
 
@@ -2778,3 +2780,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Phase 5 Expense Account Source List passed. Updated the Expense tab Account / Source dropdown to show labelled user-created accounts, a budget source, and user-created saving accounts; preserved account-backed expense saves by requiring an account selection before create/update; added cancellable transaction form loads for reliable E2E behavior; verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 6 after user permission.
 - 2026-07-10: Phase 6 Income Account List passed. Updated the transaction form so the Income tab uses a dedicated account-only list from the existing account model, added E2E coverage proving Budget and Expense saving-account source labels do not appear in the Income account drawer, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 7 after user permission.
 - 2026-07-10: Phase 7 Transfer Account List passed. Updated the Transfer tab destination list to show Budget plus account-model accounts, removed savings-goal destinations from the Transfer tab, preserved account-backed transfer creation by requiring account destinations before save, added E2E coverage for the Transfer drawer contents, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and completed the AGENT backlog.
+- 2026-07-10: Agent 00 Phase 00.1 Repository Structure and Baseline Audit passed. Created `docs/audit/00_CURRENT_APP_AUDIT.md`, documented the current Next.js frontend, FastAPI backend, stale frontend Express metadata, API/Zustand/localStorage markers, environment files, and available scripts; verified `npm install`, frontend production build, backend pytest, and API contract drift check; set the next allowed phase to Agent 00 Phase 00.2 after user permission.
