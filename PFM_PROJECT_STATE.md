@@ -169,6 +169,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | AGENT | Phase 7 Transfer Account List | PASSED | phase commit created after this state update | Updated Transfer destination choices to Budget plus account-model accounts, removed savings-goal destinations from the Transfer tab, and preserved account-backed transfer saves. |
 | Agent 00 | 00.1 Repository Structure and Baseline Audit | PASSED | phase commit created after this state update | Documented the current Next.js/FastAPI structure, scripts, environment files, state/API/storage markers, and baseline check results without product changes. |
 | Agent 00 | 00.2 Frontend UI and Route Audit | PASSED | phase commit created after this state update | Mapped current App Router pages, footer/sheet navigation, embedded account board, loan/debt, dashboard, settings, transaction UI, responsive structure, and missing standalone accounts route. |
+| Agent 00 | 00.3 Data, State, Mock Data, and Domain Behavior Audit | PASSED | phase commit created after this state update | Documented frontend state/data sources, backend defaults, account/transaction/loan/dashboard/settings behavior, and data gaps without product changes. |
 
 ## 6. Architecture Decision Log
 
@@ -2696,6 +2697,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 7 Transfer Account List is passed. All AGENT backlog phases are complete; next allowed action is a final cleanup/refactor phase after user permission.
 - Agent 00 Phase 00.1 Repository Structure and Baseline Audit is passed. Next allowed phase is Agent 00 Phase 00.2, Frontend UI and Route Audit, after user permission.
 - Agent 00 Phase 00.2 Frontend UI and Route Audit is passed. Next allowed phase is Agent 00 Phase 00.3, Data, State, Mock Data, and Domain Behavior Audit, after user permission.
+- Agent 00 Phase 00.3 Data, State, Mock Data, and Domain Behavior Audit is passed. Next allowed phase is Agent 00 Phase 00.4, Implementation Checklist for Feature Agents, after user permission.
 
 ## 14. Progress log
 
@@ -2784,3 +2786,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Phase 7 Transfer Account List passed. Updated the Transfer tab destination list to show Budget plus account-model accounts, removed savings-goal destinations from the Transfer tab, preserved account-backed transfer creation by requiring account destinations before save, added E2E coverage for the Transfer drawer contents, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and completed the AGENT backlog.
 - 2026-07-10: Agent 00 Phase 00.1 Repository Structure and Baseline Audit passed. Created `docs/audit/00_CURRENT_APP_AUDIT.md`, documented the current Next.js frontend, FastAPI backend, stale frontend Express metadata, API/Zustand/localStorage markers, environment files, and available scripts; verified `npm install`, frontend production build, backend pytest, and API contract drift check; set the next allowed phase to Agent 00 Phase 00.2 after user permission.
 - 2026-07-10: Agent 00 Phase 00.2 Frontend UI and Route Audit passed. Updated `docs/audit/00_CURRENT_APP_AUDIT.md` with the current App Router pages, footer and sheet navigation, embedded account board, loan/debt UI, dashboard UI, settings UI, transaction form behavior, responsive structure, and missing standalone accounts route; verified the frontend production build and recorded that no client lint script exists.
+- 2026-07-10: Agent 00 Phase 00.3 Data, State, Mock Data, and Domain Behavior Audit passed. Updated `docs/audit/00_CURRENT_APP_AUDIT.md` with auth/Zustand/localStorage usage, frontend API helpers, backend default bootstrap data, account, transaction, recurring, loan/debt, dashboard, and settings data behavior, plus gaps against requested requirements; verified frontend build and backend tests.

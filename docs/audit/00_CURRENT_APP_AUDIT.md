@@ -180,3 +180,108 @@
 - `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
 - `cd client && npm run lint`: not run because no lint script exists.
 - No baseline UI/build bugs required repair in phase 00.2.
+
+## State Management
+
+- Auth/session state is stored in Zustand through `client/lib/auth/store.ts`.
+- Auth tokens are persisted in browser `localStorage` under `pfm.auth.tokens` by `client/lib/auth/tokenStorage.ts`.
+- No production `sessionStorage` usage was found.
+- No broad finance-domain Zustand store was found; finance pages use local React component state for filters, form fields, loading/error flags, selected options, and list data.
+- API access is centralized in `client/lib/api/client.ts`, which wraps Axios, maps API errors, attaches bearer tokens, and refreshes access tokens on eligible `401` responses.
+- Finance API helper functions live in `client/lib/finance/api.ts`.
+- Dashboard report state lives in `client/lib/dashboard/useDashboardData.ts`.
+- Analytics report helper functions live in `client/lib/analytics/api.ts`.
+- React context usage found in production source is limited to reusable UI internals such as chart config and OTP input context, not app-wide finance state.
+
+## Mock Data Inventory
+
+- No repository-owned production mock data file was found under `client/app`, `client/components`, `client/lib`, or `client/store`.
+- No production hardcoded finance fixture module was found in phase 00.3 scans.
+- Default bootstrap data exists on the backend, not as frontend mocks:
+  - `server/app/modules/finance_defaults.py` creates a default Cash account when an empty user lists accounts.
+  - `server/app/modules/finance_defaults.py` creates default income and expense categories when an empty user lists categories.
+- UI placeholder strings still exist in forms, but they are input placeholders and not runtime finance records.
+- Test fixtures exist under `server/tests`; they are test-only and not production data sources.
+
+## Account Data Behavior
+
+- Accounts are persisted in the backend `accounts` table and exposed through typed frontend helpers in `client/lib/finance/api.ts`.
+- Account fields include `name`, `type`, `currency`, `opening_balance`, `is_archived`, `archived_at`, timestamps, and ownership by `user_id`.
+- Supported account types are `cash`, `bank`, `card`, `mobile_pay`, `wallet`, `savings`, and `other`.
+- `opening_balance` is non-negative and is used by dashboard available-balance calculations.
+- Account currency is a three-letter code and the sidebar account create form uses the signed-in user's `base_currency`.
+- Listing accounts requests `include_archived=false`; archived accounts are excluded from normal frontend lists.
+- The backend auto-creates one default Cash account with opening balance `0` when a user with no accounts lists accounts.
+- Duplicate active account names are rejected per user.
+- Account archive/delete is blocked if the account is referenced by finance records.
+- There is no default/primary account field in the account model or frontend account UI.
+- The frontend account board supports create and delete/archive behavior, but not edit behavior.
+
+## Transaction Data Behavior
+
+- Transactions are persisted in the backend `transactions` table and tied to a user-owned account.
+- Income and expense transactions require a category; transfer debit/credit rows do not use categories.
+- Transaction fields include `account_id`, optional `category_id`, `type`, `amount`, `currency`, `transaction_at`, optional `description`, `voided_at`, and timestamps.
+- Transaction create uses account currency as the transaction currency.
+- Transaction create/update validates active account and category ownership; archived accounts/categories are rejected.
+- Expense categories and income categories are separate category records with `kind` values of `expense` and `income`.
+- Default income categories include Salary, Business, Freelance, Investments, and Other.
+- Default expense categories include Groceries, Dining, Transport, Housing, Utilities, Entertainment, Health, Shopping, Bills & Fees, and Other.
+- The transaction form stores selected account/source, category, amount, date, note, recurring flag, and recurring period in local component state.
+- Recurring rule creation supports income and expense only, with Daily, Weekly, Monthly, and Yearly UI options mapped to backend frequencies.
+- Recurring rules persist account, category, type, amount, description, frequency, interval, timezone, start/end bounds, next run state, run count, and status.
+- Transfers create paired `transfer_debit` and `transfer_credit` transaction rows plus a transfer link; same-account and cross-currency transfers are rejected.
+- Savings transfers create an account debit transaction plus a savings contribution.
+
+## Loan and Debt Data Behavior
+
+- Loan/debt data is persisted through `loan_people`, `loan_records`, and `loan_settlements`.
+- People fields include name, phone number, optional note, archive timestamp, and timestamps.
+- Phone numbers are unique per user for loan people.
+- Loan record fields include person, direction (`given` or `taken`), principal amount, currency, issued date, status (`open`, `settled`, `archived`), optional note, settled timestamp, archive timestamp, and timestamps.
+- Loan settlement fields include record, amount, currency, settlement date, optional note, and created timestamp.
+- Given loans and taken loans are represented by the `direction` field.
+- Outstanding amount is calculated as principal minus settled amount, floored at zero in the response.
+- A record becomes settled when total settlements reach or exceed principal.
+- The current model has `issued_at` and settlement dates, but no separate repay date field.
+- The current model has no account connection for loan records or settlements.
+- No explicit overdue state or due-date calculation was found.
+- Loan summary returns `total_loan_given`, `total_loan_taken`, and `due_loan`, where `due_loan` is given minus taken for the selected currency.
+
+## Home Dashboard Calculations
+
+- The home dashboard calls `/api/v1/reports/dashboard` through `useDashboardData`.
+- Available balance is calculated on the backend as active account opening balances plus income and transfer credits, minus expenses and transfer debits, excluding voided transactions and archived accounts.
+- Income total and expense total come from non-voided income/expense transactions in the selected report period.
+- Dashboard chart buckets sum the selected transaction type by week, month, or year bucket.
+- Recent transactions are loaded separately from `/api/v1/transactions?limit=6` and category labels are resolved with `/api/v1/categories`.
+- Budget display is not shown on the home dashboard; budget usage is shown on analytics and budget pages.
+- Loans/debts are not included in the home dashboard available balance or income/expense totals.
+
+## Settings Data Behavior
+
+- Settings currently updates `users.base_currency` through `PATCH /api/v1/users/me`.
+- The auth store user object is updated locally after a successful settings save.
+- The backend enforces the current monthly base-currency change guard, and the settings UI shows a conflict message when a second actual change is rejected.
+- Settings does not currently allow configuring which accounts feed the home balance.
+- Settings does not currently allow selecting a budget source for dashboard display.
+- Settings does not currently allow selecting account or budget display rules for home dashboard calculations.
+
+## Data Gaps Against Requested Requirements
+
+- There is no standalone account page or route; account management is embedded in the sheet menu.
+- There is no account primary/default flag.
+- The frontend account board does not expose account editing.
+- Loan/debt records do not have repay dates.
+- Loan/debt records are not connected to accounts.
+- Loan/debt records do not expose an overdue state.
+- Home dashboard balance source is fixed by backend report logic and cannot be configured by the user.
+- Settings has no dashboard account/budget selection controls.
+- Recurring expense and recurring income popup behavior is not implemented; recurring is currently a form toggle and frequency selector only.
+
+## Phase 00.3 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no lint script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `167 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+- No baseline data/domain bugs required repair in phase 00.3.
