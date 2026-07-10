@@ -149,3 +149,20 @@
 
 - `/accounts` is linked from the sidebar but still needs a minimal route shell in phase 01.4.
 - No account, budget, savings, loan, transaction, or recurring business logic was added in this phase.
+
+## Phase 01.4 - Route Shells
+
+## Existing Routes Preserved
+
+- `Savings Goals` remains on `/savings`.
+- `Budget Planning` remains on `/budget`.
+- `Budget Setup` remains on `/budget/setup`.
+
+## New Placeholder Routes
+
+- Added `Accounts` at `/accounts` through `client/app/(dashboard)/accounts/page.tsx`.
+
+## Deferred Logic for Later Agents
+
+- Account creation, editing, deletion, default-account behavior, currency behavior, opening-balance behavior, and account details remain deferred.
+- Budget, savings, loan, transaction, recurring, settings, and backend behavior were not changed in this phase.
