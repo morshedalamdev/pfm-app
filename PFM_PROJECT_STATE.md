@@ -172,6 +172,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | Agent 00 | 00.3 Data, State, Mock Data, and Domain Behavior Audit | PASSED | phase commit created after this state update | Documented frontend state/data sources, backend defaults, account/transaction/loan/dashboard/settings behavior, and data gaps without product changes. |
 | Agent 00 | 00.4 Implementation Checklist for Feature Agents | PASSED | phase commit created after this state update | Created future-agent implementation checklist with likely files, existing behavior, target behavior, risks, test commands, manual QA, and dependencies. |
 | Agent 00 | 00.5 Baseline Test Report and Agent 00 Verification | PASSED | phase commit created after this state update | Created baseline test report and verified backend lint/format/type/tests, frontend build, optional checks, API contract, and full-stack E2E. |
+| Agent 03 | 03.1 Loan/Debt Baseline and Dependency Check | BLOCKED | commit blocked by sandbox git write restrictions | Audited loan/debt and account dependencies; Agent 02 docs and primary/default-account behavior are missing, and approved test reruns were blocked by the app usage limit. |
 
 ## 6. Architecture Decision Log
 
@@ -2702,6 +2703,7 @@ Record only active blockers or intentionally deferred decisions.
 - Agent 00 Phase 00.3 Data, State, Mock Data, and Domain Behavior Audit is passed. Next allowed phase is Agent 00 Phase 00.4, Implementation Checklist for Feature Agents, after user permission.
 - Agent 00 Phase 00.4 Implementation Checklist for Feature Agents is passed. Next allowed phase is Agent 00 Phase 00.5, Baseline Test Report and Agent 00 Verification, after user permission.
 - Agent 00 Phase 00.5 Baseline Test Report and Agent 00 Verification is passed. Agent 00 is complete; next allowed action is Agent 01 planning/generation after user permission.
+- Agent 03 Phase 03.1 Loan/Debt Baseline and Dependency Check is blocked. Next allowed action is completing Agent 02 account page/default-account dependencies before Agent 03 Phase 03.2.
 
 ## 14. Progress log
 
@@ -2793,3 +2795,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Agent 00 Phase 00.3 Data, State, Mock Data, and Domain Behavior Audit passed. Updated `docs/audit/00_CURRENT_APP_AUDIT.md` with auth/Zustand/localStorage usage, frontend API helpers, backend default bootstrap data, account, transaction, recurring, loan/debt, dashboard, and settings data behavior, plus gaps against requested requirements; verified frontend build and backend tests.
 - 2026-07-10: Agent 00 Phase 00.4 Implementation Checklist for Feature Agents passed. Created `docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md` with future-agent file targets, existing behavior, required target behavior, risk areas, test commands, manual QA, and dependencies for Agents 01 through 09; verified frontend build and recorded that no client lint script exists.
 - 2026-07-10: Agent 00 Phase 00.5 Baseline Test Report and Agent 00 Verification passed. Created `docs/audit/02_BASELINE_TEST_REPORT.md`, verified audit/checklist completeness, ran backend Ruff, format, mypy, full pytest, frontend build, optional lint/test no-ops, API contract, and full-stack E2E; documented sandbox-only approval requirements and confirmed Agent 00 completed without product feature changes.
+- 2026-07-10: Agent 03 Phase 03.1 Loan/Debt Baseline and Dependency Check blocked. Created `docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md`, audited existing loan/debt routes, forms, list cards, summary cards, API/types, backend models, settlement behavior, and account APIs; confirmed account listing/bootstrap exists but Agent 02 docs, standalone account behavior, and primary/default-account logic are missing. Sandboxed frontend build and backend loan/account tests hit known font/network and localhost binding limits; approved reruns were blocked by the app usage limit.

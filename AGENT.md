@@ -1,637 +1,1009 @@
-# PFM App Phase-Based Codex Agent
+# Agent 03 — Loan and Debt Account Integration
 
-## Core Rule
+## Agent Identity
 
-You must work in phases.
+You are **Agent 03 — Loan and Debt Account Integration** for the `pfm-app` project.
 
-Do **not** complete all tasks in one run.
+Your job is to update only the Loan & Debt area so loans are connected to accounts, balances are affected correctly, repay dates are supported, overdue loans are visually clear, and the loan summary cards match the requested behavior.
 
-In each run:
-
-1. Read the project context first.
-2. Complete only the current phase.
-3. Run the required tests/checks.
-4. If tests fail, fix the issue.
-5. Run tests again.
-6. Repeat until the required checks pass.
-7. Update project state if required.
-8. Stop.
-9. Show only the test result and ask permission for the next phase.
-
-Do **not** explain the implementation.
-
-Do **not** give a long summary.
-
-Do **not** continue to the next phase without permission.
+You must not implement sidebar changes, account page creation, account business rules, transaction category updates, recurring transaction popups, or home/settings balance-source behavior in this agent.
 
 ---
 
-## Files To Read Before Any Work
-
-Before changing code, always inspect these files if they exist:
+## Repository
 
 ```text
-AGENTS.md
-PFM_PROJECT_STATE.md
-README.md
-docs/
-frontend/package.json
-backend/pyproject.toml
-backend/requirements.txt
-backend/alembic/
+Repository: https://github.com/morshedalamdev/pfm-app
+Live frontend: https://pfm.morshedalam.dev
 ```
-
-Also inspect any architecture, API, database, frontend, deployment, or testing documentation inside the repository.
-
-Follow the workflow described in `AGENTS.md`, `PFM_PROJECT_STATE.md`, and the docs.
-
-If those files define test commands, use those commands.
-
-If test commands are not clearly documented, inspect the project scripts and run the most relevant checks for the changed area.
 
 ---
 
-## Required Output Format After Each Phase
+## Required Git Branch
 
-Your final response after each phase must be exactly this format:
+Every agent must have its own GitHub branch.
 
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase X?
-```
-
-Where `Phase X` is the next phase number.
-
-Do not add any explanation outside this format.
-
----
-
-## Full Backlog
-
-The full backlog is listed here only for context.
-
-Do not implement future phases early.
-
-1. Settings currency should include Chinese RMB.
-2. Sidebar board should have an `Account` section where users can add accounts like Cash, Card, Mobile Pay. If an account is used in any transaction or other linked place, it cannot be removed.
-3. Mobile browser input focus should not zoom the UI.
-4. Loan & Debt add-person flow should allow selecting contact name and phone number from phone contacts after user permission.
-5. Add New Transaction Expense account list should show all user accounts plus budget and all saving accounts.
-6. Add New Transaction Income tab should show only user-created accounts.
-7. Add New Transaction Transfer tab should show only budget and all user-created accounts.
-
----
-
-# Phase 1 — Add Chinese RMB Currency
-
-## Task
-
-In Settings, add Chinese RMB currency support.
-
-## Requirements
-
-- Add Chinese RMB / Chinese Yuan to Settings currency options.
-- Currency code must be:
-
-```text
-CNY
-```
-
-- Currency symbol must be:
-
-```text
-¥
-```
-
-- Label can be:
-
-```text
-Chinese RMB
-```
-
-or
-
-```text
-Chinese Yuan
-```
-
-- The selected currency must save and load the same way existing currencies do.
-- Update frontend constants, backend validation, schemas, types, settings persistence, or tests only if needed.
-- Do not modify account logic.
-- Do not modify transaction logic.
-- Do not modify loan/debt logic.
-- Do not modify contact picker logic.
-- Do not modify unrelated UI.
-
-## Testing
-
-Run the required frontend/backend checks based on the project workflow.
-
-If there is no clear test command, inspect scripts and run the safest relevant checks, such as:
+Before starting this agent, create and work only on this branch:
 
 ```bash
-npm run lint
-npm run test
-npm run build
-pytest
+git checkout main
+git pull
+git checkout -b feature/loan-debt-account-integration
 ```
 
-Only run commands that are valid for this project.
+If the branch already exists:
 
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 2?
+```bash
+git checkout feature/loan-debt-account-integration
+git pull
 ```
 
 ---
 
-# Phase 2 — Add Account Section
+## Required Previous Agents
 
-## Task
-
-Add an `Account` section in the sidebar board.
-
-Users should be able to create accounts such as:
+Agent 03 should run only after these agents are completed and merged into `main`:
 
 ```text
-Cash
-Card
-Mobile Pay
-Bank
-Wallet
-Other
+Agent 00 — Current App Audit
+Agent 01 — Sidebar and Navigation Update
+Agent 02 — Account Page and Account Rules
 ```
 
-## Requirements
+Agent 03 depends on Agent 02 because loans must select from existing accounts and must use the account currency/default-account behavior created there.
 
-- Add a sidebar board section named:
+Before making changes, read these files if they exist:
 
 ```text
-Account
+docs/audit/00_CURRENT_APP_AUDIT.md
+docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md
+docs/audit/02_BASELINE_TEST_REPORT.md
+docs/agents/01_SIDEBAR_NAVIGATION_UPDATE.md
+docs/agents/01_SIDEBAR_NAVIGATION_TEST_REPORT.md
+docs/agents/02_ACCOUNT_PAGE_AND_RULES.md
+docs/agents/02_ACCOUNT_TEST_REPORT.md
 ```
 
-- User can add accounts.
-- Account should belong to the authenticated user.
-- Account names should be user-created.
-- Support common account types such as Cash, Card, Mobile Pay, Bank, Wallet, and Other.
-- Account data should persist.
-- Account list should load after login.
-- Account creation should validate required fields.
-- Do not allow duplicate account names for the same user if the existing app pattern supports uniqueness.
-- If an account has been used in any transaction or any other linked place, it must not be removable.
-- If an account is unused, user can remove it.
-- The delete/remove action should show a clear UI error/message if the account cannot be removed because it is already used.
-- Follow existing frontend/backend patterns.
-- Add database migration if the backend uses database migrations.
-- Add API endpoints only if needed.
-- Add frontend service/hooks/components only if needed.
-- Keep UI consistent with the existing app.
-
-## Important Protection Rule
-
-An account cannot be deleted if it is referenced by:
-
-```text
-transaction
-income
-expense
-transfer
-loan
-debt
-saving
-budget
-any related financial record
-```
-
-Use the actual project models/tables to determine the real references.
-
-## Testing
-
-Run all required checks that cover:
-
-- Backend model/schema/API changes.
-- Database migration validity.
-- Frontend build/type checks.
-- UI/component tests if available.
-
-If tests fail, fix and rerun.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 3?
-```
+If Agent 02 outputs are missing and account selection/default-account logic does not exist, stop and report that Agent 03 is blocked. Do not invent a parallel account system inside Agent 03.
 
 ---
 
-# Phase 3 — Prevent Mobile Browser Input Zoom
+## User Requirements for All Agents
 
-## Task
-
-Fix mobile browser zoom behavior when users tap input fields.
-
-## Problem
-
-On mobile browsers, when the user clicks/taps an input field, the page zooms in. The user then needs to manually scale down.
-
-## Requirements
-
-- Tapping input fields on mobile should not zoom the page.
-- UI scale should stay stable.
-- Apply the fix globally where appropriate.
-- Do not break desktop layout.
-- Do not make the app inaccessible.
-- Prefer fixing input font size and viewport behavior using existing styling architecture.
-- Avoid hacky JavaScript zoom resets unless no better option exists.
-- Check inputs, selects, textareas, date fields, amount fields, search fields, and modal forms.
-- Keep design visually consistent.
-
-## Likely Fix Areas
-
-Inspect:
+Every phase must follow this workflow:
 
 ```text
-global CSS
-layout component
-root HTML metadata
-mobile viewport config
-input component styles
-form components
-Tailwind/base CSS if used
+Think internally → Execute task → Run tests → Fix failed tests → Run tests again → Commit → Stop
 ```
 
-## Testing
-
-Run frontend checks/build.
-
-If there are mobile/UI tests, run them.
-
-If no automated mobile test exists, ensure the final code change is safe and does not break build/type/lint checks.
-
-## Final Response
+At the end of every phase, show only:
 
 ```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
+Changed files:
+- ...
 
-Permission needed:
-Ready for Phase 4?
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to the next phase?
 ```
+
+Do **not** explain the implementation.  
+Do **not** provide long reasoning.  
+Do **not** start the next phase without permission.  
+Do **not** include architecture explanation in the final output.  
+Only show changed files, test result, bugs fixed, and permission question.
 
 ---
 
-# Phase 4 — Select Contact in Loan & Debt Add Person
+## Agent 03 Goal
 
-## Task
+Update Loan & Debt behavior based on the requested product rules.
 
-In Loan & Debt, when adding a person, allow the user to select name and phone number from phone contacts.
+Requested Loan & Debt changes:
 
-## Requirements
-
-- In the add-person flow, add an option like:
-
-```text
-Select from contacts
-```
-
-- Ask user permission before accessing phone contacts.
-- Use browser-supported contact picking when available.
-- Auto-fill person name and phone number from the selected contact.
-- Do not require contact permission until the user clicks/selects the contact option.
-- Gracefully handle unsupported browsers.
-- Gracefully handle denied permission.
-- Gracefully handle contacts without phone numbers.
-- Gracefully handle contacts without names.
-- Do not break manual name/phone entry.
-- Manual entry must still work.
-- Add clear UI message if contact picking is unavailable.
-- Do not send contact list to backend.
-- Only selected contact values should fill the form.
-- Keep privacy behavior safe.
-
-## Technical Notes
-
-Use the browser Contact Picker API only if supported.
-
-Check for browser support before calling it.
-
-Expected browser feature pattern:
-
-```js
-navigator.contacts;
-navigator.contacts.select;
-```
-
-Use feature detection.
-
-Do not assume it works on every mobile browser.
-
-## Testing
-
-Run frontend checks/build.
-
-If unit tests exist for Loan & Debt forms, update or add tests.
-
-If browser contact API is not available in test environment, mock feature detection safely.
-
-If tests fail, fix and rerun.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 5?
-```
+- User can select which account they want to give loan from.
+- User can select which account they want to take loan into.
+- Given loan must deduct money from the selected account.
+- Taken loan must add money to the selected account.
+- Loan given and loan taken must have a `repay date` input field.
+- Repay date means:
+  - for given loan: the date user expects to get the money back
+  - for taken loan: the date user needs to repay the money by
+- In the loan page, overdue loans must show in red.
+- Loan page currently has three summary boxes; remove one.
+- Loan page should have only two summary boxes:
+  - total due from given loans
+  - total due from taken loans
+- Loan listing should display amounts in the selected account currency.
+- The default/primary account from Agent 02 should auto-select in loan forms, but user can change it from a dropdown.
 
 ---
 
-# Phase 5 — Expense Account Source List
+## Agent 03 Scope
 
-## Task
+Agent 03 may change:
 
-In Add New Transaction, update the Expense tab account/source list.
+- Loan/debt page components.
+- Loan/debt forms.
+- Loan/debt state/store/API logic.
+- Loan/debt models/types/schemas.
+- Account balance update integration where directly required for loan/debt behavior.
+- Currency display for loan/debt list and summary.
+- Tests related to loan/debt account integration.
+- Documentation for Agent 03.
 
-## Requirement
+Agent 03 must not implement:
 
-In the Expense tab, the account/source dropdown should show:
-
-```text
-all user-created accounts
-+
-budget
-+
-all user-created saving accounts
-```
-
-## Details
-
-- Use the actual existing data models in the project.
-- If budget is represented as one object, include it correctly.
-- If budgets are user-created records, include user budgets correctly.
-- If saving accounts already exist, include all user-created saving accounts.
-- If saving account model does not exist, inspect the existing savings feature and use the correct entity.
-- Label options clearly so the user can distinguish account, budget, and saving account.
-- Do not show accounts from other users.
-- Do not show deleted/archived accounts unless the app already shows those in active lists.
-- Preserve existing transaction creation behavior.
-- Update backend validation if required.
-- Update frontend types if required.
-- Do not modify Income tab behavior in this phase.
-- Do not modify Transfer tab behavior in this phase.
-
-## Testing
-
-Run checks covering:
-
-- Transaction form.
-- Account/source dropdown.
-- Backend validation if changed.
-- Frontend build/type checks.
-
-If tests fail, fix and rerun.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 6?
-```
+- Account page UI.
+- Account details dialog.
+- Account creation/edit/disable/delete rules, except consuming existing account behavior.
+- Sidebar/navigation changes.
+- Transaction category changes.
+- Recurring income/expense popup behavior.
+- Home/settings dashboard balance-source behavior.
+- Broad backend architecture migration.
 
 ---
 
-# Phase 6 — Income Account List
+## Domain Rules
 
-## Task
+### Given Loan
 
-In Add New Transaction, update the Income tab account list.
+A given loan means the user gives money to another person.
 
-## Requirement
-
-In the Income tab, only show:
+Required behavior:
 
 ```text
-all user-created accounts
+selected account balance decreases
+loan appears as given loan due
+amount uses selected account currency
+repay date is required or validated according to existing form conventions
 ```
-
-## Details
-
-- Do not show budget options in Income tab.
-- Do not show saving accounts in Income tab unless saving accounts are also part of the normal user-created account model.
-- Do not show system/internal accounts unless the existing app treats them as user accounts.
-- Do not show accounts from other users.
-- Preserve existing income transaction creation behavior.
-- Update backend validation if required.
-- Update frontend types if required.
-- Do not modify Expense tab behavior in this phase.
-- Do not modify Transfer tab behavior in this phase.
-
-## Testing
-
-Run checks covering:
-
-- Income transaction form.
-- Account dropdown.
-- Frontend build/type checks.
-- Backend validation if changed.
-
-If tests fail, fix and rerun.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 7?
-```
-
----
-
-# Phase 7 — Transfer Account List
-
-## Task
-
-In Add New Transaction, update the Transfer tab account list.
-
-## Requirement
-
-In the Transfer tab, only show:
-
-```text
-budget
-+
-all user-created accounts
-```
-
-## Details
-
-- Do not show saving accounts unless the app treats them as normal user-created accounts.
-- Include budget correctly based on the project’s existing budget model.
-- Do not show accounts from other users.
-- Do not show invalid transfer targets.
-- Prevent selecting the same source and destination if the transfer flow has source/destination fields.
-- Preserve existing transfer creation behavior.
-- Update backend validation if required.
-- Update frontend types if required.
-- Do not modify Expense tab behavior in this phase.
-- Do not modify Income tab behavior in this phase.
-
-## Testing
-
-Run checks covering:
-
-- Transfer transaction form.
-- Transfer dropdown logic.
-- Same-source/destination validation if applicable.
-- Frontend build/type checks.
-- Backend validation if changed.
-
-If tests fail, fix and rerun.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-All phases completed. Do you want a final cleanup/refactor phase?
-```
-
----
-
-# General Implementation Rules
-
-## Scope Control
-
-For every phase:
-
-- Implement only the current phase.
-- Do not work ahead.
-- Do not refactor unrelated code.
-- Do not rename unrelated files.
-- Do not change unrelated UI.
-- Do not change deployment config unless required by the current phase.
-- Do not modify environment files unless required.
-- Do not remove existing features.
-- Do not weaken validation.
-- Do not bypass tests.
-- Do not ignore failing tests.
-
-## Testing Rules
-
-After implementation:
-
-1. Run the relevant test/check command.
-2. If it fails, inspect the error.
-3. Fix the cause.
-4. Run the command again.
-5. Continue until it passes.
-
-Never stop on a failing test unless the failure is unrelated and pre-existing.
-
-If a failure appears pre-existing, verify carefully and mention it only in the `Fixed Issues` field.
-
-## Database Rules
-
-If the phase requires database changes:
-
-- Create proper migration.
-- Do not manually edit production DB.
-- Ensure migration is reversible if project pattern supports it.
-- Ensure models, schemas, API, and frontend types stay consistent.
-- Run backend validation/tests.
-
-## Frontend Rules
-
-- Keep UI consistent with the existing design system.
-- Reuse existing components.
-- Reuse existing hooks/services.
-- Respect existing routing/sidebar patterns.
-- Preserve responsive behavior.
-- Do not introduce heavy packages unless absolutely required.
-
-## Backend Rules
-
-- Follow existing API patterns.
-- Respect authentication/user ownership.
-- Validate user access to records.
-- Prevent cross-user data leakage.
-- Return proper errors.
-- Do not expose sensitive data.
-
-## Git Rules
-
-Only commit if `AGENTS.md`, `PFM_PROJECT_STATE.md`, or project docs require commits after each phase.
-
-If committing is required:
-
-- Make one local commit per phase.
-- Use clear commit messages.
 
 Example:
 
-```bash
-git add .
-git commit -m "phase 1: add CNY currency support"
+```text
+Cash account balance: 1000
+User gives loan: 200
+Cash account balance after save: 800
+Given loan due total increases by 200
 ```
 
-Do not push unless explicitly asked.
+### Taken Loan
 
-## State File Rules
+A taken loan means the user receives borrowed money from another person.
 
-If the project workflow requires updating `PFM_PROJECT_STATE.md`:
+Required behavior:
 
-- Update only the relevant phase status.
-- Record test command and result.
-- Do not rewrite unrelated project history.
-- Keep the update concise.
+```text
+selected account balance increases
+loan appears as taken loan due
+amount uses selected account currency
+repay date is required or validated according to existing form conventions
+```
+
+Example:
+
+```text
+Bank account balance: 1000
+User takes loan: 300
+Bank account balance after save: 1300
+Taken loan due total increases by 300
+```
+
+### Overdue Rule
+
+A loan is overdue when:
+
+```text
+repay date < today
+and loan still has unpaid due amount
+```
+
+Overdue loans must show visually in red. Use existing design system colors/classes where possible.
+
+### Summary Card Rule
+
+Loan page should show exactly two summary boxes/cards:
+
+```text
+Given Loan Due
+Taken Loan Due
+```
+
+Remove any third box/card from the loan summary area.
 
 ---
 
-# Start Instruction
+# Phase 03.1 — Loan/Debt Baseline and Dependency Check
 
-When this agent starts, ask which phase to run if the user did not specify a phase.
+## Objective
 
-If the user says “start”, “run phase 1”, or similar, begin with:
+Audit the current Loan & Debt implementation and confirm Agent 02 account dependencies exist.
+
+## Tasks
+
+1. Read Agent 00 and Agent 02 docs if available.
+2. Inspect current loan/debt page and components.
+3. Locate:
+   - loan/debt route
+   - loan/debt form
+   - loan/debt list/table/card
+   - loan/debt summary boxes
+   - loan/debt data types
+   - loan/debt state/store/API calls
+   - account selector/default account logic from Agent 02
+4. Confirm whether loan/debt currently supports:
+   - given loan
+   - taken loan
+   - amount
+   - person/contact
+   - due amount
+   - repay date
+   - account selection
+   - overdue state
+5. If account/default-account logic from Agent 02 is missing, stop and mark Agent 03 as blocked.
+6. Create or update:
 
 ```text
-Phase 1 — Add Chinese RMB Currency
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
 ```
 
-Then complete only Phase 1.
+7. Add this section:
+
+```md
+# Agent 03 — Loan and Debt Account Integration
+
+## Phase 03.1 — Loan/Debt Baseline and Dependency Check
+
+## Files Inspected
+
+## Current Loan/Debt Behavior
+
+## Existing Account Integration
+
+## Missing Dependencies
+
+## Planned Files to Change
+
+## Blockers
+```
+
+## Tests to Run
+
+Run available frontend checks:
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist and are relevant:
+
+```bash
+cd server && pytest
+```
+
+or:
+
+```bash
+cd server && npm run test:ci
+```
+
+Do not invent missing scripts. If a script does not exist, record it in the agent doc.
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.1: audit loan debt account dependencies"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 03.2.
+
+Final response format:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to phase 03.2?
+```
+
+---
+
+# Phase 03.2 — Add Account Selection to Loan Forms
+
+## Objective
+
+Allow users to select the account used for given and taken loans.
+
+## Tasks
+
+1. Add account selection to the given-loan form.
+2. Add account selection to the taken-loan form.
+3. Auto-select the primary/default account created by Agent 02.
+4. Allow user to change the selected account from a dropdown.
+5. Exclude disabled accounts from new loan selection if Agent 02 already provides disabled-account behavior.
+6. Preserve existing historical loans that use disabled accounts.
+7. Make sure selected account ID is stored with the loan record/state/API payload.
+8. Use existing form controls/styles.
+9. Update:
+
+```text
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+```
+
+10. Add/update this section:
+
+```md
+## Phase 03.2 — Account Selection Added to Loan Forms
+
+## Changed Files
+
+## Account Selection Behavior
+
+## Default Account Behavior
+
+## Disabled Account Handling
+
+## Notes
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist and are relevant:
+
+```bash
+cd server && pytest
+```
+
+## Bug Fix Rule
+
+If tests fail:
+
+1. Fix the failing issue.
+2. Run the failed command again.
+3. Do not expand scope.
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.2: add account selection to loan forms"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 03.3.
+
+Final response format:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to phase 03.3?
+```
+
+---
+
+# Phase 03.3 — Implement Loan Balance Effects
+
+## Objective
+
+Update selected account balances when given or taken loans are created.
+
+## Tasks
+
+1. Implement balance deduction for given loans.
+2. Implement balance addition for taken loans.
+3. Ensure the balance update and loan creation happen together in the same state/API transaction where possible.
+4. Avoid duplicate balance effects on re-render or page reload.
+5. If edit behavior exists, do not implement broad loan editing unless already supported. Only avoid double-counting.
+6. If delete/repayment behavior already exists, inspect whether balances need to reverse or adjust. If repayment behavior is outside current scope, document it for later.
+7. Add validation for insufficient funds only if the app already enforces this rule. If the project has no such rule, document the decision and do not add a new product rule.
+8. Update:
+
+```text
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+```
+
+9. Add/update this section:
+
+```md
+## Phase 03.3 — Loan Balance Effects
+
+## Given Loan Balance Rule
+
+## Taken Loan Balance Rule
+
+## Atomicity / Double-Counting Protection
+
+## Repayment/Delete Notes
+
+## Edge Cases
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+If project has unit tests for stores/domain logic, run them.
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.3: apply loan balance effects"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 03.4.
+
+Final response format:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to phase 03.4?
+```
+
+---
+
+# Phase 03.4 — Add Repay Date Field
+
+## Objective
+
+Add repay date support to both given and taken loans.
+
+## Tasks
+
+1. Add `repayDate` or project-convention equivalent to loan type/schema/model.
+2. Add repay-date input field to given-loan form.
+3. Add repay-date input field to taken-loan form.
+4. Persist repay date in state/API payload.
+5. Display repay date in the loan list/detail UI.
+6. Label the field clearly:
+   - Given loan: expected return date
+   - Taken loan: repayment due date
+7. Follow existing date-input conventions.
+8. Validate date according to existing form validation style.
+9. Update:
+
+```text
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+```
+
+10. Add/update this section:
+
+```md
+## Phase 03.4 — Repay Date Added
+
+## Field Name
+
+## Form Behavior
+
+## Display Behavior
+
+## Validation Behavior
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.4: add loan repay date"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 03.5.
+
+Final response format:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to phase 03.5?
+```
+
+---
+
+# Phase 03.5 — Add Overdue Loan Red State
+
+## Objective
+
+Highlight overdue loans in red.
+
+## Tasks
+
+1. Implement overdue detection:
+
+```text
+repay date < today
+and unpaid/due amount > 0
+```
+
+2. Apply overdue styling to given loans.
+3. Apply overdue styling to taken loans.
+4. Use existing design system color classes.
+5. Make overdue state easy to identify but not visually destructive.
+6. Ensure paid/settled loans are not marked overdue if such state exists.
+7. Update:
+
+```text
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+```
+
+8. Add/update this section:
+
+```md
+## Phase 03.5 — Overdue Loan Red State
+
+## Overdue Rule
+
+## UI Styling
+
+## Paid/Settled Behavior
+
+## Edge Cases
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If frontend tests exist, add or run relevant overdue-state tests.
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.5: highlight overdue loans"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 03.6.
+
+Final response format:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to phase 03.6?
+```
+
+---
+
+# Phase 03.6 — Update Loan Summary Cards
+
+## Objective
+
+Update the Loan & Debt page summary area to show only two summary cards.
+
+## Tasks
+
+1. Locate current three-box summary area.
+2. Remove the extra third summary box.
+3. Keep exactly two summary boxes:
+   - Given Loan Due
+   - Taken Loan Due
+4. Given Loan Due must show sum of unpaid/due given loans.
+5. Taken Loan Due must show sum of unpaid/due taken loans.
+6. Do not include repaid/settled amounts if such status exists.
+7. Display currency consistently. If multiple account currencies exist, follow the current project’s established display rule from Agent 02. If no multi-currency aggregation rule exists, document the limitation instead of inventing a conversion engine.
+8. Ensure layout remains responsive with two cards.
+9. Update:
+
+```text
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+```
+
+10. Add/update this section:
+
+```md
+## Phase 03.6 — Loan Summary Cards Updated
+
+## Removed Card
+
+## Given Loan Due Calculation
+
+## Taken Loan Due Calculation
+
+## Currency Display Rule
+
+## Responsive Layout
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.6: update loan summary cards"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 03.7.
+
+Final response format:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to phase 03.7?
+```
+
+---
+
+# Phase 03.7 — Apply Account Currency to Loan Lists
+
+## Objective
+
+Display each loan amount using the selected account’s currency.
+
+## Tasks
+
+1. Ensure loan records retain selected account reference.
+2. Resolve the account currency for each loan row/card.
+3. Display given loan amounts using the selected account currency.
+4. Display taken loan amounts using the selected account currency.
+5. Apply account currency to detail views/dialogs if loan detail UI exists.
+6. Avoid global currency assumptions when a loan has its own account.
+7. Add fallback display for legacy loans without account reference, using current app convention.
+8. Update:
+
+```text
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+```
+
+9. Add/update this section:
+
+```md
+## Phase 03.7 — Account Currency Applied to Loan Lists
+
+## Currency Source
+
+## Legacy Loan Fallback
+
+## List Display
+
+## Detail Display
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.7: show loans in account currency"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 03.8.
+
+Final response format:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to phase 03.8?
+```
+
+---
+
+# Phase 03.8 — Loan/Debt Regression Verification
+
+## Objective
+
+Run full verification for Agent 03 and document final behavior.
+
+## Tasks
+
+1. Run all available relevant tests/builds.
+2. Verify:
+   - given loan requires/selects account
+   - taken loan requires/selects account
+   - default account auto-selects
+   - user can change account
+   - given loan deducts from selected account
+   - taken loan adds to selected account
+   - repay date is supported
+   - overdue loan appears red
+   - only two loan summary cards exist
+   - given loan due sum is correct
+   - taken loan due sum is correct
+   - loan amounts display in account currency
+   - disabled accounts are not available for new loans if Agent 02 supports this
+   - historical loans with disabled accounts still display
+3. Create or update:
+
+```text
+docs/agents/03_LOAN_DEBT_TEST_REPORT.md
+```
+
+4. Include:
+
+```md
+# Agent 03 Test Report
+
+## Branch
+
+## Commands Run
+
+## Passing Checks
+
+## Failing Checks
+
+## Bugs Fixed
+
+## Manual Verification Checklist
+
+## Deferred Work
+
+## Safe Starting Point for Agent 04
+```
+
+5. Do not start Agent 04.
+
+## Tests to Run
+
+Run every available relevant command.
+
+Expected frontend checks:
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+Optional only if the project has the script:
+
+```bash
+cd client && npm test
+```
+
+Expected backend checks, depending on current backend implementation:
+
+```bash
+cd server && pytest
+```
+
+or:
+
+```bash
+cd server && npm run test:ci
+```
+
+Only run commands that actually exist.
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 03 phase 03.8: verify loan debt account integration"
+```
+
+## Stop Condition
+
+Stop after the commit.
+
+Final response must show only:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Agent 03 is complete. Can I continue with Agent 04 planning/generation?
+```
+
+---
+
+# Agent 03 Final Success Criteria
+
+Agent 03 is complete only when:
+
+- Branch `feature/loan-debt-account-integration` exists.
+- Given loan form supports selected account.
+- Taken loan form supports selected account.
+- Default account auto-selects in loan forms.
+- User can change selected account from dropdown.
+- Given loan deducts from selected account.
+- Taken loan adds to selected account.
+- Loan repay date exists and is displayed.
+- Overdue unpaid loans show in red.
+- Loan page shows exactly two summary boxes:
+  - Given Loan Due
+  - Taken Loan Due
+- Removed third summary box.
+- Loan amounts display using selected account currency.
+- Tests/builds have been run.
+- Agent 03 docs are updated.
+- Agent 03 test report is created.
+- No sidebar/navigation work is implemented.
+- No account page/business-rule work is implemented except consuming Agent 02 account behavior.
+- No recurring popup logic is implemented.
+- Agent stops and asks permission before Agent 04.
+
+---
