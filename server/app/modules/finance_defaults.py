@@ -71,6 +71,7 @@ async def ensure_default_account(
         Account(
             user_id=user_id,
             currency=currency,
+            is_default=True,
             name=DEFAULT_ACCOUNT.name,
             opening_balance=DEFAULT_ACCOUNT.opening_balance,
             type=DEFAULT_ACCOUNT.type,

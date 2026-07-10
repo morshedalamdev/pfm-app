@@ -9,6 +9,8 @@ import {
 
 export type Account = components["schemas"]["AccountResponse"];
 export type AccountCreate = components["schemas"]["AccountCreateRequest"];
+export type AccountDeleteEligibility =
+  components["schemas"]["AccountDeleteEligibilityResponse"];
 export type Budget = components["schemas"]["BudgetResponse"];
 export type BudgetCreate = components["schemas"]["BudgetCreateRequest"];
 export type BudgetUpdate = components["schemas"]["BudgetUpdateRequest"];
@@ -79,17 +81,48 @@ export function createIdempotencyKey(prefix: string): string {
 }
 
 export async function listAccounts(config?: {
+  includeArchived?: boolean;
   signal?: AbortSignal;
 }): Promise<Account[]> {
   const response = await apiGet<AccountList>("/api/v1/accounts", {
-    params: { include_archived: false, limit: 100 },
+    params: { include_archived: config?.includeArchived ?? false, limit: 100 },
     signal: config?.signal,
   });
   return response.items;
 }
 
+export function getAccount(id: string, config?: { signal?: AbortSignal }) {
+  return apiGet<Account>(apiPath(`/api/v1/accounts/${id}`), {
+    signal: config?.signal,
+  });
+}
+
 export function createAccount(body: AccountCreate) {
   return apiPost<AccountCreate, Account>("/api/v1/accounts", body);
+}
+
+export function setDefaultAccount(id: string) {
+  return apiPatch<undefined, Account>(
+    apiPath(`/api/v1/accounts/${id}/default`),
+    undefined,
+  );
+}
+
+export function disableAccount(id: string) {
+  return apiPatch<undefined, Account>(
+    apiPath(`/api/v1/accounts/${id}/disable`),
+    undefined,
+  );
+}
+
+export function canDeleteAccount(
+  id: string,
+  config?: { signal?: AbortSignal },
+) {
+  return apiGet<AccountDeleteEligibility>(
+    apiPath(`/api/v1/accounts/${id}/delete-eligibility`),
+    { signal: config?.signal },
+  );
 }
 
 export function deleteAccount(id: string) {

@@ -137,3 +137,59 @@ Missing fields for later phases:
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_accounts_categories.py`: passed after approved rerun with `7 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.2 - Account Data Types and Store
+
+## Account Fields
+
+- Backend accounts now support `is_disabled`, `disabled_at`, and `is_default`.
+- Account responses now include `current_balance`; for this data-prep phase it mirrors `opening_balance`.
+- Existing `opening_balance` remains the initial budget/balance field.
+- Generated OpenAPI and TypeScript API types were regenerated for the new account fields and helper endpoints.
+
+## Account Helpers
+
+- Backend service helpers now support active-account lookup, default-account lookup, set-default, disable, delete eligibility, and safe default fallback.
+- Frontend account helpers were added in `client/lib/finance/accounts.ts`.
+- Frontend helpers include:
+  - `getActiveAccounts`
+  - `getDefaultAccount`
+  - `setDefaultAccountInList`
+  - `disableAccountInList`
+  - `canDeleteAccountFromEligibility`
+  - `deleteAccountWhenSafe`
+
+## Currency Utility
+
+- `formatAccountMoney(account, field)` formats account amounts using each account's own currency.
+- No currency conversion engine was added.
+
+## Default Account Rule
+
+- New accounts become default only when the user has no active default account.
+- Bootstrap `Cash` accounts are created as default.
+- Setting a default account clears any previous default account.
+- Disabled or archived accounts cannot be set as default.
+- Disabling or archiving the default account assigns another active account if one exists.
+
+## Delete Safety Rule
+
+- `GET /api/v1/accounts/{account_id}/delete-eligibility` reports whether an account can be deleted safely.
+- Existing delete/archive still blocks transaction and recurring-rule usage.
+- Loan usage is not connected yet because loan records do not have account IDs.
+
+## Notes for Loan/Transaction Agents
+
+- Agent 03 must connect loan account IDs to delete-eligibility checks after adding loan account selection.
+- Agent 05 should consume active/default account helpers for transaction account selection.
+- Loan and transaction UI integration was not implemented in this phase.
+
+## Phase 02.2 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions/202607100202_add_account_state_fields.py`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.

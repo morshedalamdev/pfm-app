@@ -97,6 +97,11 @@ def test_default_dropdown_data_bootstraps_for_empty_user(
     assert [
         (item["name"], item["type"], item["currency"]) for item in account_items
     ] == [("Cash", "cash", "GBP")]
+    assert account_items[0]["opening_balance"] == "0.0000"
+    assert account_items[0]["current_balance"] == "0.0000"
+    assert account_items[0]["is_default"] is True
+    assert account_items[0]["is_disabled"] is False
+    assert account_items[0]["disabled_at"] is None
 
     assert expense_response.status_code == 200
     expense_items = expense_response.json()["items"]
@@ -147,6 +152,7 @@ def test_account_crud_pagination_and_archive(
     )
     assert get_response.status_code == 200
     assert get_response.json()["opening_balance"] == "100.2500"
+    assert get_response.json()["current_balance"] == "100.2500"
 
     update_response = context.client.patch(
         f"/api/v1/accounts/{first['id']}",
@@ -332,6 +338,109 @@ def test_used_accounts_cannot_be_removed(
     )
     assert unused_delete_response.status_code == 200
     assert unused_delete_response.json()["is_archived"] is True
+
+
+def test_account_default_and_disable_helpers(
+    finance_context: FinanceApiContext,
+) -> None:
+    context = finance_context
+    headers = auth_headers(context, "account-defaults@example.com")
+    first = create_account(context, headers, "Main Cash", "cash", "100")
+    second = create_account(context, headers, "Backup Bank", "bank", "20")
+    third = create_account(context, headers, "Travel Wallet", "wallet", "50")
+
+    assert first["is_default"] is True
+    assert second["is_default"] is False
+
+    set_default_response = context.client.patch(
+        f"/api/v1/accounts/{second['id']}/default",
+        headers=headers,
+    )
+    assert set_default_response.status_code == 200
+    assert set_default_response.json()["is_default"] is True
+
+    list_response = context.client.get("/api/v1/accounts?limit=10", headers=headers)
+    assert list_response.status_code == 200
+    listed_accounts = list_response.json()["items"]
+    assert sum(1 for account in listed_accounts if account["is_default"]) == 1
+    assert (
+        next(account for account in listed_accounts if account["id"] == first["id"])[
+            "is_default"
+        ]
+        is False
+    )
+
+    disable_response = context.client.patch(
+        f"/api/v1/accounts/{second['id']}/disable",
+        headers=headers,
+    )
+    assert disable_response.status_code == 200
+    disabled_account = disable_response.json()
+    assert disabled_account["is_disabled"] is True
+    assert disabled_account["disabled_at"] is not None
+    assert disabled_account["is_default"] is False
+
+    fallback_response = context.client.get("/api/v1/accounts?limit=10", headers=headers)
+    assert fallback_response.status_code == 200
+    fallback_accounts = fallback_response.json()["items"]
+    assert sum(1 for account in fallback_accounts if account["is_default"]) == 1
+    assert next(account for account in fallback_accounts if account["is_default"])[
+        "id"
+    ] in {first["id"], third["id"]}
+
+    disabled_default_response = context.client.patch(
+        f"/api/v1/accounts/{second['id']}/default",
+        headers=headers,
+    )
+    assert disabled_default_response.status_code == 409
+    assert disabled_default_response.json()["error"]["message"] == (
+        "Disabled or archived account cannot be the default."
+    )
+
+
+def test_account_delete_eligibility_helper(
+    finance_context: FinanceApiContext,
+) -> None:
+    context = finance_context
+    headers = auth_headers(context, "account-delete-eligibility@example.com")
+    used_account = create_account(context, headers, "Used Cash", "cash", "0")
+    unused_account = create_account(context, headers, "Unused Cash", "cash", "0")
+    expense_category = create_category(context, headers, "Food", "expense", "utensils")
+
+    transaction_response = context.client.post(
+        "/api/v1/transactions",
+        headers={**headers, "Idempotency-Key": "account-delete-eligibility"},
+        json={
+            "account_id": used_account["id"],
+            "amount": "10.00",
+            "category_id": expense_category["id"],
+            "transaction_at": datetime.now(UTC).isoformat(),
+            "type": "expense",
+        },
+    )
+    assert transaction_response.status_code == 201
+
+    used_response = context.client.get(
+        f"/api/v1/accounts/{used_account['id']}/delete-eligibility",
+        headers=headers,
+    )
+    assert used_response.status_code == 200
+    assert used_response.json() == {
+        "account_id": used_account["id"],
+        "can_delete": False,
+        "reasons": ["transaction"],
+    }
+
+    unused_response = context.client.get(
+        f"/api/v1/accounts/{unused_account['id']}/delete-eligibility",
+        headers=headers,
+    )
+    assert unused_response.status_code == 200
+    assert unused_response.json() == {
+        "account_id": unused_account["id"],
+        "can_delete": True,
+        "reasons": [],
+    }
 
 
 def test_category_crud_filter_duplicate_and_archive(

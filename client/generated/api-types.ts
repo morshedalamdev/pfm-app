@@ -41,6 +41,57 @@ export interface paths {
         patch: operations["update_account_api_v1_accounts__account_id__patch"];
         trace?: never;
     };
+    "/api/v1/accounts/{account_id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set Default Account */
+        patch: operations["set_default_account_api_v1_accounts__account_id__default_patch"];
+        trace?: never;
+    };
+    "/api/v1/accounts/{account_id}/delete-eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Can Delete Account */
+        get: operations["can_delete_account_api_v1_accounts__account_id__delete_eligibility_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{account_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Disable Account */
+        patch: operations["disable_account_api_v1_accounts__account_id__disable_patch"];
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -787,6 +838,18 @@ export interface components {
              */
             type: "cash" | "bank" | "card" | "mobile_pay" | "wallet" | "savings" | "other";
         };
+        /** AccountDeleteEligibilityResponse */
+        AccountDeleteEligibilityResponse: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Can Delete */
+            can_delete: boolean;
+            /** Reasons */
+            reasons: ("transaction" | "recurring_rule" | "loan_not_connected")[];
+        };
         /** AccountListResponse */
         AccountListResponse: {
             /** Has More */
@@ -807,6 +870,10 @@ export interface components {
             created_at: string;
             /** Currency */
             currency: string;
+            /** Current Balance */
+            current_balance: string;
+            /** Disabled At */
+            disabled_at: string | null;
             /**
              * Id
              * Format: uuid
@@ -814,6 +881,10 @@ export interface components {
             id: string;
             /** Is Archived */
             is_archived: boolean;
+            /** Is Default */
+            is_default: boolean;
+            /** Is Disabled */
+            is_disabled: boolean;
             /** Name */
             name: string;
             /** Opening Balance */
@@ -2341,6 +2412,99 @@ export interface operations {
                 "application/json": components["schemas"]["AccountUpdateRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_default_account_api_v1_accounts__account_id__default_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    can_delete_account_api_v1_accounts__account_id__delete_eligibility_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeleteEligibilityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_account_api_v1_accounts__account_id__disable_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

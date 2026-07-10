@@ -63,6 +63,9 @@ def test_account_model_schema() -> None:
         "opening_balance",
         "is_archived",
         "archived_at",
+        "is_disabled",
+        "disabled_at",
+        "is_default",
         "created_at",
         "updated_at",
     }
@@ -84,10 +87,24 @@ def test_account_model_schema() -> None:
             if isinstance(constraint, CheckConstraint)
         ]
     )
+    assert {
+        "ck_accounts_disabled_state_consistent",
+        "ck_accounts_default_account_active",
+    }.issubset(
+        check_constraint_names(
+            [
+                constraint
+                for constraint in table.constraints
+                if isinstance(constraint, CheckConstraint)
+            ]
+        )
+    )
     assert index_names(table.indexes) == {
         "ix_accounts_user_id",
         "ix_accounts_user_id_archived_at",
+        "ix_accounts_user_id_disabled_at",
         "ix_accounts_user_id_name",
+        "uq_accounts_one_active_default_per_user",
     }
 
 

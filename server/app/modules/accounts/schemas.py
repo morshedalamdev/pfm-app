@@ -94,8 +94,12 @@ class AccountResponse(BaseModel):
     type: str
     currency: str
     opening_balance: Decimal
+    current_balance: Decimal
     is_archived: bool
     archived_at: datetime | None
+    is_disabled: bool
+    disabled_at: datetime | None
+    is_default: bool
     created_at: datetime
     updated_at: datetime
 
@@ -106,3 +110,16 @@ class AccountListResponse(BaseModel):
     items: list[AccountResponse]
     next_cursor: str | None
     has_more: bool
+
+
+AccountDeleteBlockReason = Literal[
+    "transaction",
+    "recurring_rule",
+    "loan_not_connected",
+]
+
+
+class AccountDeleteEligibilityResponse(BaseModel):
+    account_id: uuid.UUID
+    can_delete: bool
+    reasons: list[AccountDeleteBlockReason]
