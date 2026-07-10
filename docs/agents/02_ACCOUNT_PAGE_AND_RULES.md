@@ -284,3 +284,43 @@ Missing fields for later phases:
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.5 - Account Details Dialog
+
+## Dialog Trigger
+
+- Account list rows now open an account details dialog in place.
+- The selected-row state remains local to the accounts page.
+- No route, link, or details page was added.
+
+## Displayed Details
+
+- Account name.
+- Account type and currency.
+- Current balance formatted in the account currency.
+- Initial balance formatted in the account currency.
+- Active or disabled status.
+- Default or non-default status.
+- Created date from the account response.
+
+## Available Actions
+
+- No account action buttons were added in this phase.
+- Edit, disable, delete, and set-default behavior remain deferred to later phases.
+
+## No Page Navigation
+
+- Details open through the existing dialog component on `/accounts`.
+- Closing the dialog clears only the local detail selection.
+
+## Mobile Behavior
+
+- The details dialog uses a viewport-limited max height with internal scrolling.
+- Detail tiles and rows wrap long account names and amounts instead of navigating away.
+
+## Phase 02.5 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.

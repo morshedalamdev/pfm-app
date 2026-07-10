@@ -17,6 +17,13 @@ import {
 
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
@@ -61,6 +68,7 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountName, setAccountName] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [detailAccountId, setDetailAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [initialBalance, setInitialBalance] = useState("");
@@ -76,6 +84,11 @@ export default function AccountsPage() {
       if (!signal?.aborted) {
         setAccounts(accountItems);
         setSelectedAccountId((current) =>
+          current && accountItems.some((account) => account.id === current)
+            ? current
+            : null,
+        );
+        setDetailAccountId((current) =>
           current && accountItems.some((account) => account.id === current)
             ? current
             : null,
@@ -110,6 +123,9 @@ export default function AccountsPage() {
       totalCount: accounts.length,
     };
   }, [accounts]);
+
+  const detailAccount =
+    accounts.find((account) => account.id === detailAccountId) ?? null;
 
   async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -262,11 +278,24 @@ export default function AccountsPage() {
               key={account.id}
               account={account}
               isSelected={selectedAccountId === account.id}
-              onSelect={() => setSelectedAccountId(account.id)}
+              onSelect={() => {
+                setSelectedAccountId(account.id);
+                setDetailAccountId(account.id);
+              }}
             />
           ))
         )}
       </section>
+      <Dialog
+        open={Boolean(detailAccount)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailAccountId(null);
+          }
+        }}
+      >
+        {detailAccount ? <AccountDetailsDialog account={detailAccount} /> : null}
+      </Dialog>
     </Fragment>
   );
 }
@@ -337,6 +366,69 @@ function StatusPill({ isActive }: { isActive: boolean }) {
       {isActive ? "Active" : "Disabled"}
     </span>
   );
+}
+
+function AccountDetailsDialog({ account }: { account: Account }) {
+  const isActive = isAccountActive(account);
+  const typeLabel =
+    ACCOUNT_TYPE_LABELS[account.type as AccountType] ?? account.type;
+
+  return (
+    <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="pr-6">{account.name}</DialogTitle>
+        <DialogDescription>
+          {typeLabel} - {account.currency}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-2">
+        <DetailTile
+          label="Current balance"
+          value={formatAccountMoney(account)}
+        />
+        <DetailTile
+          label="Initial balance"
+          value={formatAccountMoney(account, "opening_balance")}
+        />
+      </div>
+      <div className="space-y-2 rounded-lg border border-input/50 bg-secondary/70 p-3">
+        <DetailRow label="Status" value={isActive ? "Active" : "Disabled"} />
+        <DetailRow label="Default" value={account.is_default ? "Yes" : "No"} />
+        <DetailRow label="Currency" value={account.currency} />
+        <DetailRow label="Type" value={typeLabel} />
+        <DetailRow
+          label="Created"
+          value={formatAccountDate(account.created_at)}
+        />
+      </div>
+    </DialogContent>
+  );
+}
+
+function DetailTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-input/50 bg-secondary/70 p-3">
+      <p className="text-xs font-bold text-input uppercase">{label}</p>
+      <p className="mt-1 break-words text-lg font-black">{value}</p>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="font-semibold text-input">{label}</span>
+      <span className="text-right font-bold">{value}</span>
+    </div>
+  );
+}
+
+function formatAccountDate(value: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 function AccountListSkeleton() {
