@@ -122,3 +122,30 @@
 
 - Account management logic is still available in `client/components/AccountBoard.tsx`, but it is no longer reachable from the sidebar sheet.
 - A standalone accounts route is still missing and should be handled in a later scoped phase/agent without reintroducing account business logic into the sidebar.
+
+## Phase 01.3 - Required Navigation Items Added
+
+## New Navigation Items
+
+- `Accounts`
+- `Savings Goals`
+- `Budget Planning`
+- `Budget Setup`
+
+## Route Paths
+
+- `Accounts` -> `/accounts`
+- `Savings Goals` -> `/savings`
+- `Budget Planning` -> `/budget`
+- `Budget Setup` -> `/budget/setup`
+
+## Active State Behavior
+
+- Board menu links in `client/components/Footer.tsx` now share active-route styling through `boardLinkClass`.
+- `Savings Goals`, `Budget Setup`, and `Accounts` are active on their base route and nested routes.
+- `Budget Planning` is active only on `/budget` so it does not conflict with `/budget/setup`.
+
+## Notes for Later Agents
+
+- `/accounts` is linked from the sidebar but still needs a minimal route shell in phase 01.4.
+- No account, budget, savings, loan, transaction, or recurring business logic was added in this phase.
