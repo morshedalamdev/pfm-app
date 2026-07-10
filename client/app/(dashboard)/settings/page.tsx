@@ -36,6 +36,7 @@ const CURRENCY_OPTIONS = [
   { value: "CAD", label: "CAD - Canadian Dollar" },
   { value: "AUD", label: "AUD - Australian Dollar" },
   { value: "JPY", label: "JPY - Japanese Yen" },
+  { value: "CNY", label: "CNY - Chinese RMB (¥)" },
 ];
 
 export default function SettingsPage() {

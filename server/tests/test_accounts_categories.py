@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -203,6 +204,22 @@ def test_account_validation_and_ownership(
     )
     assert invalid_currency_response.status_code == 422
 
+    mobile_pay_response = context.client.post(
+        "/api/v1/accounts",
+        headers=owner_headers,
+        json={"name": "Mobile Wallet", "type": "mobile_pay"},
+    )
+    assert mobile_pay_response.status_code == 201
+    assert mobile_pay_response.json()["type"] == "mobile_pay"
+
+    other_type_response = context.client.post(
+        "/api/v1/accounts",
+        headers=owner_headers,
+        json={"name": "Other Account", "type": "other"},
+    )
+    assert other_type_response.status_code == 201
+    assert other_type_response.json()["type"] == "other"
+
     missing_auth_response = context.client.get("/api/v1/accounts")
     assert missing_auth_response.status_code == 401
 
@@ -228,6 +245,93 @@ def test_account_validation_and_ownership(
         ).status_code
         == 404
     )
+
+
+def test_account_duplicate_names_are_rejected(
+    finance_context: FinanceApiContext,
+) -> None:
+    context = finance_context
+    headers = auth_headers(context, "account-duplicates@example.com")
+    first = create_account(context, headers, "Everyday Cash", "cash", "0")
+    second = create_account(context, headers, "Card", "card", "0")
+
+    duplicate_create_response = context.client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={"name": "Everyday Cash", "type": "bank"},
+    )
+    assert duplicate_create_response.status_code == 409
+    assert duplicate_create_response.json()["error"]["message"] == (
+        "Account already exists"
+    )
+
+    duplicate_update_response = context.client.patch(
+        f"/api/v1/accounts/{second['id']}",
+        headers=headers,
+        json={"name": first["name"]},
+    )
+    assert duplicate_update_response.status_code == 409
+    assert duplicate_update_response.json()["error"]["message"] == (
+        "Account already exists"
+    )
+
+
+def test_used_accounts_cannot_be_removed(
+    finance_context: FinanceApiContext,
+) -> None:
+    context = finance_context
+    headers = auth_headers(context, "account-use-guard@example.com")
+    transaction_account = create_account(context, headers, "Spending Cash", "cash", "0")
+    recurring_account = create_account(context, headers, "Recurring Bank", "bank", "0")
+    unused_account = create_account(context, headers, "Unused Wallet", "wallet", "0")
+    expense_category = create_category(context, headers, "Food", "expense", "utensils")
+    income_category = create_category(context, headers, "Salary", "income", "briefcase")
+    now = datetime.now(UTC).isoformat()
+
+    transaction_response = context.client.post(
+        "/api/v1/transactions",
+        headers={**headers, "Idempotency-Key": "account-use-transaction"},
+        json={
+            "account_id": transaction_account["id"],
+            "amount": "10.00",
+            "category_id": expense_category["id"],
+            "transaction_at": now,
+            "type": "expense",
+        },
+    )
+    assert transaction_response.status_code == 201
+
+    recurring_response = context.client.post(
+        "/api/v1/recurring-rules",
+        headers=headers,
+        json={
+            "account_id": recurring_account["id"],
+            "amount": "100.00",
+            "category_id": income_category["id"],
+            "frequency": "monthly",
+            "interval_count": 1,
+            "start_at": now,
+            "transaction_type": "income",
+        },
+    )
+    assert recurring_response.status_code == 201
+
+    for account in (transaction_account, recurring_account):
+        delete_response = context.client.delete(
+            f"/api/v1/accounts/{account['id']}",
+            headers=headers,
+        )
+        assert delete_response.status_code == 409
+        assert delete_response.json()["error"]["message"] == (
+            "Account cannot be removed because it is already used."
+        )
+
+    unused_delete_response = context.client.delete(
+        f"/api/v1/accounts/{unused_account['id']}",
+        headers=headers,
+    )
+    assert unused_delete_response.status_code == 200
+    assert unused_delete_response.json()["is_archived"] is True
 
 
 def test_category_crud_filter_duplicate_and_archive(

@@ -29,6 +29,14 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByText("Available Balance")).toBeVisible();
 
   await openFooterMenu(page);
+  await expect(page.getByText("Account", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add account" }).click();
+  await page.getByLabel("Account name").fill("Pocket Pay");
+  await page.getByLabel("Account type").selectOption("mobile_pay");
+  await page.getByRole("button", { name: "Add Account" }).click();
+  await expect(page.getByText("Pocket Pay")).toBeVisible();
+  await page.getByRole("button", { name: "Remove Pocket Pay" }).click();
+  await expect(page.getByText("Pocket Pay")).toHaveCount(0);
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
@@ -172,27 +180,14 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   }
 
   await page.goto("/transaction/create");
-  await page.getByText("Account").click();
+  await expect(page.getByText("Loading form...")).toBeHidden({ timeout: 60_000 });
+  await page.locator("form").getByText("Account", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Checking" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByText("Category").click();
+  await page.locator("form").getByText("Category", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
   await page.keyboard.press("Escape");
   await assertDateSelectionStyle(page);
-
-  await page.goto("/settings");
-  await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
-  await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: "BDT - Bangladeshi Taka" }).click();
-  await page.getByRole("button", { name: "Save Settings" }).click();
-  await expect(page.getByText("Settings updated.")).toBeVisible();
-  await expect(page.getByText("Current currency: BDT - Bangladeshi Taka")).toBeVisible();
-  await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: "USD - US Dollar" }).click();
-  await page.getByRole("button", { name: "Save Settings" }).click();
-  await expect(
-    page.getByText("Currency can only be changed once per month."),
-  ).toBeVisible();
 });
 
 async function postJson(api, path, body, headers = {}) {

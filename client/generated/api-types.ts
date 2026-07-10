@@ -785,7 +785,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "cash" | "bank" | "card" | "wallet" | "savings";
+            type: "cash" | "bank" | "card" | "mobile_pay" | "wallet" | "savings" | "other";
         };
         /** AccountListResponse */
         AccountListResponse: {
@@ -835,7 +835,7 @@ export interface components {
             /** Opening Balance */
             opening_balance?: string | null;
             /** Type */
-            type?: ("cash" | "bank" | "card" | "wallet" | "savings") | null;
+            type?: ("cash" | "bank" | "card" | "mobile_pay" | "wallet" | "savings" | "other") | null;
         };
         /** BudgetCreateRequest */
         BudgetCreateRequest: {

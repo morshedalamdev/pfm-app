@@ -5,10 +5,11 @@ export function decimalInput(value: string): string {
 
 export function formatMoney(value: string | number, currency = "USD"): string {
   const amount = typeof value === "number" ? value : Number(value);
-  return new Intl.NumberFormat("en-US", {
+  const formatted = new Intl.NumberFormat("en-US", {
     currency,
     style: "currency",
   }).format(Number.isFinite(amount) ? amount : 0);
+  return currency === "CNY" ? formatted.replace(/^CN¥/, "¥") : formatted;
 }
 
 export function formatPercent(value: string | number): string {

@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.accounts.models import Account
 from app.modules.accounts.pagination import PageCursor
+from app.modules.recurring.models import RecurringRule
+from app.modules.transactions.models import Transaction
 
 
 class AccountRepository:
@@ -34,6 +36,46 @@ class AccountRepository:
             select(exists().where(Account.user_id == user_id))
         )
         return bool(result.scalar())
+
+    async def has_active_name(
+        self,
+        user_id: uuid.UUID,
+        name: str,
+        *,
+        exclude_account_id: uuid.UUID | None = None,
+    ) -> bool:
+        conditions = [
+            Account.user_id == user_id,
+            Account.name == name,
+            Account.archived_at.is_(None),
+        ]
+        if exclude_account_id is not None:
+            conditions.append(Account.id != exclude_account_id)
+
+        result = await self._session.execute(select(exists().where(*conditions)))
+        return bool(result.scalar())
+
+    async def is_referenced(self, account_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        transaction_result = await self._session.execute(
+            select(
+                exists().where(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                )
+            )
+        )
+        if bool(transaction_result.scalar()):
+            return True
+
+        recurring_result = await self._session.execute(
+            select(
+                exists().where(
+                    RecurringRule.account_id == account_id,
+                    RecurringRule.user_id == user_id,
+                )
+            )
+        )
+        return bool(recurring_result.scalar())
 
     async def list_owned(
         self,

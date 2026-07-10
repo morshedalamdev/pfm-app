@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/client";
 
 export type Account = components["schemas"]["AccountResponse"];
+export type AccountCreate = components["schemas"]["AccountCreateRequest"];
 export type Budget = components["schemas"]["BudgetResponse"];
 export type BudgetCreate = components["schemas"]["BudgetCreateRequest"];
 export type BudgetUpdate = components["schemas"]["BudgetUpdateRequest"];
@@ -82,6 +83,14 @@ export async function listAccounts(): Promise<Account[]> {
     params: { include_archived: false, limit: 100 },
   });
   return response.items;
+}
+
+export function createAccount(body: AccountCreate) {
+  return apiPost<AccountCreate, Account>("/api/v1/accounts", body);
+}
+
+export function deleteAccount(id: string) {
+  return apiDelete<Account>(apiPath(`/api/v1/accounts/${id}`));
 }
 
 export async function listCategories(
