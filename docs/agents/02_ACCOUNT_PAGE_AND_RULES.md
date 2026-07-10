@@ -361,3 +361,47 @@ Missing fields for later phases:
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.7 - Delete Restriction for Used Accounts
+
+## Usage Detection Sources
+
+- Account delete eligibility uses `GET /api/v1/accounts/{account_id}/delete-eligibility`.
+- Backend usage detection currently checks transaction references and recurring-rule references.
+- The account details dialog checks eligibility before opening delete confirmation.
+
+## Transaction Usage Rule
+
+- Accounts referenced by transactions are blocked from delete/archive.
+- The UI shows a transaction-specific blocked-delete message and leaves the account visible.
+
+## Loan Usage Rule
+
+- Loan records and settlements do not currently store `account_id`.
+- Real loan usage detection is not possible until Agent 03 adds loan account links.
+- Loan account usage remains documented for Agent 03 integration.
+
+## Safe Delete Behavior
+
+- Accounts with no known usage can be deleted from the details dialog after confirmation.
+- Safe delete uses `deleteAccountWhenSafe()` so eligibility is checked again before archive.
+- Deleted accounts are removed from the active account list after the API archive succeeds.
+
+## Blocked Delete Behavior
+
+- Used accounts are not deleted.
+- The dialog shows a clear blocked-delete reason for transaction, recurring-rule, or future loan-safety results.
+- Disabled accounts use the same delete eligibility path.
+
+## Notes for Agent 03 and Agent 05
+
+- Agent 03 must add loan account IDs and connect loan usage to account delete eligibility.
+- Agent 05 must preserve transaction account references so transaction usage continues blocking account deletion.
+- Loan and transaction form integration was not implemented in this phase.
+
+## Phase 02.7 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
