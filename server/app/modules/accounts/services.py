@@ -155,6 +155,7 @@ class AccountService:
             account.is_archived = True
             if account.is_default:
                 account.is_default = False
+                await self.accounts.flush()
                 await self.ensure_active_default(
                     current_user.id,
                     exclude_account_id=account.id,
@@ -176,6 +177,7 @@ class AccountService:
             account.disabled_at = datetime.now(UTC)
             if account.is_default:
                 account.is_default = False
+                await self.accounts.flush()
                 await self.ensure_active_default(
                     current_user.id,
                     exclude_account_id=account.id,
@@ -194,6 +196,7 @@ class AccountService:
             raise InvalidDefaultAccountError
 
         await self.accounts.clear_default_accounts(current_user.id)
+        await self.accounts.flush()
         account.is_default = True
         await self.accounts.commit()
         await self.accounts.refresh(account)

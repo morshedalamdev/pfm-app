@@ -193,3 +193,54 @@ Missing fields for later phases:
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions/202607100202_add_account_state_fields.py`: passed.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.3 - Dedicated Accounts Page and List
+
+## Route Path
+
+- Dedicated account list route: `/accounts`.
+- Route file: `client/app/(dashboard)/accounts/page.tsx`.
+
+## List UI Behavior
+
+- The Agent 01 placeholder shell was replaced with a client-side account list page.
+- The page loads accounts with `listAccounts()`.
+- Loading, empty, error, and retry states are present.
+- Account rows are selectable to prepare for later detail-dialog work.
+- No create form, edit action, delete action, disable action, or set-default action was added in this phase.
+
+## Displayed Fields
+
+- Account name.
+- Account type.
+- Account currency.
+- Current balance formatted in the account currency.
+- Initial balance formatted in the account currency.
+- Active or disabled status.
+- Default status when applicable.
+- Total and active account counts.
+
+## Responsive Behavior
+
+- The page follows the existing mobile dashboard shell and `Header` pattern.
+- Account rows use compact, full-width list cards with stable icon, balance, and status areas.
+- Text truncates where needed to avoid overflow on narrow screens.
+
+## Deferred Dialog Work
+
+- Clicking a row only selects it in-place.
+- Full account details dialog work remains deferred to phase 02.5.
+
+## Phase 02.3 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions/202607100202_add_account_state_fields.py`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_accounts_categories.py`: passed after approved rerun with `9 passed, 1 warning`.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.3 Bugs Fixed
+
+- Fixed the phase 02.2 default-account switch helper so clearing the previous default flushes before assigning the next default, preventing a transient unique-index violation.
