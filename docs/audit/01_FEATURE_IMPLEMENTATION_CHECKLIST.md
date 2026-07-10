@@ -1,0 +1,362 @@
+# PFM Feature Implementation Checklist
+
+## Agent 01 — Sidebar and Navigation Update
+
+- Files likely to change:
+  - `client/components/Footer.tsx`
+  - `client/components/AccountBoard.tsx`
+  - `client/app/(dashboard)/layout.tsx`
+  - `client/e2e/pfm.e2e.spec.mjs`
+- Existing behavior found:
+  - Fixed bottom navigation appears on `/`, `/analytics`, `/transaction`, and `/loan`.
+  - The sheet menu contains Savings Goals, Budget Planning, Budget Setup, an embedded Account section, Settings, and support actions.
+  - There is no standalone desktop sidebar shell.
+- Required target behavior:
+  - Keep navigation consistent with existing mobile-width app shell.
+  - Move account management toward the future account route only when Agent 02 creates it.
+  - Preserve existing Savings Goals, Budget Planning, Budget Setup, Settings, and auth routes.
+- Risk areas:
+  - Footer only renders on `MAIN_ROUTES`; new primary routes may not show navigation.
+  - The sheet has scroll and fixed logout behavior tied to `100svh`.
+  - AccountBoard currently fetches data inside the menu; removing it early would remove account management.
+- Test commands:
+  - `cd client && npm run build`
+  - `cd client && npm run lint --if-present`
+  - `cd client && npm run api:check`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Open `/`, `/analytics`, `/transaction`, and `/loan`; verify the footer appears.
+  - Open the sheet menu; verify scroll, profile link, board links, Settings, and Logout.
+  - Verify mobile viewport does not hide bottom controls.
+- Dependency on previous agents:
+  - Depends on Agent 00 audit findings only.
+
+## Agent 02 — Account Page and Account Rules
+
+- Files likely to change:
+  - `client/app/(dashboard)/accounts/page.tsx` or `client/app/(dashboard)/account/page.tsx`
+  - `client/components/AccountBoard.tsx`
+  - `client/components/Footer.tsx`
+  - `client/lib/finance/api.ts`
+  - `server/app/modules/accounts/models.py`
+  - `server/app/modules/accounts/schemas.py`
+  - `server/app/modules/accounts/services.py`
+  - `server/app/modules/accounts/router.py`
+  - `server/app/modules/accounts/repositories.py`
+  - `server/alembic/versions/*`
+  - `server/tests/test_accounts_categories.py`
+  - `client/e2e/pfm.e2e.spec.mjs`
+- Existing behavior found:
+  - Accounts are embedded in the sheet menu through `AccountBoard`.
+  - Accounts support name, type, currency, opening balance, archive state, and duplicate active-name protection.
+  - Delete/archive is blocked when an account is referenced.
+  - There is no standalone account route, primary/default field, or frontend edit flow.
+- Required target behavior:
+  - Create a dedicated account page if product scope requires it.
+  - Preserve user ownership, duplicate-name protection, and referenced-account delete blocking.
+  - Add edit behavior only if required by the feature brief.
+  - Do not weaken existing archive/reference semantics.
+- Risk areas:
+  - Accounts are referenced by transactions and report calculations.
+  - Default Cash account is bootstrapped when an empty user lists accounts.
+  - Account currency affects transaction currency and dashboard balances.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`
+  - `cd client && npm run api:check`
+  - `cd client && npm run build`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Create accounts of each supported type.
+  - Verify duplicate active names are rejected.
+  - Verify unused accounts can be removed.
+  - Verify referenced accounts cannot be removed and show clear UI feedback.
+  - Verify transaction account dropdowns still load active accounts.
+- Dependency on previous agents:
+  - Should follow Agent 01 if navigation needs a route link.
+
+## Agent 03 — Loan and Debt Update
+
+- Files likely to change:
+  - `client/app/(dashboard)/loan/page.tsx`
+  - `client/app/(dashboard)/loan/[id]/page.tsx`
+  - `client/components/items/LoanItem.tsx`
+  - `client/lib/finance/api.ts`
+  - `server/app/modules/loans/models.py`
+  - `server/app/modules/loans/schemas.py`
+  - `server/app/modules/loans/services.py`
+  - `server/app/modules/loans/router.py`
+  - `server/app/modules/loans/repositories.py`
+  - `server/alembic/versions/*`
+  - `server/tests/test_loans.py`
+  - `client/generated/openapi.json`
+  - `client/generated/api-types.ts`
+- Existing behavior found:
+  - Loan people have name, phone, note, and archive state.
+  - Loan records have direction, principal amount, currency, issued date, status, note, settlement state, and archive state.
+  - Loan settlements reduce outstanding amount.
+  - There is no repay date, account connection, or overdue state.
+  - Contact Picker support exists in the people drawer.
+- Required target behavior:
+  - Add repay-date/account/overdue behavior only if assigned in the feature brief.
+  - Preserve existing partial settlement and summary behavior.
+  - Keep manual person entry and contact picker fallback working.
+- Risk areas:
+  - Settlement totals cannot exceed principal.
+  - Archived people and records have state-specific restrictions.
+  - Any account linkage must respect account ownership and archived-account rules.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`
+  - `cd client && npm run api:check`
+  - `cd client && npm run build`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Add/edit/archive people.
+  - Add given and taken loan records.
+  - Add partial and full settlements.
+  - Verify summary cards update correctly.
+  - Verify unsupported or denied contact picker path remains graceful.
+- Dependency on previous agents:
+  - Depends on Agent 02 if loans become account-linked.
+
+## Agent 04 — Settings and Home Page Balance Rules
+
+- Files likely to change:
+  - `client/app/(dashboard)/settings/page.tsx`
+  - `client/app/(dashboard)/page.tsx`
+  - `client/lib/dashboard/useDashboardData.ts`
+  - `client/lib/finance/api.ts`
+  - `server/app/modules/users/models.py`
+  - `server/app/modules/users/schemas.py`
+  - `server/app/modules/users/router.py`
+  - `server/app/modules/reports/schemas.py`
+  - `server/app/modules/reports/services.py`
+  - `server/app/modules/reports/repositories.py`
+  - `server/alembic/versions/*`
+  - `server/tests/test_dashboard_reports.py`
+  - `server/tests/test_users_profile.py`
+- Existing behavior found:
+  - Settings only exposes base currency.
+  - Home available balance is fixed to active account opening balances plus income/transfer credits minus expenses/transfer debits.
+  - Loans are excluded from home dashboard balance and totals.
+  - Budget display is not shown on home dashboard.
+- Required target behavior:
+  - Add explicit settings for dashboard balance source only if assigned.
+  - Preserve monthly currency-change guard.
+  - Make dashboard calculations transparent and user-owned.
+- Risk areas:
+  - Report endpoints are shared by home and analytics.
+  - Balance changes may affect E2E and release-readiness assumptions.
+  - Currency and account filtering must not leak cross-user records.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_dashboard_reports.py tests/test_users_profile.py`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`
+  - `cd client && npm run api:check`
+  - `cd client && npm run build`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Change currency once and verify conflict on second actual same-month change.
+  - Verify home dashboard balance before and after income, expense, transfer, savings transfer, and loan activity.
+  - Verify configured dashboard source persists after reload.
+- Dependency on previous agents:
+  - Depends on Agent 02 if account selection is part of dashboard source.
+  - Depends on Agent 03 if loans are added to dashboard calculations.
+
+## Agent 05 — Transaction Category and Account Integration
+
+- Files likely to change:
+  - `client/app/(dashboard)/transaction/page.tsx`
+  - `client/app/(dashboard)/transaction/[id]/page.tsx`
+  - `client/components/inputs/TransactionInput.tsx`
+  - `client/lib/finance/api.ts`
+  - `server/app/modules/categories/*`
+  - `server/app/modules/transactions/*`
+  - `server/app/modules/budgets/*`
+  - `server/app/modules/savings/*`
+  - `server/tests/test_transactions.py`
+  - `server/tests/test_accounts_categories.py`
+  - `client/e2e/pfm.e2e.spec.mjs`
+- Existing behavior found:
+  - Expense uses account/budget/saving labels in Account / Source but saving still requires an account source.
+  - Income uses account-only source and income categories.
+  - Transfer destination list includes Budget labels plus account labels, but saving requires an account destination.
+  - Categories are backend records with default bootstrap for empty users.
+- Required target behavior:
+  - Implement category/account source behavior exactly by tab.
+  - Keep backend validation aligned with UI options.
+  - Preserve idempotency on transaction, transfer, and savings-transfer creates.
+- Risk areas:
+  - Display-only budget labels currently cannot be saved as transaction sources.
+  - Transfer rows are represented by two transaction records.
+  - Savings transfers create a transaction and a contribution.
+  - Category `kind` must match transaction type.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_transactions.py tests/test_accounts_categories.py`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`
+  - `cd client && npm run api:check`
+  - `cd client && npm run build`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Verify Expense, Income, and Transfer option lists separately.
+  - Create income and expense transactions.
+  - Create account-to-account transfers.
+  - Verify invalid source/destination selections show clear errors.
+  - Verify transaction list, dashboard, budget, and analytics update.
+- Dependency on previous agents:
+  - Depends on Agent 02 for account page/rule changes.
+  - Depends on Agent 04 if dashboard calculation behavior changes.
+
+## Agent 06 — Recurring Expense Warning Popup
+
+- Files likely to change:
+  - `client/app/(dashboard)/transaction/[id]/page.tsx`
+  - `client/components/inputs/TransactionInput.tsx`
+  - `client/components/ui/alert-dialog.tsx`
+  - `client/lib/finance/api.ts`
+  - `server/app/modules/recurring/*`
+  - `server/tests/test_recurring_rules.py`
+  - `client/e2e/pfm.e2e.spec.mjs`
+- Existing behavior found:
+  - Expense recurring creation is a toggle plus frequency selector.
+  - Recurring rule backend supports income/expense rules with frequency, interval, timezone, start/end dates, status, next run, and worker fields.
+  - No warning popup exists for recurring expense creation.
+- Required target behavior:
+  - Add the required warning/confirmation flow before creating recurring expenses.
+  - Do not change recurring income behavior in this phase unless explicitly assigned.
+  - Preserve existing createRecurringRule request shape.
+- Risk areas:
+  - Popup must not block normal one-time expense creation.
+  - Form submission can create either a transaction or a recurring rule.
+  - Timezone and start date must stay consistent.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_recurring_rules.py`
+  - `cd client && npm run build`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Create one-time expense without popup.
+  - Toggle recurring expense and verify warning appears.
+  - Cancel popup and verify no rule is created.
+  - Confirm popup and verify recurring rule is created.
+- Dependency on previous agents:
+  - Depends on Agent 05 if transaction form source/category behavior changes.
+
+## Agent 07 — Recurring Income Achievement Popup
+
+- Files likely to change:
+  - `client/app/(dashboard)/transaction/[id]/page.tsx`
+  - `client/components/ui/alert-dialog.tsx`
+  - `client/lib/finance/api.ts`
+  - `server/app/modules/recurring/*`
+  - `client/e2e/pfm.e2e.spec.mjs`
+- Existing behavior found:
+  - Income recurring creation is a toggle plus frequency selector.
+  - No achievement/success popup exists for recurring income creation.
+  - Recurring income rules use the same backend endpoint as recurring expenses.
+- Required target behavior:
+  - Add the required achievement popup for recurring income.
+  - Keep one-time income creation direct.
+  - Keep recurring expense warning behavior from Agent 06 intact.
+- Risk areas:
+  - Avoid double-submit when showing a success/achievement state.
+  - Preserve form redirect behavior after successful save.
+  - Ensure popup copy and state do not appear for expense or transfer tabs.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_recurring_rules.py`
+  - `cd client && npm run build`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Create one-time income without achievement popup.
+  - Toggle recurring income and verify achievement popup flow.
+  - Verify the recurring rule appears in backend-driven behavior.
+  - Verify recurring expense warning still works.
+- Dependency on previous agents:
+  - Depends on Agent 06.
+
+## Agent 08 — Cross-Domain Balance Consistency
+
+- Files likely to change:
+  - `server/app/modules/reports/*`
+  - `server/app/modules/transactions/*`
+  - `server/app/modules/budgets/*`
+  - `server/app/modules/savings/*`
+  - `server/app/modules/loans/*`
+  - `client/app/(dashboard)/page.tsx`
+  - `client/app/(dashboard)/analytics/page.tsx`
+  - `client/app/(dashboard)/budget/page.tsx`
+  - `client/app/(dashboard)/savings/page.tsx`
+  - `client/app/(dashboard)/loan/page.tsx`
+  - `client/lib/dashboard/useDashboardData.ts`
+  - `client/lib/analytics/api.ts`
+  - `client/lib/finance/api.ts`
+- Existing behavior found:
+  - Dashboard balance excludes loans.
+  - Budget progress aggregates expense transactions.
+  - Savings progress aggregates savings contributions.
+  - Savings transfers create both account debit and savings contribution records.
+  - Loan summary is separate from dashboard reports.
+- Required target behavior:
+  - Verify and repair cross-domain totals after feature agents change accounts, loans, settings, and transaction sources.
+  - Keep source-of-truth calculations backend-driven.
+  - Document any intentional inclusion/exclusion rules.
+- Risk areas:
+  - Same financial event can affect multiple domains.
+  - Transfers should not become income or expense.
+  - Savings contributions and account debits must not double-count in reports.
+  - Loan account linkage, if added, may affect account balances.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`
+  - `cd client && npm run api:check`
+  - `cd client && npm run build`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Create account, income, expense, transfer, savings contribution, savings transfer, budget, given loan, taken loan, and settlement.
+  - Compare home, analytics, budget, savings, loan, and transaction screens after each action.
+  - Verify archived/deleted records stop appearing where expected.
+- Dependency on previous agents:
+  - Depends on Agents 02 through 07.
+
+## Agent 09 — Final UI/UX and Regression Audit
+
+- Files likely to change:
+  - `docs/audit/02_BASELINE_TEST_REPORT.md`
+  - `docs/release/RELEASE_READINESS.md`
+  - `client/e2e/pfm.e2e.spec.mjs`
+  - Targeted files only if regressions are found.
+- Existing behavior found:
+  - Baseline frontend build and backend pytest passed during Agent 00.
+  - No client lint or unit test scripts exist.
+  - Full-stack E2E script exists and is the main browser regression path.
+- Required target behavior:
+  - Verify all feature agents together.
+  - Fix only regressions found during final audit.
+  - Produce final concise regression notes and safe starting point for release or next implementation phase.
+- Risk areas:
+  - Later agents may introduce cross-domain drift.
+  - UI may become inconsistent between mobile-width shell, drawers, sheets, and forms.
+  - Generated OpenAPI artifacts can drift after backend changes.
+- Test commands:
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app`
+  - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`
+  - `cd client && npm run api:check`
+  - `cd client && npm run build`
+  - `cd client && npm run lint --if-present`
+  - `cd client && npm run test --if-present`
+  - `cd client && npm run e2e`
+- Manual QA checklist:
+  - Smoke every dashboard route and auth route.
+  - Exercise all create/edit/delete/archive flows changed by Agents 01 through 08.
+  - Verify mobile viewport and form focus behavior.
+  - Verify reload after each major mutation preserves server-backed state.
+- Dependency on previous agents:
+  - Depends on Agents 01 through 08 being complete.
+
+## Phase 00.4 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no lint script exists.
+- No baseline feature-checklist bugs required repair in phase 00.4.
