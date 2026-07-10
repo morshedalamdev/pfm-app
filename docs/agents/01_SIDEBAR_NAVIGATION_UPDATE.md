@@ -96,3 +96,29 @@
 - `cd client && npm run build`
 - `cd client && npm run lint`: not available; `client/package.json` has no `lint` script.
 - `cd client && npm run typecheck`: not available; `client/package.json` has no `typecheck` script.
+
+## Phase 01.2 - Account List Removed from Sidebar
+
+## Changed Files
+
+- `client/components/Footer.tsx`
+- `docs/agents/01_SIDEBAR_NAVIGATION_UPDATE.md`
+
+## Removed Behavior
+
+- Removed `AccountBoard` rendering from the footer sheet menu.
+- Removed the `AccountBoard` import from `client/components/Footer.tsx`.
+- The sidebar/sheet no longer loads, displays, creates, or deletes accounts.
+
+## Preserved Behavior
+
+- `client/components/AccountBoard.tsx` remains in place for future account-page work.
+- Account API helpers and account backend behavior were not changed.
+- Existing board links for `Savings Goals`, `Budget Planning`, and `Budget Setup` remain in the sheet menu.
+- Footer bottom navigation, notification badge loading, profile link, support items, settings link, reset-password link, delete-account button, and logout behavior remain unchanged.
+- The sheet menu keeps its existing responsive sizing and scroll container.
+
+## Notes for Agent 02
+
+- Account management logic is still available in `client/components/AccountBoard.tsx`, but it is no longer reachable from the sidebar sheet.
+- A standalone accounts route is still missing and should be handled in a later scoped phase/agent without reintroducing account business logic into the sidebar.
