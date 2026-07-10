@@ -163,6 +163,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | AGENT | Phase 1 Chinese RMB currency | PASSED | phase commit created after this state update | Added CNY support in settings and shared money formatting, with persistence verified through the existing user profile path. |
 | AGENT | Phase 2 Add Account section | PASSED | phase commit created after this state update | Added the sidebar Account section, user account create/remove UI, expanded account types, duplicate active-name protection, and referenced-account removal guard. |
 | AGENT | Phase 3 Prevent mobile input zoom | PASSED | phase commit created after this state update | Added an accessible mobile viewport declaration and global mobile form-control font sizing to prevent focus zoom without disabling user scaling. |
+| AGENT | Phase 4 Select Contact in Loan & Debt Add Person | PASSED | phase commit created after this state update | Added browser Contact Picker support to the loan/debt add-person drawer with feature detection, graceful messages, manual-entry preservation, and E2E coverage. |
 
 ## 6. Architecture Decision Log
 
@@ -1059,6 +1060,8 @@ Phase 2 added no backend endpoint paths. It expanded the existing account type c
 
 Phase 3 added no backend endpoint paths and changed no API contracts. It updated the frontend root viewport metadata and global mobile form-control CSS so inputs, selects, and textareas render at 16px on mobile while preserving user zoom.
 
+Phase 4 added no backend endpoint paths and changed no API contracts. It updates only the frontend loan/debt add-person flow to request browser contact access after the user clicks `Select from contacts`, then fills only the selected contact name and phone number into the existing person form.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1200,6 +1203,8 @@ Phase 1 created no migrations. It reuses the existing `users.base_currency` stor
 Phase 2 created no migrations. It reuses the existing `accounts`, `transactions`, and `recurring_rules` schema, and the full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 Phase 3 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
+
+Phase 4 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -2551,6 +2556,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
 | `cd client && npm run e2e` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost. Approved full-stack E2E started disposable PostgreSQL, applied migrations through `202607071106`, and passed the integrated responsive Chromium journey: 1 passed. |
 
+### Phase 4 select contact in loan and debt commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after the loan/debt Contact Picker integration. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | FAIL in sandbox, FAIL with approval, PASS with approval after repair | Sandboxed run could not bind localhost. The first approved run passed the contact picker assertions but exposed a drawer-close leak into a later route wait; after adding a deterministic hidden-state assertion, the approved full-stack E2E passed: 1 passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2624,6 +2640,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 1 Chinese RMB currency is passed. Next allowed phase is Phase 2, Add Account section, after user permission.
 - Phase 2 Add Account section is passed. Next allowed phase is Phase 3, Mobile browser input focus should not zoom the UI, after user permission.
 - Phase 3 Prevent mobile input zoom is passed. Next allowed phase is Phase 4, Select Contact in Loan & Debt Add Person, after user permission.
+- Phase 4 Select Contact in Loan & Debt Add Person is passed. Next allowed phase is Phase 5, Expense Account Source List, after user permission.
 
 ## 14. Progress log
 
@@ -2706,3 +2723,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Phase 1 Chinese RMB currency passed. Added `CNY - Chinese RMB (¥)` to Settings currency options, ensured shared money formatting renders CNY with `¥`, verified profile save/load persistence for `CNY`, ran backend lint/format/type/full tests and frontend TypeScript/build/API checks, and set the next allowed phase to Phase 2 after user permission.
 - 2026-07-10: Phase 2 Add Account section passed. Added the sidebar Account section, server-backed account creation and unused-account removal, clear conflict messaging for referenced accounts, duplicate active account-name protection, expanded account types for Mobile Pay and Other, backend regression coverage, generated API contracts, frontend build checks, and full-stack E2E coverage; set the next allowed phase to Phase 3 after user permission.
 - 2026-07-10: Phase 3 Prevent mobile input zoom passed. Added explicit device-width viewport metadata without disabling user scaling, applied global mobile 16px sizing for inputs, selects, and textareas, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 4 after user permission.
+- 2026-07-10: Phase 4 Select Contact in Loan & Debt Add Person passed. Added feature-detected Contact Picker support to the loan/debt people drawer, filled selected contact name and phone into the manual form only after user action, added graceful unavailable/denied/cancelled/no-data messages, mocked contact selection in E2E, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 5 after user permission.

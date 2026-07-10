@@ -17,6 +17,22 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   const email = `pfm-e2e-${Date.now()}@example.test`;
   const password = "StrongPass123!";
 
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "contacts", {
+      configurable: true,
+      get() {
+        return {
+          select: async () => [
+            {
+              name: ["E2E Contact"],
+              tel: ["5552223333"],
+            },
+          ],
+        };
+      },
+    });
+  });
+
   await page.setViewportSize(viewports[0]);
   await page.goto("/auth/register");
   await page.getByPlaceholder("Name").fill("E2E User");
@@ -173,6 +189,13 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   });
   await expect(page.getByText("E2E Friend")).toHaveCount(2);
   await expect(page.getByText("$250.00").first()).toBeVisible();
+  await page.getByRole("button", { name: "Manage loan people" }).click();
+  await page.getByRole("button", { name: "Select from contacts" }).click();
+  await expect(page.getByPlaceholder("Person name")).toHaveValue("E2E Contact");
+  await expect(page.getByPlaceholder("Phone number")).toHaveValue("5552223333");
+  await expect(page.getByText("Contact details filled.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByPlaceholder("Person name")).toBeHidden();
 
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
