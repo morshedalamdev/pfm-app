@@ -440,3 +440,45 @@ Missing fields for later phases:
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.9 - Currency Display and Account Select Prep
+
+## Currency Display Rule
+
+- The accounts list displays current and initial balances with each account's own currency.
+- The account details dialog displays current and initial balances with each account's own currency.
+- No currency conversion engine was added.
+
+## Formatter
+
+- `formatAccountMoney()` remains the account-level balance formatter.
+- `formatAccountAmount()` formats arbitrary later-agent amounts using the selected account currency with a fallback currency.
+
+## Active Account Helper
+
+- `getActiveAccounts()` returns only non-archived, non-disabled accounts.
+- `getAccountSelectOptions()` returns active account dropdown option data for later forms.
+
+## Default Account Helper
+
+- `getDefaultAccount()` returns the active default account.
+- `getDefaultAccountId()` returns the active default account ID for form state.
+- `resolveAccountSelectValue()` keeps a preferred active account, otherwise falls back to the default account, then the first active account.
+
+## Reusable Select Prep
+
+- `AccountSelectOption` provides a shared shape for later loan and transaction dropdowns.
+- `formatAccountSelectLabel()` provides a consistent label with account name, currency, current balance, and default status.
+- No account-select component was added because no repeated form integration exists yet.
+
+## Deferred Integration
+
+- Loan and transaction forms were not wired to account selection in this phase.
+- Agent 03 and Agent 05 should consume these helpers when adding loan and transaction account dropdowns.
+
+## Phase 02.9 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.

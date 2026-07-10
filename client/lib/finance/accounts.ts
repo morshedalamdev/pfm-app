@@ -8,8 +8,27 @@ import { formatMoney } from "@/lib/finance/format";
 
 export type AccountBalanceField = "current_balance" | "opening_balance";
 
+export type AccountSelectOption = {
+  balanceLabel: string;
+  currency: string;
+  id: string;
+  isDefault: boolean;
+  label: string;
+  value: string;
+};
+
 export function isAccountActive(account: Account): boolean {
   return !account.is_archived && !account.is_disabled;
+}
+
+export function getAccountById(
+  accounts: Account[],
+  accountId: string | null | undefined,
+): Account | null {
+  if (!accountId) {
+    return null;
+  }
+  return accounts.find((account) => account.id === accountId) ?? null;
 }
 
 export function getActiveAccounts(accounts: Account[]): Account[] {
@@ -20,6 +39,27 @@ export function getDefaultAccount(accounts: Account[]): Account | null {
   return (
     accounts.find((account) => isAccountActive(account) && account.is_default) ?? null
   );
+}
+
+export function getDefaultAccountId(accounts: Account[]): string {
+  return getDefaultAccount(accounts)?.id ?? "";
+}
+
+export function resolveAccountSelectValue(
+  accounts: Account[],
+  preferredAccountId?: string | null,
+): string {
+  const preferredAccount = getAccountById(accounts, preferredAccountId);
+  if (preferredAccount && isAccountActive(preferredAccount)) {
+    return preferredAccount.id;
+  }
+
+  const defaultAccount = getDefaultAccount(accounts);
+  if (defaultAccount) {
+    return defaultAccount.id;
+  }
+
+  return getActiveAccounts(accounts)[0]?.id ?? "";
 }
 
 export function setDefaultAccountInList(
@@ -64,6 +104,34 @@ export function formatAccountMoney(
   field: AccountBalanceField = "current_balance",
 ): string {
   return formatMoney(account[field], account.currency);
+}
+
+export function formatAccountAmount(
+  accounts: Account[],
+  accountId: string | null | undefined,
+  value: string | number,
+  fallbackCurrency = "USD",
+): string {
+  const account = getAccountById(accounts, accountId);
+  return formatMoney(value, account?.currency ?? fallbackCurrency);
+}
+
+export function getAccountSelectOptions(accounts: Account[]): AccountSelectOption[] {
+  return getActiveAccounts(accounts).map((account) => ({
+    balanceLabel: formatAccountMoney(account),
+    currency: account.currency,
+    id: account.id,
+    isDefault: account.is_default,
+    label: formatAccountSelectLabel(account),
+    value: account.id,
+  }));
+}
+
+export function formatAccountSelectLabel(account: Account): string {
+  const defaultSuffix = account.is_default ? " - Default" : "";
+  return `${account.name} - ${account.currency} - ${formatAccountMoney(
+    account,
+  )}${defaultSuffix}`;
 }
 
 export function canDeleteAccountFromEligibility(
