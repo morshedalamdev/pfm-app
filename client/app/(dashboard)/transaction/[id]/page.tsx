@@ -110,6 +110,11 @@ export default function CreateTransactionPage() {
     () => accounts.map((account) => account.name),
     [accounts],
   );
+  const incomeAccounts = useMemo(() => accounts, [accounts]);
+  const incomeAccountNames = useMemo(
+    () => incomeAccounts.map((account) => account.name),
+    [incomeAccounts],
+  );
   const activeCategories = type === "income" ? incomeCategories : expenseCategories;
   const activeCategoryNames = useMemo(
     () => activeCategories.map((category) => category.name),
@@ -329,7 +334,9 @@ export default function CreateTransactionPage() {
     const selectedAccount =
       type === "expense"
         ? selectedExpenseAccount
-        : selectByName(accounts, selectedAccountName);
+        : type === "income"
+          ? selectByName(incomeAccounts, selectedAccountName)
+          : selectByName(accounts, selectedAccountName);
     const selectedCategory = selectByName(activeCategories, selectedCategoryName);
     const fromAccount = selectByName(accounts, fromAccountName);
     const transferDestination = transferDestinations.find(
@@ -505,7 +512,7 @@ export default function CreateTransactionPage() {
               </TabsContent>
               <TabsContent value="income">
                 <TransactionFields
-                  accountNames={accountNames}
+                  accountNames={incomeAccountNames}
                   categoryLabel="Source"
                   categoryNames={activeCategoryNames}
                   date={date}
