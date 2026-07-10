@@ -166,6 +166,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | AGENT | Phase 4 Select Contact in Loan & Debt Add Person | PASSED | phase commit created after this state update | Added browser Contact Picker support to the loan/debt add-person drawer with feature detection, graceful messages, manual-entry preservation, and E2E coverage. |
 | AGENT | Phase 5 Expense Account Source List | PASSED | phase commit created after this state update | Added Expense Account / Source list with labelled account, budget, and saving-account sources while preserving account-backed expense saves. |
 | AGENT | Phase 6 Income Account List | PASSED | phase commit created after this state update | Kept Income account selection on the account model only and verified Budget and Expense saving-account source labels do not appear in the Income account drawer. |
+| AGENT | Phase 7 Transfer Account List | PASSED | phase commit created after this state update | Updated Transfer destination choices to Budget plus account-model accounts, removed savings-goal destinations from the Transfer tab, and preserved account-backed transfer saves. |
 
 ## 6. Architecture Decision Log
 
@@ -1068,6 +1069,8 @@ Phase 5 added no backend endpoint paths and changed no backend API contracts. Th
 
 Phase 6 added no backend endpoint paths and changed no backend API contracts. The frontend Income tab now consumes a dedicated account-only list from existing `GET /api/v1/accounts`, while Expense-only Budget and Saving Account source labels remain excluded from the Income account drawer.
 
+Phase 7 added no backend endpoint paths and changed no backend API contracts. The frontend Transfer tab now builds destination choices from existing `GET /api/v1/budgets?month=...` and `GET /api/v1/accounts`, removes savings-goal destinations from that tab, and preserves existing account-to-account transfer creation by requiring a user-created account destination before save.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1215,6 +1218,8 @@ Phase 4 created no migrations. The full-stack E2E harness applied existing migra
 Phase 5 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 Phase 6 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
+
+Phase 7 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -2599,6 +2604,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
 | `cd client && npm run e2e` | PASS with approval | Approved full-stack E2E started disposable PostgreSQL, applied migrations through `202607071106`, and verified the Income account drawer shows account names while excluding Budget and Expense saving-account source labels: 1 passed. |
 
+### Phase 7 transfer account list commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after replacing Transfer savings-goal destinations with Budget plus account destinations. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | PASS with approval | Approved full-stack E2E started disposable PostgreSQL, applied migrations through `202607071106`, and verified Transfer destinations show Budget and accounts while excluding savings-goal destinations: 1 passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2675,6 +2691,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 4 Select Contact in Loan & Debt Add Person is passed. Next allowed phase is Phase 5, Expense Account Source List, after user permission.
 - Phase 5 Expense Account Source List is passed. Next allowed phase is Phase 6, Income Account List, after user permission.
 - Phase 6 Income Account List is passed. Next allowed phase is Phase 7, Transfer Account List, after user permission.
+- Phase 7 Transfer Account List is passed. All AGENT backlog phases are complete; next allowed action is a final cleanup/refactor phase after user permission.
 
 ## 14. Progress log
 
@@ -2760,3 +2777,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Phase 4 Select Contact in Loan & Debt Add Person passed. Added feature-detected Contact Picker support to the loan/debt people drawer, filled selected contact name and phone into the manual form only after user action, added graceful unavailable/denied/cancelled/no-data messages, mocked contact selection in E2E, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 5 after user permission.
 - 2026-07-10: Phase 5 Expense Account Source List passed. Updated the Expense tab Account / Source dropdown to show labelled user-created accounts, a budget source, and user-created saving accounts; preserved account-backed expense saves by requiring an account selection before create/update; added cancellable transaction form loads for reliable E2E behavior; verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 6 after user permission.
 - 2026-07-10: Phase 6 Income Account List passed. Updated the transaction form so the Income tab uses a dedicated account-only list from the existing account model, added E2E coverage proving Budget and Expense saving-account source labels do not appear in the Income account drawer, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 7 after user permission.
+- 2026-07-10: Phase 7 Transfer Account List passed. Updated the Transfer tab destination list to show Budget plus account-model accounts, removed savings-goal destinations from the Transfer tab, preserved account-backed transfer creation by requiring account destinations before save, added E2E coverage for the Transfer drawer contents, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and completed the AGENT backlog.
