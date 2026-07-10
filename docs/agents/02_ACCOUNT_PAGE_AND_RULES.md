@@ -244,3 +244,43 @@ Missing fields for later phases:
 ## Phase 02.3 Bugs Fixed
 
 - Fixed the phase 02.2 default-account switch helper so clearing the previous default flushes before assigning the next default, preventing a transient unique-index violation.
+
+## Phase 02.4 - Create Account Form
+
+## Form Fields
+
+- Account name.
+- Account currency.
+- Initial budget / balance.
+- Account type is submitted as `cash` to satisfy the existing backend schema; no account type field was added to the user-facing form in this phase.
+
+## Validation
+
+- Account name is required.
+- Account currency is required.
+- Initial budget / balance is required, numeric, and non-negative.
+- API errors are shown inline on the form.
+
+## Create Behavior
+
+- The `/accounts` page now creates accounts with `createAccount()`.
+- New accounts are inserted into the existing account list after a successful create response.
+- The newly created account is selected in the list.
+- Current balance starts from the backend response, which mirrors the initial opening balance in this phase.
+
+## First Default Account Behavior
+
+- Existing phase 02.2 backend default-account rules handle first-default assignment.
+- No default-account UI action was added in this phase.
+
+## No-Edit Rule
+
+- No account edit form or edit action was added.
+- Existing list rows remain selection-only until the details dialog phase.
+
+## Phase 02.4 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
