@@ -18,19 +18,16 @@ import BackBtn from "@/components/BackBtn";
 import { useParams, useRouter } from "next/navigation";
 import {
   createRecurringRule,
-  createSavingsTransfer,
   createTransaction,
   createTransfer,
   getTransaction,
   listAccounts,
   listBudgets,
   listCategories,
-  listSavingsGoals,
   updateTransaction,
   type Account,
   type Budget,
   type Category,
-  type SavingsGoal,
 } from "@/lib/finance/api";
 import { decimalInput, toDateTime } from "@/lib/finance/format";
 
@@ -44,7 +41,7 @@ type ExpenseSource = {
 };
 type TransferDestination = {
   id: string;
-  kind: "account" | "savings";
+  kind: "account" | "budget";
   label: string;
 };
 
@@ -76,10 +73,6 @@ function currentMonthKey(): string {
   return new Date().toISOString().slice(0, 7);
 }
 
-function savingsDestinationLabel(goal: SavingsGoal): string {
-  return `Savings: ${goal.name}`;
-}
-
 export default function CreateTransactionPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -99,7 +92,6 @@ export default function CreateTransactionPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [note, setNote] = useState("");
   const [recurringEvery, setRecurringEvery] = useState("Monthly");
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [selectedAccountName, setSelectedAccountName] = useState("");
   const [selectedCategoryName, setSelectedCategoryName] = useState("");
   const [selectedExpenseSourceName, setSelectedExpenseSourceName] = useState("");
@@ -109,6 +101,11 @@ export default function CreateTransactionPage() {
   const accountNames = useMemo(
     () => accounts.map((account) => account.name),
     [accounts],
+  );
+  const incomeAccounts = useMemo(() => accounts, [accounts]);
+  const incomeAccountNames = useMemo(
+    () => incomeAccounts.map((account) => account.name),
+    [incomeAccounts],
   );
   const activeCategories = type === "income" ? incomeCategories : expenseCategories;
   const activeCategoryNames = useMemo(
@@ -146,19 +143,31 @@ export default function CreateTransactionPage() {
     [expenseSources],
   );
   const transferDestinations = useMemo<TransferDestination[]>(
-    () => [
-      ...accounts.map((account) => ({
-        id: account.id,
-        kind: "account" as const,
-        label: accountDestinationLabel(account),
-      })),
-      ...savingsGoals.map((goal) => ({
-        id: goal.id,
-        kind: "savings" as const,
-        label: savingsDestinationLabel(goal),
-      })),
-    ],
-    [accounts, savingsGoals],
+    () => {
+      const destinations = [
+        {
+          id: "monthly-budget",
+          kind: "budget" as const,
+          label: "Budget: Monthly Budget",
+        },
+        ...budgets.map((budget) => ({
+          id: budget.id,
+          kind: "budget" as const,
+          label: budgetSourceLabel(budget),
+        })),
+        ...accounts.map((account) => ({
+          id: account.id,
+          kind: "account" as const,
+          label: accountDestinationLabel(account),
+        })),
+      ];
+      return destinations.filter(
+        (destination, index) =>
+          destinations.findIndex((item) => item.label === destination.label) ===
+          index,
+      );
+    },
+    [accounts, budgets],
   );
   const transferDestinationNames = useMemo(
     () => transferDestinations.map((destination) => destination.label),
@@ -273,39 +282,6 @@ export default function CreateTransactionPage() {
   }, []);
 
   useEffect(() => {
-    let isActive = true;
-    const controller = new AbortController();
-
-    async function loadSavingsGoals() {
-      try {
-        const nextSavingsGoals = await listSavingsGoals("active", {
-          signal: controller.signal,
-        });
-        if (isActive) {
-          setSavingsGoals(nextSavingsGoals);
-        }
-      } catch {
-        if (isActive) {
-          setSavingsGoals([]);
-        }
-      }
-    }
-
-    void loadSavingsGoals();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!toDestinationName && savingsGoals[0]) {
-      setToDestinationName(savingsDestinationLabel(savingsGoals[0]));
-    }
-  }, [savingsGoals, toDestinationName]);
-
-  useEffect(() => {
     if (type === "transfer") return;
     const options = type === "income" ? incomeCategories : expenseCategories;
     if (!options.some((category) => category.name === selectedCategoryName)) {
@@ -329,7 +305,9 @@ export default function CreateTransactionPage() {
     const selectedAccount =
       type === "expense"
         ? selectedExpenseAccount
-        : selectByName(accounts, selectedAccountName);
+        : type === "income"
+          ? selectByName(incomeAccounts, selectedAccountName)
+          : selectByName(accounts, selectedAccountName);
     const selectedCategory = selectByName(activeCategories, selectedCategoryName);
     const fromAccount = selectByName(accounts, fromAccountName);
     const transferDestination = transferDestinations.find(
@@ -339,14 +317,14 @@ export default function CreateTransactionPage() {
       transferDestination?.kind === "account"
         ? accounts.find((account) => account.id === transferDestination.id)
         : undefined;
-    const toSavingsGoal =
-      transferDestination?.kind === "savings"
-        ? savingsGoals.find((goal) => goal.id === transferDestination.id)
-        : undefined;
 
     if (type === "transfer") {
       if (!fromAccount || !transferDestination) {
         setError("Choose where to transfer the money.");
+        return;
+      }
+      if (transferDestination.kind === "budget") {
+        setError("Choose a user-created account before saving this transfer.");
         return;
       }
       if (toAccount && fromAccount.id === toAccount.id) {
@@ -369,14 +347,6 @@ export default function CreateTransactionPage() {
           description: note || null,
           from_account_id: fromAccount.id,
           to_account_id: toAccount.id,
-          transaction_at: transactionAt,
-        });
-      } else if (type === "transfer" && fromAccount && toSavingsGoal) {
-        await createSavingsTransfer({
-          amount: decimalAmount,
-          description: note || null,
-          from_account_id: fromAccount.id,
-          savings_goal_id: toSavingsGoal.id,
           transaction_at: transactionAt,
         });
       } else if (isCreate && isRecurring && selectedAccount && selectedCategory) {
@@ -505,7 +475,7 @@ export default function CreateTransactionPage() {
               </TabsContent>
               <TabsContent value="income">
                 <TransactionFields
-                  accountNames={accountNames}
+                  accountNames={incomeAccountNames}
                   categoryLabel="Source"
                   categoryNames={activeCategoryNames}
                   date={date}

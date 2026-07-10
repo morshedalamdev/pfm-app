@@ -224,6 +224,37 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     page.getByRole("button", { name: "Saving Account: Emergency Savings" }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Income" }).click();
+  await page.locator("form").getByText("Account", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Checking" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Wallet" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Emergency Savings" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Budget: Monthly Budget" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Saving Account: Emergency Savings" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Transfer" }).click();
+  await page.locator("form").getByText("To", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Budget: Monthly Budget" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Account: Checking" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account: Wallet" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Account: Emergency Savings" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Savings: Emergency Fund" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Expense" }).click();
   await page.locator("form").getByText("Category", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
   await page.keyboard.press("Escape");
