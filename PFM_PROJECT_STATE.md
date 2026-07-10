@@ -164,6 +164,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | AGENT | Phase 2 Add Account section | PASSED | phase commit created after this state update | Added the sidebar Account section, user account create/remove UI, expanded account types, duplicate active-name protection, and referenced-account removal guard. |
 | AGENT | Phase 3 Prevent mobile input zoom | PASSED | phase commit created after this state update | Added an accessible mobile viewport declaration and global mobile form-control font sizing to prevent focus zoom without disabling user scaling. |
 | AGENT | Phase 4 Select Contact in Loan & Debt Add Person | PASSED | phase commit created after this state update | Added browser Contact Picker support to the loan/debt add-person drawer with feature detection, graceful messages, manual-entry preservation, and E2E coverage. |
+| AGENT | Phase 5 Expense Account Source List | PASSED | phase commit created after this state update | Added Expense Account / Source list with labelled account, budget, and saving-account sources while preserving account-backed expense saves. |
 
 ## 6. Architecture Decision Log
 
@@ -1062,6 +1063,8 @@ Phase 3 added no backend endpoint paths and changed no API contracts. It updated
 
 Phase 4 added no backend endpoint paths and changed no API contracts. It updates only the frontend loan/debt add-person flow to request browser contact access after the user clicks `Select from contacts`, then fills only the selected contact name and phone number into the existing person form.
 
+Phase 5 added no backend endpoint paths and changed no backend API contracts. The frontend Expense tab now builds its Account / Source choices from existing `GET /api/v1/accounts`, `GET /api/v1/budgets?month=...`, and the existing account `type=savings` model. Budget entries are displayed as sources but expense creation still requires a user-created account so the existing account-backed transaction create/update path is preserved.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1205,6 +1208,8 @@ Phase 2 created no migrations. It reuses the existing `accounts`, `transactions`
 Phase 3 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 Phase 4 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
+
+Phase 5 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -2567,6 +2572,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
 | `cd client && npm run e2e` | FAIL in sandbox, FAIL with approval, PASS with approval after repair | Sandboxed run could not bind localhost. The first approved run passed the contact picker assertions but exposed a drawer-close leak into a later route wait; after adding a deterministic hidden-state assertion, the approved full-stack E2E passed: 1 passed. |
 
+### Phase 5 expense account source list commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after the Expense Account / Source dropdown and cancellable form-load changes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | FAIL in sandbox, FAIL with approval, PASS with approval after repair | Sandboxed run could not bind localhost. An approved run exposed a transaction-form loading hang from stale duplicate requests; after aborting stale form loads, the approved full-stack E2E passed and verified Account, Budget, and Saving Account Expense sources: 1 passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2641,6 +2657,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 2 Add Account section is passed. Next allowed phase is Phase 3, Mobile browser input focus should not zoom the UI, after user permission.
 - Phase 3 Prevent mobile input zoom is passed. Next allowed phase is Phase 4, Select Contact in Loan & Debt Add Person, after user permission.
 - Phase 4 Select Contact in Loan & Debt Add Person is passed. Next allowed phase is Phase 5, Expense Account Source List, after user permission.
+- Phase 5 Expense Account Source List is passed. Next allowed phase is Phase 6, Income Account List, after user permission.
 
 ## 14. Progress log
 
@@ -2724,3 +2741,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Phase 2 Add Account section passed. Added the sidebar Account section, server-backed account creation and unused-account removal, clear conflict messaging for referenced accounts, duplicate active account-name protection, expanded account types for Mobile Pay and Other, backend regression coverage, generated API contracts, frontend build checks, and full-stack E2E coverage; set the next allowed phase to Phase 3 after user permission.
 - 2026-07-10: Phase 3 Prevent mobile input zoom passed. Added explicit device-width viewport metadata without disabling user scaling, applied global mobile 16px sizing for inputs, selects, and textareas, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 4 after user permission.
 - 2026-07-10: Phase 4 Select Contact in Loan & Debt Add Person passed. Added feature-detected Contact Picker support to the loan/debt people drawer, filled selected contact name and phone into the manual form only after user action, added graceful unavailable/denied/cancelled/no-data messages, mocked contact selection in E2E, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 5 after user permission.
+- 2026-07-10: Phase 5 Expense Account Source List passed. Updated the Expense tab Account / Source dropdown to show labelled user-created accounts, a budget source, and user-created saving accounts; preserved account-backed expense saves by requiring an account selection before create/update; added cancellable transaction form loads for reliable E2E behavior; verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 6 after user permission.

@@ -95,6 +95,12 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     opening_balance: "100.00",
     type: "cash",
   });
+  await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Emergency Savings",
+    opening_balance: "300.00",
+    type: "savings",
+  });
   const salary = await getCategoryByName(api, "income", "Salary");
   const groceries = await getCategoryByName(api, "expense", "Groceries");
 
@@ -203,9 +209,20 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   }
 
   await page.goto("/transaction/create");
-  await expect(page.getByText("Loading form...")).toBeHidden({ timeout: 60_000 });
-  await page.locator("form").getByText("Account", { exact: true }).click();
-  await expect(page.getByRole("button", { name: "Checking" })).toBeVisible();
+  await expect(page.locator("form")).toBeVisible({ timeout: 60_000 });
+  await page
+    .locator("form")
+    .getByText("Account / Source", { exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Account: Checking" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Budget: Monthly Budget" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Saving Account: Emergency Savings" }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.locator("form").getByText("Category", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
