@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Urbanist } from "next/font/google";
 import "./globals.css";
 import Image from "next/image";
@@ -13,6 +13,11 @@ const urbanist = Urbanist({
 export const metadata: Metadata = {
   title: "PFM - Personal Finance Management App",
   description: "A personal finance app that helps users monitor income, expenses, and savings with insightful reports and analytics.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

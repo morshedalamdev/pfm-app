@@ -162,6 +162,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 11 | 11.7 Compose startup and CORS repair | PASSED | phase commit created after this state update | Changed the default PostgreSQL host port to 5433, derived local CORS origins from the frontend port, allowed localhost and loopback browser origins, disabled the worker's inherited API healthcheck, and verified the reported Docker workflow live. |
 | AGENT | Phase 1 Chinese RMB currency | PASSED | phase commit created after this state update | Added CNY support in settings and shared money formatting, with persistence verified through the existing user profile path. |
 | AGENT | Phase 2 Add Account section | PASSED | phase commit created after this state update | Added the sidebar Account section, user account create/remove UI, expanded account types, duplicate active-name protection, and referenced-account removal guard. |
+| AGENT | Phase 3 Prevent mobile input zoom | PASSED | phase commit created after this state update | Added an accessible mobile viewport declaration and global mobile form-control font sizing to prevent focus zoom without disabling user scaling. |
 
 ## 6. Architecture Decision Log
 
@@ -1056,6 +1057,8 @@ Phase 1 added no backend endpoint paths or response contracts. It added Chinese 
 
 Phase 2 added no backend endpoint paths. It expanded the existing account type contract to include `mobile_pay` and `other`, added duplicate active account-name conflict handling to existing account create/update behavior, and changed existing account removal behavior to return HTTP 409 with a clear message when an account is referenced by transaction or recurring-rule records. The sidebar board now loads and mutates user accounts through the existing authenticated account API.
 
+Phase 3 added no backend endpoint paths and changed no API contracts. It updated the frontend root viewport metadata and global mobile form-control CSS so inputs, selects, and textareas render at 16px on mobile while preserving user zoom.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1195,6 +1198,8 @@ Phase 11.7 created no migrations. The reported Compose migration command applied
 Phase 1 created no migrations. It reuses the existing `users.base_currency` storage and validation.
 
 Phase 2 created no migrations. It reuses the existing `accounts`, `transactions`, and `recurring_rules` schema, and the full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
+
+Phase 3 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -2535,6 +2540,17 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `cd client && npm run e2e` | FAIL, PASS after repair | E2E was repaired for account board coverage, disposable migration environment isolation, and transaction-form selectors; final full-stack Chromium journey passed: 1 passed. |
 | `git diff --check` | PASS | Whitespace check passed after final state recording. |
 
+### Phase 3 prevent mobile input zoom commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after viewport and global CSS changes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost. Approved full-stack E2E started disposable PostgreSQL, applied migrations through `202607071106`, and passed the integrated responsive Chromium journey: 1 passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2607,6 +2623,7 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 11.7 Compose startup and CORS repair is passed. The next allowed phase is a Milestone 11 verification rerun before pushing.
 - Phase 1 Chinese RMB currency is passed. Next allowed phase is Phase 2, Add Account section, after user permission.
 - Phase 2 Add Account section is passed. Next allowed phase is Phase 3, Mobile browser input focus should not zoom the UI, after user permission.
+- Phase 3 Prevent mobile input zoom is passed. Next allowed phase is Phase 4, Select Contact in Loan & Debt Add Person, after user permission.
 
 ## 14. Progress log
 
@@ -2688,3 +2705,4 @@ Append a dated entry after every completed phase.
 - 2026-07-09: Phase 11.7 Compose startup and CORS repair passed. Changed the default PostgreSQL host port from 5432 to 5433, derived local Compose CORS origins from `FRONTEND_PORT` for localhost and loopback, preserved explicit CORS overrides, disabled the worker's inherited API-only healthcheck, reproduced the reported Docker startup and migration workflow, verified live API/frontend/CORS/worker behavior, passed 159 backend tests and the full frontend build/API/E2E checks, and set the next allowed phase to a Milestone 11 verification rerun.
 - 2026-07-10: Phase 1 Chinese RMB currency passed. Added `CNY - Chinese RMB (¥)` to Settings currency options, ensured shared money formatting renders CNY with `¥`, verified profile save/load persistence for `CNY`, ran backend lint/format/type/full tests and frontend TypeScript/build/API checks, and set the next allowed phase to Phase 2 after user permission.
 - 2026-07-10: Phase 2 Add Account section passed. Added the sidebar Account section, server-backed account creation and unused-account removal, clear conflict messaging for referenced accounts, duplicate active account-name protection, expanded account types for Mobile Pay and Other, backend regression coverage, generated API contracts, frontend build checks, and full-stack E2E coverage; set the next allowed phase to Phase 3 after user permission.
+- 2026-07-10: Phase 3 Prevent mobile input zoom passed. Added explicit device-width viewport metadata without disabling user scaling, applied global mobile 16px sizing for inputs, selects, and textareas, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 4 after user permission.
