@@ -405,3 +405,38 @@ Missing fields for later phases:
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.8 - Default Account Selection
+
+## Set Default Action
+
+- Active, non-default accounts can be set as default from the account details dialog.
+- The action calls the existing `setDefaultAccount()` API helper.
+- Already-default accounts show a disabled `Default Account` action state.
+
+## Single Default Rule
+
+- The backend enforces one active default account per user.
+- The account page updates local list state through `setDefaultAccountInList()` after a successful default change.
+
+## Disabled Account Restriction
+
+- Disabled accounts cannot be set as default.
+- Archived accounts are not shown in the normal account list.
+
+## Display Behavior
+
+- Default accounts show the existing `Default` badge in the account list.
+- Account details show default status and the default action state.
+
+## Helper for Later Agents
+
+- Later loan and transaction forms should use `getDefaultAccount()` for auto-selection.
+- Loan and transaction form integration was not implemented in this phase.
+
+## Phase 02.8 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.

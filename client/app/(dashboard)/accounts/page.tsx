@@ -48,12 +48,14 @@ import {
   disableAccountInList,
   formatAccountMoney,
   isAccountActive,
+  setDefaultAccountInList,
 } from "@/lib/finance/accounts";
 import {
   canDeleteAccount,
   createAccount,
   disableAccount,
   listAccounts,
+  setDefaultAccount,
   type Account,
   type AccountCreate,
 } from "@/lib/finance/api";
@@ -90,6 +92,7 @@ export default function AccountsPage() {
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [defaultError, setDefaultError] = useState<string | null>(null);
   const [disableError, setDisableError] = useState<string | null>(null);
   const [disablingAccountId, setDisablingAccountId] = useState<string | null>(
     null,
@@ -101,6 +104,9 @@ export default function AccountsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(
+    null,
+  );
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   const loadAccounts = useCallback(async (signal?: AbortSignal) => {
@@ -122,6 +128,7 @@ export default function AccountsPage() {
         );
         setDeleteError(null);
         setDeleteDialogOpen(false);
+        setDefaultError(null);
         setDisableError(null);
       }
     } catch (loadError) {
@@ -188,6 +195,7 @@ export default function AccountsPage() {
       } satisfies AccountCreate);
       setAccounts((current) => [account, ...current]);
       setDeleteError(null);
+      setDefaultError(null);
       setDisableError(null);
       setSelectedAccountId(account.id);
       setAccountName("");
@@ -201,6 +209,37 @@ export default function AccountsPage() {
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleSetDefaultAccount(account: Account) {
+    if (!isAccountActive(account) || account.is_default) {
+      return;
+    }
+
+    setDefaultError(null);
+    setSettingDefaultId(account.id);
+    try {
+      const defaultAccount = await setDefaultAccount(account.id);
+      setAccounts((current) =>
+        setDefaultAccountInList(
+          current.map((currentAccount) =>
+            currentAccount.id === defaultAccount.id
+              ? defaultAccount
+              : currentAccount,
+          ),
+          defaultAccount.id,
+        ),
+      );
+      setSelectedAccountId(defaultAccount.id);
+    } catch (defaultAccountError) {
+      setDefaultError(
+        defaultAccountError instanceof ApiError
+          ? defaultAccountError.message
+          : "Account could not be set as default.",
+      );
+    } finally {
+      setSettingDefaultId(null);
     }
   }
 
@@ -390,6 +429,7 @@ export default function AccountsPage() {
               onSelect={() => {
                 setDeleteDialogOpen(false);
                 setDeleteError(null);
+                setDefaultError(null);
                 setDisableError(null);
                 setSelectedAccountId(account.id);
                 setDetailAccountId(account.id);
@@ -404,6 +444,7 @@ export default function AccountsPage() {
           if (!open) {
             setDeleteDialogOpen(false);
             setDeleteError(null);
+            setDefaultError(null);
             setDisableError(null);
             setDetailAccountId(null);
           }
@@ -414,14 +455,17 @@ export default function AccountsPage() {
             account={detailAccount}
             deleteDialogOpen={deleteDialogOpen}
             deleteError={deleteError}
+            defaultError={defaultError}
             disableError={disableError}
             isCheckingDelete={isCheckingDelete}
             isDeleting={isDeleting}
             isDisabling={disablingAccountId === detailAccount.id}
+            isSettingDefault={settingDefaultId === detailAccount.id}
             onDelete={() => void handleDeleteAccount(detailAccount)}
             onDeleteDialogOpenChange={setDeleteDialogOpen}
             onPrepareDelete={() => void handlePrepareDeleteAccount(detailAccount)}
             onDisable={() => void handleDisableAccount(detailAccount)}
+            onSetDefault={() => void handleSetDefaultAccount(detailAccount)}
           />
         ) : null}
       </Dialog>
@@ -501,26 +545,32 @@ function AccountDetailsDialog({
   account,
   deleteDialogOpen,
   deleteError,
+  defaultError,
   disableError,
   isCheckingDelete,
   isDeleting,
   isDisabling,
+  isSettingDefault,
   onDelete,
   onDeleteDialogOpenChange,
   onPrepareDelete,
   onDisable,
+  onSetDefault,
 }: {
   account: Account;
   deleteDialogOpen: boolean;
   deleteError: string | null;
+  defaultError: string | null;
   disableError: string | null;
   isCheckingDelete: boolean;
   isDeleting: boolean;
   isDisabling: boolean;
+  isSettingDefault: boolean;
   onDelete: () => void;
   onDeleteDialogOpenChange: (open: boolean) => void;
   onPrepareDelete: () => void;
   onDisable: () => void;
+  onSetDefault: () => void;
 }) {
   const isActive = isAccountActive(account);
   const typeLabel =
@@ -554,6 +604,24 @@ function AccountDetailsDialog({
           value={formatAccountDate(account.created_at)}
         />
       </div>
+      {defaultError ? (
+        <p className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">
+          {defaultError}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant={isActive && !account.is_default ? "default" : "outline"}
+        disabled={!isActive || account.is_default || isSettingDefault}
+        onClick={onSetDefault}
+      >
+        <StarIcon className="size-4" />
+        {account.is_default
+          ? "Default Account"
+          : isSettingDefault
+            ? "Setting Default..."
+            : "Set as Default"}
+      </Button>
       {disableError ? (
         <p className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">
           {disableError}
