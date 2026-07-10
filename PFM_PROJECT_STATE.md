@@ -171,6 +171,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | Agent 00 | 00.2 Frontend UI and Route Audit | PASSED | phase commit created after this state update | Mapped current App Router pages, footer/sheet navigation, embedded account board, loan/debt, dashboard, settings, transaction UI, responsive structure, and missing standalone accounts route. |
 | Agent 00 | 00.3 Data, State, Mock Data, and Domain Behavior Audit | PASSED | phase commit created after this state update | Documented frontend state/data sources, backend defaults, account/transaction/loan/dashboard/settings behavior, and data gaps without product changes. |
 | Agent 00 | 00.4 Implementation Checklist for Feature Agents | PASSED | phase commit created after this state update | Created future-agent implementation checklist with likely files, existing behavior, target behavior, risks, test commands, manual QA, and dependencies. |
+| Agent 00 | 00.5 Baseline Test Report and Agent 00 Verification | PASSED | phase commit created after this state update | Created baseline test report and verified backend lint/format/type/tests, frontend build, optional checks, API contract, and full-stack E2E. |
 
 ## 6. Architecture Decision Log
 
@@ -2700,6 +2701,7 @@ Record only active blockers or intentionally deferred decisions.
 - Agent 00 Phase 00.2 Frontend UI and Route Audit is passed. Next allowed phase is Agent 00 Phase 00.3, Data, State, Mock Data, and Domain Behavior Audit, after user permission.
 - Agent 00 Phase 00.3 Data, State, Mock Data, and Domain Behavior Audit is passed. Next allowed phase is Agent 00 Phase 00.4, Implementation Checklist for Feature Agents, after user permission.
 - Agent 00 Phase 00.4 Implementation Checklist for Feature Agents is passed. Next allowed phase is Agent 00 Phase 00.5, Baseline Test Report and Agent 00 Verification, after user permission.
+- Agent 00 Phase 00.5 Baseline Test Report and Agent 00 Verification is passed. Agent 00 is complete; next allowed action is Agent 01 planning/generation after user permission.
 
 ## 14. Progress log
 
@@ -2790,3 +2792,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Agent 00 Phase 00.2 Frontend UI and Route Audit passed. Updated `docs/audit/00_CURRENT_APP_AUDIT.md` with the current App Router pages, footer and sheet navigation, embedded account board, loan/debt UI, dashboard UI, settings UI, transaction form behavior, responsive structure, and missing standalone accounts route; verified the frontend production build and recorded that no client lint script exists.
 - 2026-07-10: Agent 00 Phase 00.3 Data, State, Mock Data, and Domain Behavior Audit passed. Updated `docs/audit/00_CURRENT_APP_AUDIT.md` with auth/Zustand/localStorage usage, frontend API helpers, backend default bootstrap data, account, transaction, recurring, loan/debt, dashboard, and settings data behavior, plus gaps against requested requirements; verified frontend build and backend tests.
 - 2026-07-10: Agent 00 Phase 00.4 Implementation Checklist for Feature Agents passed. Created `docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md` with future-agent file targets, existing behavior, required target behavior, risk areas, test commands, manual QA, and dependencies for Agents 01 through 09; verified frontend build and recorded that no client lint script exists.
+- 2026-07-10: Agent 00 Phase 00.5 Baseline Test Report and Agent 00 Verification passed. Created `docs/audit/02_BASELINE_TEST_REPORT.md`, verified audit/checklist completeness, ran backend Ruff, format, mypy, full pytest, frontend build, optional lint/test no-ops, API contract, and full-stack E2E; documented sandbox-only approval requirements and confirmed Agent 00 completed without product feature changes.
