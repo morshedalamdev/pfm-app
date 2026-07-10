@@ -324,3 +324,40 @@ Missing fields for later phases:
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 02.6 - Disable Account Behavior
+
+## Disable Action
+
+- Active accounts can be disabled from the account details dialog.
+- The action calls the existing `disableAccount()` API helper.
+- Already disabled accounts show a disabled action state and cannot be disabled again.
+
+## Disabled Visual State
+
+- Disabled accounts remain visible in the account list.
+- Disabled accounts keep the existing inactive opacity and `Disabled` status pill.
+- Disabled accounts remain visible in the details dialog with disabled status.
+
+## Default Account Fallback
+
+- The backend disable rule clears default status when the disabled account was default.
+- The account page updates local state through `disableAccountInList()` so another active account is marked default when available.
+- If no active account remains, no local default account is shown.
+
+## Historical Record Safety
+
+- Disabling an account does not archive or delete it.
+- Historical records are not changed in this phase.
+
+## Helper for Later Agents
+
+- Later transaction and loan forms should use `getActiveAccounts()` to exclude disabled accounts from new selections.
+- Loan and transaction integration was not implemented in this phase.
+
+## Phase 02.6 Check Results
+
+- `cd client && npm run build`: passed after approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.

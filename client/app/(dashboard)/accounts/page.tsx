@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import {
+  BanIcon,
   CheckCircle2Icon,
   CircleIcon,
   StarIcon,
@@ -31,9 +32,14 @@ import {
 } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
-import { formatAccountMoney, isAccountActive } from "@/lib/finance/accounts";
+import {
+  disableAccountInList,
+  formatAccountMoney,
+  isAccountActive,
+} from "@/lib/finance/accounts";
 import {
   createAccount,
+  disableAccount,
   listAccounts,
   type Account,
   type AccountCreate,
@@ -69,6 +75,10 @@ export default function AccountsPage() {
   const [accountName, setAccountName] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null);
+  const [disableError, setDisableError] = useState<string | null>(null);
+  const [disablingAccountId, setDisablingAccountId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [initialBalance, setInitialBalance] = useState("");
@@ -93,6 +103,7 @@ export default function AccountsPage() {
             ? current
             : null,
         );
+        setDisableError(null);
       }
     } catch (loadError) {
       if (signal?.aborted) {
@@ -157,6 +168,7 @@ export default function AccountsPage() {
         type: "cash",
       } satisfies AccountCreate);
       setAccounts((current) => [account, ...current]);
+      setDisableError(null);
       setSelectedAccountId(account.id);
       setAccountName("");
       setInitialBalance("");
@@ -169,6 +181,37 @@ export default function AccountsPage() {
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleDisableAccount(account: Account) {
+    if (!isAccountActive(account)) {
+      return;
+    }
+
+    setDisableError(null);
+    setDisablingAccountId(account.id);
+    try {
+      const disabledAccount = await disableAccount(account.id);
+      setAccounts((current) =>
+        disableAccountInList(
+          current.map((currentAccount) =>
+            currentAccount.id === disabledAccount.id
+              ? disabledAccount
+              : currentAccount,
+          ),
+          disabledAccount.id,
+        ),
+      );
+      setSelectedAccountId(disabledAccount.id);
+    } catch (disableAccountError) {
+      setDisableError(
+        disableAccountError instanceof ApiError
+          ? disableAccountError.message
+          : "Account could not be disabled.",
+      );
+    } finally {
+      setDisablingAccountId(null);
     }
   }
 
@@ -279,6 +322,7 @@ export default function AccountsPage() {
               account={account}
               isSelected={selectedAccountId === account.id}
               onSelect={() => {
+                setDisableError(null);
                 setSelectedAccountId(account.id);
                 setDetailAccountId(account.id);
               }}
@@ -290,11 +334,19 @@ export default function AccountsPage() {
         open={Boolean(detailAccount)}
         onOpenChange={(open) => {
           if (!open) {
+            setDisableError(null);
             setDetailAccountId(null);
           }
         }}
       >
-        {detailAccount ? <AccountDetailsDialog account={detailAccount} /> : null}
+        {detailAccount ? (
+          <AccountDetailsDialog
+            account={detailAccount}
+            disableError={disableError}
+            isDisabling={disablingAccountId === detailAccount.id}
+            onDisable={() => void handleDisableAccount(detailAccount)}
+          />
+        ) : null}
       </Dialog>
     </Fragment>
   );
@@ -368,7 +420,17 @@ function StatusPill({ isActive }: { isActive: boolean }) {
   );
 }
 
-function AccountDetailsDialog({ account }: { account: Account }) {
+function AccountDetailsDialog({
+  account,
+  disableError,
+  isDisabling,
+  onDisable,
+}: {
+  account: Account;
+  disableError: string | null;
+  isDisabling: boolean;
+  onDisable: () => void;
+}) {
   const isActive = isAccountActive(account);
   const typeLabel =
     ACCOUNT_TYPE_LABELS[account.type as AccountType] ?? account.type;
@@ -401,6 +463,24 @@ function AccountDetailsDialog({ account }: { account: Account }) {
           value={formatAccountDate(account.created_at)}
         />
       </div>
+      {disableError ? (
+        <p className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">
+          {disableError}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant={isActive ? "destructive" : "outline"}
+        disabled={!isActive || isDisabling}
+        onClick={onDisable}
+      >
+        <BanIcon className="size-4" />
+        {isActive
+          ? isDisabling
+            ? "Disabling..."
+            : "Disable Account"
+          : "Account Disabled"}
+      </Button>
     </DialogContent>
   );
 }
