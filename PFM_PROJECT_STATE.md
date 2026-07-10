@@ -160,6 +160,11 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | 11 | 11.6 Settings monthly currency guard | PASSED | phase completion commit created after this state update | Added persisted monthly currency-change tracking, clear conflict handling, current-currency UI messaging, generated contracts, and passing backend, migration, frontend, and E2E verification. |
 | 11 | 11.V Product repair verification | PASSED | verification commit created after this state update | Verified backend quality, migrations, frontend production build, API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions. |
 | 11 | 11.7 Compose startup and CORS repair | PASSED | phase commit created after this state update | Changed the default PostgreSQL host port to 5433, derived local CORS origins from the frontend port, allowed localhost and loopback browser origins, disabled the worker's inherited API healthcheck, and verified the reported Docker workflow live. |
+| AGENT | Phase 1 Chinese RMB currency | PASSED | phase commit created after this state update | Added CNY support in settings and shared money formatting, with persistence verified through the existing user profile path. |
+| AGENT | Phase 2 Add Account section | PASSED | phase commit created after this state update | Added the sidebar Account section, user account create/remove UI, expanded account types, duplicate active-name protection, and referenced-account removal guard. |
+| AGENT | Phase 3 Prevent mobile input zoom | PASSED | phase commit created after this state update | Added an accessible mobile viewport declaration and global mobile form-control font sizing to prevent focus zoom without disabling user scaling. |
+| AGENT | Phase 4 Select Contact in Loan & Debt Add Person | PASSED | phase commit created after this state update | Added browser Contact Picker support to the loan/debt add-person drawer with feature detection, graceful messages, manual-entry preservation, and E2E coverage. |
+| AGENT | Phase 5 Expense Account Source List | PASSED | phase commit created after this state update | Added Expense Account / Source list with labelled account, budget, and saving-account sources while preserving account-backed expense saves. |
 
 ## 6. Architecture Decision Log
 
@@ -1050,6 +1055,16 @@ Phase 11.V added or changed no endpoints. Verification exercised the milestone 1
 
 Phase 11.7 added or changed no endpoint paths or response contracts. It changed local API CORS configuration so preflight requests from both `http://localhost:<FRONTEND_PORT>` and `http://127.0.0.1:<FRONTEND_PORT>` are accepted in Compose, while an explicit `CORS_ORIGINS` JSON array still overrides the local defaults.
 
+Phase 1 added no backend endpoint paths or response contracts. It added Chinese RMB (`CNY`) to the existing Settings currency selector, ensured frontend CNY money formatting uses `¥`, and verified `PATCH /api/v1/users/me` plus `GET /api/v1/users/me` save/load the selected `CNY` base currency through the existing profile persistence path.
+
+Phase 2 added no backend endpoint paths. It expanded the existing account type contract to include `mobile_pay` and `other`, added duplicate active account-name conflict handling to existing account create/update behavior, and changed existing account removal behavior to return HTTP 409 with a clear message when an account is referenced by transaction or recurring-rule records. The sidebar board now loads and mutates user accounts through the existing authenticated account API.
+
+Phase 3 added no backend endpoint paths and changed no API contracts. It updated the frontend root viewport metadata and global mobile form-control CSS so inputs, selects, and textareas render at 16px on mobile while preserving user zoom.
+
+Phase 4 added no backend endpoint paths and changed no API contracts. It updates only the frontend loan/debt add-person flow to request browser contact access after the user clicks `Select from contacts`, then fills only the selected contact name and phone number into the existing person form.
+
+Phase 5 added no backend endpoint paths and changed no backend API contracts. The frontend Expense tab now builds its Account / Source choices from existing `GET /api/v1/accounts`, `GET /api/v1/budgets?month=...`, and the existing account `type=savings` model. Budget entries are displayed as sources but expense creation still requires a user-created account so the existing account-backed transaction create/update path is preserved.
+
 ## 10. Database migrations
 
 Append migrations as they are created and verified.
@@ -1185,6 +1200,16 @@ Phase 11.6 created Alembic migration `202607071106_add_user_currency_change_guar
 Phase 11.V created no migrations. Verification applied all existing migrations through `202607071106_add_user_currency_change_guard.py` with `alembic upgrade head` against an isolated disposable PostgreSQL database and again through the full-stack E2E harness.
 
 Phase 11.7 created no migrations. The reported Compose migration command applied existing migrations through `202607071106_add_user_currency_change_guard.py` successfully after PostgreSQL started on host port `5433`.
+
+Phase 1 created no migrations. It reuses the existing `users.base_currency` storage and validation.
+
+Phase 2 created no migrations. It reuses the existing `accounts`, `transactions`, and `recurring_rules` schema, and the full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
+
+Phase 3 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
+
+Phase 4 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
+
+Phase 5 created no migrations. The full-stack E2E harness applied existing migrations through `202607071106_add_user_currency_change_guard.py` against disposable PostgreSQL.
 
 ## 11. Environment variables
 
@@ -2492,6 +2517,72 @@ No valid server scaffold checks exist yet because `server/` does not exist.
 | `docker compose up -d worker && docker compose logs --tail=20 worker && docker compose ps` | PASS with approval | Worker remained `Up` without the invalid API healthcheck and logged `recurring_worker_tick`. |
 | `git diff --check` | PASS | Whitespace check passed before final state recording. |
 
+### Phase 1 Chinese RMB currency commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Backend format check passed: 157 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_users_profile.py` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind `127.0.0.1` for disposable PostgreSQL. Approved rerun passed: 7 passed, 1 dependency warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | PASS with approval | Full backend suite passed: 165 passed, 1 dependency warning. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract is current. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed run could not fetch Google Fonts. Approved rerun compiled successfully and generated all 17 routes. |
+
+### Phase 2 add account section commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npm run api:generate` | PASS | Regenerated committed OpenAPI JSON and TypeScript API types for expanded account type values. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check .` | PASS | Full backend lint passed. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check .` | PASS | Full backend format check passed: 157 files already formatted. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app` | PASS | Backend type check passed: no issues in 110 source files. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_accounts_categories.py` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost for disposable PostgreSQL; approved focused suite passed: 7 passed, 1 warning. |
+| `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q` | FAIL, PASS with approval after repair | Initial full suite exposed stale transaction idempotency tests that expected used accounts to be archivable; after updating the tests for the new removal guard, the approved rerun passed: 167 passed, 1 warning. |
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after account board and generated contract updates. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | PASS with approval | Production build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | FAIL, PASS after repair | E2E was repaired for account board coverage, disposable migration environment isolation, and transaction-form selectors; final full-stack Chromium journey passed: 1 passed. |
+| `git diff --check` | PASS | Whitespace check passed after final state recording. |
+
+### Phase 3 prevent mobile input zoom commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after viewport and global CSS changes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | FAIL in sandbox, PASS with approval | Sandboxed run could not bind localhost. Approved full-stack E2E started disposable PostgreSQL, applied migrations through `202607071106`, and passed the integrated responsive Chromium journey: 1 passed. |
+
+### Phase 4 select contact in loan and debt commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after the loan/debt Contact Picker integration. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | FAIL in sandbox, FAIL with approval, PASS with approval after repair | Sandboxed run could not bind localhost. The first approved run passed the contact picker assertions but exposed a drawer-close leak into a later route wait; after adding a deterministic hidden-state assertion, the approved full-stack E2E passed: 1 passed. |
+
+### Phase 5 expense account source list commands
+
+| Command | Result | Purpose / notes |
+|---|---|---|
+| `cd client && npx tsc --noEmit` | PASS | Frontend TypeScript check passed after the Expense Account / Source dropdown and cancellable form-load changes. |
+| `cd client && npm run lint --if-present` | PASS / no-op | No frontend lint script is defined. |
+| `cd client && npm run test --if-present` | PASS / no-op | No frontend unit-test script is defined. |
+| `cd client && npm run api:check` | PASS | Generated API contract drift check passed. |
+| `cd client && npm run build` | FAIL in sandbox, PASS with approval | Sandboxed build could not fetch Google Fonts. Approved build compiled successfully and generated all 17 routes. |
+| `cd client && npm run e2e` | FAIL in sandbox, FAIL with approval, PASS with approval after repair | Sandboxed run could not bind localhost. An approved run exposed a transaction-form loading hang from stale duplicate requests; after aborting stale form loads, the approved full-stack E2E passed and verified Account, Budget, and Saving Account Expense sources: 1 passed. |
+
 ## 13. Open blockers and deferred decisions
 
 Record only active blockers or intentionally deferred decisions.
@@ -2562,6 +2653,11 @@ Record only active blockers or intentionally deferred decisions.
 - Phase 11.6 settings monthly currency guard is passed.
 - Milestone 11 product repair verification passed before the post-verification Phase 11.7 repair.
 - Phase 11.7 Compose startup and CORS repair is passed. The next allowed phase is a Milestone 11 verification rerun before pushing.
+- Phase 1 Chinese RMB currency is passed. Next allowed phase is Phase 2, Add Account section, after user permission.
+- Phase 2 Add Account section is passed. Next allowed phase is Phase 3, Mobile browser input focus should not zoom the UI, after user permission.
+- Phase 3 Prevent mobile input zoom is passed. Next allowed phase is Phase 4, Select Contact in Loan & Debt Add Person, after user permission.
+- Phase 4 Select Contact in Loan & Debt Add Person is passed. Next allowed phase is Phase 5, Expense Account Source List, after user permission.
+- Phase 5 Expense Account Source List is passed. Next allowed phase is Phase 6, Income Account List, after user permission.
 
 ## 14. Progress log
 
@@ -2641,3 +2737,8 @@ Append a dated entry after every completed phase.
 - 2026-07-09: Phase 11.6 settings monthly currency guard passed on retry. The repaired full-stack E2E journey started fresh PostgreSQL, applied migrations through `202607071106`, verified the current selected currency, accepted one actual currency change, rejected a second same-month change with HTTP 409, and finished with 1 passed; set the next allowed phase to 11.V.
 - 2026-07-09: Phase 11.V product repair verification passed. Verified backend lint, formatting, typing, 157 tests, isolated Alembic upgrade through `202607071106`, frontend TypeScript and production build, optional checks, generated API contract, full-stack E2E, Compose configuration, milestone state accuracy, and absence of runtime fixture or hardcoded finance regressions; the `product-repairs` branch is ready to push after user permission.
 - 2026-07-09: Phase 11.7 Compose startup and CORS repair passed. Changed the default PostgreSQL host port from 5432 to 5433, derived local Compose CORS origins from `FRONTEND_PORT` for localhost and loopback, preserved explicit CORS overrides, disabled the worker's inherited API-only healthcheck, reproduced the reported Docker startup and migration workflow, verified live API/frontend/CORS/worker behavior, passed 159 backend tests and the full frontend build/API/E2E checks, and set the next allowed phase to a Milestone 11 verification rerun.
+- 2026-07-10: Phase 1 Chinese RMB currency passed. Added `CNY - Chinese RMB (¥)` to Settings currency options, ensured shared money formatting renders CNY with `¥`, verified profile save/load persistence for `CNY`, ran backend lint/format/type/full tests and frontend TypeScript/build/API checks, and set the next allowed phase to Phase 2 after user permission.
+- 2026-07-10: Phase 2 Add Account section passed. Added the sidebar Account section, server-backed account creation and unused-account removal, clear conflict messaging for referenced accounts, duplicate active account-name protection, expanded account types for Mobile Pay and Other, backend regression coverage, generated API contracts, frontend build checks, and full-stack E2E coverage; set the next allowed phase to Phase 3 after user permission.
+- 2026-07-10: Phase 3 Prevent mobile input zoom passed. Added explicit device-width viewport metadata without disabling user scaling, applied global mobile 16px sizing for inputs, selects, and textareas, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 4 after user permission.
+- 2026-07-10: Phase 4 Select Contact in Loan & Debt Add Person passed. Added feature-detected Contact Picker support to the loan/debt people drawer, filled selected contact name and phone into the manual form only after user action, added graceful unavailable/denied/cancelled/no-data messages, mocked contact selection in E2E, verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 5 after user permission.
+- 2026-07-10: Phase 5 Expense Account Source List passed. Updated the Expense tab Account / Source dropdown to show labelled user-created accounts, a budget source, and user-created saving accounts; preserved account-backed expense saves by requiring an account selection before create/update; added cancellable transaction form loads for reliable E2E behavior; verified frontend TypeScript, optional checks, API contract, production build, full-stack E2E, and set the next allowed phase to Phase 6 after user permission.

@@ -14,8 +14,10 @@ from app.modules.accounts.schemas import (
     AccountUpdateRequest,
 )
 from app.modules.accounts.services import (
+    AccountInUseError,
     AccountNotFoundError,
     AccountService,
+    DuplicateAccountError,
     InvalidAccountCursorError,
 )
 from app.modules.auth.dependencies import CurrentUserDependency
@@ -39,7 +41,13 @@ async def create_account(
     current_user: CurrentUserDependency,
     session: SessionDependency,
 ) -> AccountResponse:
-    account = await build_account_service(session).create_account(request, current_user)
+    try:
+        account = await build_account_service(session).create_account(
+            request,
+            current_user,
+        )
+    except DuplicateAccountError as exc:
+        raise duplicate_account_error() from exc
     return AccountResponse.model_validate(account)
 
 
@@ -90,6 +98,8 @@ async def update_account(
         )
     except AccountNotFoundError as exc:
         raise not_found_error("Account not found") from exc
+    except DuplicateAccountError as exc:
+        raise duplicate_account_error() from exc
     return AccountResponse.model_validate(account)
 
 
@@ -106,6 +116,8 @@ async def archive_account(
         )
     except AccountNotFoundError as exc:
         raise not_found_error("Account not found") from exc
+    except AccountInUseError as exc:
+        raise account_in_use_error() from exc
     return AccountResponse.model_validate(account)
 
 
@@ -132,3 +144,17 @@ def parse_uuid_or_404(value: str) -> uuid.UUID:
 
 def not_found_error(message: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+
+
+def duplicate_account_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Account already exists",
+    )
+
+
+def account_in_use_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Account cannot be removed because it is already used.",
+    )

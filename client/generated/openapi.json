@@ -60,8 +60,10 @@
               "cash",
               "bank",
               "card",
+              "mobile_pay",
               "wallet",
-              "savings"
+              "savings",
+              "other"
             ],
             "title": "Type",
             "type": "string"
@@ -223,8 +225,10 @@
                   "cash",
                   "bank",
                   "card",
+                  "mobile_pay",
                   "wallet",
-                  "savings"
+                  "savings",
+                  "other"
                 ],
                 "type": "string"
               },

@@ -28,6 +28,7 @@ import { Skeleton } from "./ui/skeleton";
 import { apiGet } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth/store";
 import type { components } from "@/generated/api-types";
+import { AccountBoard } from "@/components/AccountBoard";
 
 type NotificationUnreadCountResponse =
   components["schemas"]["NotificationUnreadCountResponse"];
@@ -166,6 +167,7 @@ export default function Footer() {
                     Budget Setup
                   </Button>
                 </Link>
+                <AccountBoard />
                 <p className="text-xs font-black tracking-wide text-input uppercase mt-5">
                   customer support
                 </p>

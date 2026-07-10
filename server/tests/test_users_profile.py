@@ -66,7 +66,7 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
             "phone_number": "  +15551234567 ",
             "occupation": "  business ",
             "about": "  Building a calmer money cockpit. ",
-            "base_currency": " eur ",
+            "base_currency": " cny ",
         },
     )
 
@@ -77,7 +77,7 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     assert body["phone_number"] == "+15551234567"
     assert body["occupation"] == "business"
     assert body["about"] == "Building a calmer money cockpit."
-    assert body["base_currency"] == "EUR"
+    assert body["base_currency"] == "CNY"
     assert body["base_currency_changed_at"] is not None
     assert "password" not in body
     assert "password_hash" not in body
@@ -88,7 +88,7 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     )
     assert me_response.status_code == 200
     assert me_response.json()["full_name"] == "Profile Owner"
-    assert me_response.json()["base_currency"] == "EUR"
+    assert me_response.json()["base_currency"] == "CNY"
     assert (
         me_response.json()["base_currency_changed_at"]
         == body["base_currency_changed_at"]

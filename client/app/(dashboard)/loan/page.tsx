@@ -53,6 +53,20 @@ type PersonFormState = {
   phoneNumber: string;
 };
 
+type ContactPickerContact = {
+  name?: string[];
+  tel?: string[];
+};
+
+type ContactPickerNavigator = Navigator & {
+  contacts?: {
+    select?: (
+      properties: ("name" | "tel")[],
+      options?: { multiple?: boolean },
+    ) => Promise<ContactPickerContact[]>;
+  };
+};
+
 const emptyPersonForm: PersonFormState = {
   id: null,
   name: "",
@@ -338,6 +352,65 @@ function PeopleDrawer({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   people: LoanPerson[];
 }) {
+  const [contactMessage, setContactMessage] = useState<string | null>(null);
+  const [isPickingContact, setIsPickingContact] = useState(false);
+
+  async function handleSelectContact() {
+    setContactMessage(null);
+
+    const contacts = (navigator as ContactPickerNavigator).contacts;
+    if (!contacts?.select) {
+      setContactMessage("Contact picking is not available in this browser.");
+      return;
+    }
+
+    setIsPickingContact(true);
+    try {
+      const [contact] = await contacts.select(["name", "tel"], {
+        multiple: false,
+      });
+
+      if (!contact) {
+        setContactMessage("No contact selected.");
+        return;
+      }
+
+      const selectedName = contact.name?.find(Boolean)?.trim() ?? "";
+      const selectedPhone = contact.tel?.find(Boolean)?.trim() ?? "";
+
+      if (!selectedName && !selectedPhone) {
+        setContactMessage("Selected contact has no name or phone number.");
+        return;
+      }
+
+      onChange({
+        ...form,
+        name: selectedName || form.name,
+        phoneNumber: selectedPhone || form.phoneNumber,
+      });
+
+      if (!selectedName) {
+        setContactMessage("Selected contact has no name. Phone number filled.");
+      } else if (!selectedPhone) {
+        setContactMessage("Selected contact has no phone number. Name filled.");
+      } else {
+        setContactMessage("Contact details filled.");
+      }
+    } catch (contactError) {
+      const errorName =
+        contactError instanceof DOMException ? contactError.name : "";
+      if (errorName === "AbortError") {
+        setContactMessage("Contact selection was cancelled.");
+      } else if (errorName === "NotAllowedError" || errorName === "SecurityError") {
+        setContactMessage("Contact permission was denied.");
+      } else {
+        setContactMessage("Contact could not be selected.");
+      }
+    } finally {
+      setIsPickingContact(false);
+    }
+  }
+
   return (
     <Drawer>
       <DrawerTrigger asChild>
@@ -352,6 +425,17 @@ function PeopleDrawer({
         <div className="space-y-3 overflow-y-auto px-3 pb-3">
           <form onSubmit={onSubmit}>
             <FieldSet className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleSelectContact()}
+                disabled={isPickingContact}
+              >
+                {isPickingContact ? "Selecting..." : "Select from contacts"}
+              </Button>
+              {contactMessage && (
+                <p className="text-sm text-secondary/80">{contactMessage}</p>
+              )}
               <FieldGroup>
                 <Field>
                   <InputGroup className="border-border">

@@ -24,6 +24,14 @@ class AccountNotFoundError(Exception):
     pass
 
 
+class AccountInUseError(Exception):
+    pass
+
+
+class DuplicateAccountError(Exception):
+    pass
+
+
 class InvalidAccountCursorError(Exception):
     pass
 
@@ -37,6 +45,9 @@ class AccountService:
         request: AccountCreateRequest,
         current_user: User,
     ) -> Account:
+        if await self.accounts.has_active_name(current_user.id, request.name):
+            raise DuplicateAccountError
+
         account = Account(
             user_id=current_user.id,
             name=request.name,
@@ -104,6 +115,14 @@ class AccountService:
     ) -> Account:
         account = await self.get_account(account_id, current_user)
         update_data = request.model_dump(exclude_unset=True)
+        requested_name = update_data.get("name")
+        if isinstance(requested_name, str) and await self.accounts.has_active_name(
+            current_user.id,
+            requested_name,
+            exclude_account_id=account.id,
+        ):
+            raise DuplicateAccountError
+
         for field_name, value in update_data.items():
             setattr(account, field_name, value)
         await self.accounts.commit()
@@ -116,6 +135,8 @@ class AccountService:
         current_user: User,
     ) -> Account:
         account = await self.get_account(account_id, current_user)
+        if await self.accounts.is_referenced(account.id, current_user.id):
+            raise AccountInUseError
         if account.archived_at is None:
             account.archived_at = datetime.now(UTC)
             account.is_archived = True

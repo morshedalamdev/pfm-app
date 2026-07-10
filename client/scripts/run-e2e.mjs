@@ -26,7 +26,7 @@ async function main() {
 
   run("alembic upgrade head", python, ["-m", "alembic", "upgrade", "head"], {
     cwd: serverDir,
-    env: { DATABASE_URL: databaseUrl },
+    env: { DATABASE_URL: databaseUrl, MIGRATION_DATABASE_URL: databaseUrl },
   });
 
   const api = startProcess("api", python, [

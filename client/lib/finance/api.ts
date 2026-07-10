@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/client";
 
 export type Account = components["schemas"]["AccountResponse"];
+export type AccountCreate = components["schemas"]["AccountCreateRequest"];
 export type Budget = components["schemas"]["BudgetResponse"];
 export type BudgetCreate = components["schemas"]["BudgetCreateRequest"];
 export type BudgetUpdate = components["schemas"]["BudgetUpdateRequest"];
@@ -77,18 +78,31 @@ export function createIdempotencyKey(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export async function listAccounts(): Promise<Account[]> {
+export async function listAccounts(config?: {
+  signal?: AbortSignal;
+}): Promise<Account[]> {
   const response = await apiGet<AccountList>("/api/v1/accounts", {
     params: { include_archived: false, limit: 100 },
+    signal: config?.signal,
   });
   return response.items;
 }
 
+export function createAccount(body: AccountCreate) {
+  return apiPost<AccountCreate, Account>("/api/v1/accounts", body);
+}
+
+export function deleteAccount(id: string) {
+  return apiDelete<Account>(apiPath(`/api/v1/accounts/${id}`));
+}
+
 export async function listCategories(
   kind?: "income" | "expense",
+  config?: { signal?: AbortSignal },
 ): Promise<Category[]> {
   const response = await apiGet<CategoryList>("/api/v1/categories", {
     params: { kind, include_archived: false, limit: 100 },
+    signal: config?.signal,
   });
   return response.items;
 }
@@ -132,8 +146,13 @@ export async function listTransactions(params: {
   return response.items;
 }
 
-export function getTransaction(id: string): Promise<Transaction> {
-  return apiGet<Transaction>(apiPath(`/api/v1/transactions/${id}`));
+export function getTransaction(
+  id: string,
+  config?: { signal?: AbortSignal },
+): Promise<Transaction> {
+  return apiGet<Transaction>(apiPath(`/api/v1/transactions/${id}`), {
+    signal: config?.signal,
+  });
 }
 
 export function createTransaction(body: TransactionCreate) {
@@ -198,9 +217,11 @@ export function deleteBudget(id: string) {
 
 export async function listSavingsGoals(
   status: "active" | "completed" | "all",
+  config?: { signal?: AbortSignal },
 ): Promise<SavingsGoal[]> {
   const response = await apiGet<SavingsGoalList>("/api/v1/savings-goals", {
     params: { status, limit: 100 },
+    signal: config?.signal,
   });
   return response.items;
 }

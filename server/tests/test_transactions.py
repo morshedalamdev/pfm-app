@@ -1057,7 +1057,7 @@ def test_transaction_create_idempotency(
     assert conflict_response.status_code == 409
 
 
-def test_transaction_idempotency_replay_survives_archived_references(
+def test_transaction_idempotency_replay_survives_archived_category(
     transaction_context: TransactionApiContext,
 ) -> None:
     context = transaction_context
@@ -1080,13 +1080,6 @@ def test_transaction_idempotency_replay_survives_archived_references(
     assert (
         context.client.delete(
             f"/api/v1/categories/{category['id']}",
-            headers=headers,
-        ).status_code
-        == 200
-    )
-    assert (
-        context.client.delete(
-            f"/api/v1/accounts/{account['id']}",
             headers=headers,
         ).status_code
         == 200
@@ -1228,7 +1221,7 @@ def test_savings_transfer_create_idempotency(
     assert conflict_response.status_code == 409
 
 
-def test_transfer_idempotency_replay_survives_archived_references(
+def test_transfer_idempotency_replay_survives_reference_revalidation(
     transaction_context: TransactionApiContext,
 ) -> None:
     context = transaction_context
@@ -1251,21 +1244,6 @@ def test_transfer_idempotency_replay_survives_archived_references(
         "2026-05-07T00:00:00+00:00",
         "Replay archived transfer",
         idempotency_key="transfer-replay-archived-key",
-    )
-
-    assert (
-        context.client.delete(
-            f"/api/v1/accounts/{checking['id']}",
-            headers=headers,
-        ).status_code
-        == 200
-    )
-    assert (
-        context.client.delete(
-            f"/api/v1/accounts/{savings['id']}",
-            headers=headers,
-        ).status_code
-        == 200
     )
 
     second = create_transfer(

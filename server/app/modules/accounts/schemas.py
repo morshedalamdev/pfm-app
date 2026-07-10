@@ -9,7 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.money import NonNegativeMoney
 
-AccountType = Literal["cash", "bank", "card", "wallet", "savings"]
+AccountType = Literal[
+    "cash",
+    "bank",
+    "card",
+    "mobile_pay",
+    "wallet",
+    "savings",
+    "other",
+]
 
 
 class AccountCreateRequest(BaseModel):
