@@ -48,11 +48,14 @@ type LoanItemProps = {
 };
 
 function dateLabel(value: string): string {
+  const parsedValue = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00`)
+    : new Date(value);
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(parsedValue);
 }
 
 function todayInputValue(): string {
@@ -123,6 +126,7 @@ export default function LoanItem({
   const isGiven = record.direction === "given";
   const statusText = isGiven ? "Owes you" : "You owe";
   const itemTitle = isGiven ? "Given Details" : "Taken Details";
+  const repayDateLabel = isGiven ? "Expected back" : "Repay by";
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => void handleOpenChange(open)}>
@@ -156,6 +160,11 @@ export default function LoanItem({
             </div>
             <p className="capitalize">{record.status}</p>
           </div>
+          <div className="flex items-center gap-1 text-input">
+            <Calendar className="size-2.5" />
+            {repayDateLabel}{" "}
+            {record.repay_date ? dateLabel(record.repay_date) : "not set"}
+          </div>
         </div>
       </DrawerTrigger>
       <DrawerContent>
@@ -186,6 +195,11 @@ export default function LoanItem({
                 {dateLabel(record.issued_at)}
               </div>
               <p>{formatMoney(record.settled_amount, record.currency)} settled</p>
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-secondary/80">
+              <Calendar className="size-3" />
+              {repayDateLabel}{" "}
+              {record.repay_date ? dateLabel(record.repay_date) : "not set"}
             </div>
           </div>
           <div className="rounded-md border border-border p-2">

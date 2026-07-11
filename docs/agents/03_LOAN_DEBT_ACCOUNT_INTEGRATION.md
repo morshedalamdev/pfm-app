@@ -195,3 +195,40 @@
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 158 files.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py tests/test_accounts_categories.py`: passed with `14 passed, 1 warning`.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after updating the intended account schema assertion with `171 passed, 1 warning`.
+
+## Phase 03.4 - Repay Date Added
+
+## Field Name
+
+- The backend and generated API use `repay_date` as a date-only value.
+- New loan requests require `repay_date`.
+- The database and response keep the field nullable so pre-migration loans remain readable.
+
+## Form Behavior
+
+- Given loans show an `Expected Return Date` field.
+- Taken loans show a `Repayment Due Date` field.
+- New forms default the repay date to today and allow selection through the existing calendar control.
+- Edit forms load and persist the loan's existing repay date.
+
+## Display Behavior
+
+- Loan list cards display `Expected back` for given loans and `Repay by` for taken loans.
+- The existing loan details drawer displays the same direction-specific repay-date label.
+- Legacy records without a repay date display `not set`.
+- No overdue detection or red styling was added in this phase.
+
+## Validation Behavior
+
+- Missing repay dates are rejected for new loans.
+- Repay dates before the loan issue date are rejected by the form and backend.
+- Partial updates validate the resulting issue-date/repay-date pair.
+- `cd client && npm run build`: passed.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd client && npm run e2e`: approved rerun could not start because the app usage limit blocked escalation.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 159 files.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py`: passed with `5 passed, 1 warning`.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `171 passed, 1 warning`.

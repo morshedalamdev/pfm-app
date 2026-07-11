@@ -33,6 +33,7 @@ from app.modules.loans.services import (
     InvalidLoanPersonStateError,
     InvalidLoanRecordCursorError,
     InvalidLoanRecordStateError,
+    InvalidLoanRepayDateError,
     InvalidLoanSettlementAmountError,
     InvalidLoanSettlementCursorError,
     LoanAccountNotFoundError,
@@ -119,6 +120,8 @@ async def create_loan_record(
         raise account_not_found_error() from exc
     except InvalidLoanAccountStateError as exc:
         raise invalid_account_state_error() from exc
+    except InvalidLoanRepayDateError as exc:
+        raise invalid_repay_date_error() from exc
 
 
 @router.get("/records", response_model=LoanRecordListResponse)
@@ -241,6 +244,8 @@ async def update_loan_record(
         raise account_not_found_error() from exc
     except InvalidLoanAccountStateError as exc:
         raise invalid_account_state_error() from exc
+    except InvalidLoanRepayDateError as exc:
+        raise invalid_repay_date_error() from exc
 
 
 @router.delete("/records/{record_id}", response_model=LoanRecordResponse)
@@ -357,6 +362,13 @@ def invalid_account_state_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail="Account is disabled or archived",
+    )
+
+
+def invalid_repay_date_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Repay date cannot be before loan date",
     )
 
 

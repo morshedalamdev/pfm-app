@@ -1250,6 +1250,11 @@ export interface components {
              * @example 12.3400
              */
             principal_amount: string;
+            /**
+             * Repay Date
+             * Format: date
+             */
+            repay_date: string;
         };
         /** LoanRecordListResponse */
         LoanRecordListResponse: {
@@ -1299,6 +1304,8 @@ export interface components {
             person_id: string;
             /** Principal Amount */
             principal_amount: string;
+            /** Repay Date */
+            repay_date: string | null;
             /** Settled Amount */
             settled_amount: string;
             /** Settled At */
@@ -1330,6 +1337,8 @@ export interface components {
             person_id?: string | null;
             /** Principal Amount */
             principal_amount?: string | null;
+            /** Repay Date */
+            repay_date?: string | null;
         };
         /** LoanSettlementCreateRequest */
         LoanSettlementCreateRequest: {

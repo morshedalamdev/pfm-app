@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.money import PositiveMoney
 
@@ -85,6 +85,7 @@ class LoanRecordCreateRequest(BaseModel):
     principal_amount: PositiveMoney
     currency: str = Field(default="USD", min_length=3, max_length=3)
     issued_at: datetime
+    repay_date: date
     note: str | None = Field(default=None, max_length=500)
 
     @field_validator("principal_amount", mode="before")
@@ -117,6 +118,12 @@ class LoanRecordCreateRequest(BaseModel):
         normalized_note = note.strip()
         return normalized_note or None
 
+    @model_validator(mode="after")
+    def validate_repay_date(self) -> LoanRecordCreateRequest:
+        if self.repay_date < self.issued_at.date():
+            raise ValueError("Repay date cannot be before loan date")
+        return self
+
 
 class LoanRecordUpdateRequest(BaseModel):
     person_id: uuid.UUID | None = None
@@ -125,6 +132,7 @@ class LoanRecordUpdateRequest(BaseModel):
     principal_amount: PositiveMoney | None = None
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     issued_at: datetime | None = None
+    repay_date: date | None = None
     note: str | None = Field(default=None, max_length=500)
 
     @field_validator("principal_amount", mode="before")
@@ -160,6 +168,16 @@ class LoanRecordUpdateRequest(BaseModel):
             return None
         normalized_note = note.strip()
         return normalized_note or None
+
+    @model_validator(mode="after")
+    def validate_repay_date(self) -> LoanRecordUpdateRequest:
+        if (
+            self.repay_date is not None
+            and self.issued_at is not None
+            and self.repay_date < self.issued_at.date()
+        ):
+            raise ValueError("Repay date cannot be before loan date")
+        return self
 
 
 class LoanSettlementCreateRequest(BaseModel):
@@ -216,6 +234,7 @@ class LoanRecordResponse(BaseModel):
     outstanding_amount: Decimal
     currency: str
     issued_at: datetime
+    repay_date: date | None
     status: LoanRecordStatus
     note: str | None
     settled_at: datetime | None

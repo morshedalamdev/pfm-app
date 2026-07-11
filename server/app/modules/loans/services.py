@@ -62,6 +62,10 @@ class InvalidLoanAccountStateError(Exception):
     pass
 
 
+class InvalidLoanRepayDateError(Exception):
+    pass
+
+
 class DuplicateLoanPersonPhoneError(Exception):
     pass
 
@@ -218,6 +222,7 @@ class LoanService:
             principal_amount=request.principal_amount,
             currency=request.currency,
             issued_at=request.issued_at,
+            repay_date=request.repay_date,
             status="open",
             note=request.note,
         )
@@ -329,6 +334,11 @@ class LoanService:
                 raise InvalidLoanAccountStateError
             new_account = account
 
+        next_issued_at = update_data.get("issued_at", record.issued_at)
+        next_repay_date = update_data.get("repay_date", record.repay_date)
+        if next_repay_date is not None and next_repay_date < next_issued_at.date():
+            raise InvalidLoanRepayDateError
+
         balance_fields_changed = bool(
             {"account_id", "direction", "principal_amount"} & update_data.keys()
         )
@@ -354,6 +364,7 @@ class LoanService:
             "principal_amount",
             "currency",
             "issued_at",
+            "repay_date",
             "note",
         }:
             if field_name in update_data:
@@ -556,6 +567,7 @@ class LoanService:
             outstanding_amount=outstanding_amount,
             currency=record.currency,
             issued_at=record.issued_at,
+            repay_date=record.repay_date,
             status=cast(LoanRecordStatus, record.status),
             note=record.note,
             settled_at=record.settled_at,

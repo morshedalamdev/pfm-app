@@ -48,6 +48,19 @@ function personLabel(person: LoanPerson): string {
   return `${person.name} (${person.phone_number})`;
 }
 
+function localDateValue(value: Date): string {
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function dateFromValue(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export default function LoanDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -63,6 +76,7 @@ export default function LoanDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [note, setNote] = useState("");
   const [people, setPeople] = useState<LoanPerson[]>([]);
+  const [repayDate, setRepayDate] = useState<Date | undefined>(new Date());
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedPersonLabel, setSelectedPersonLabel] = useState("");
   const userCurrency = useAuthStore(
@@ -108,6 +122,9 @@ export default function LoanDetailPage() {
         setDate(new Date(record.issued_at));
         setDirection(record.direction);
         setNote(record.note ?? "");
+        setRepayDate(
+          record.repay_date ? dateFromValue(record.repay_date) : new Date(),
+        );
         setSelectedAccountId(
           record.account_id ?? resolveAccountSelectValue(nextAccounts),
         );
@@ -146,6 +163,14 @@ export default function LoanDetailPage() {
       setError("Add or select an active account before saving this loan.");
       return;
     }
+    if (!date || !repayDate) {
+      setError("Select the loan date and repay date before saving this loan.");
+      return;
+    }
+    if (localDateValue(repayDate) < localDateValue(date)) {
+      setError("Repay date cannot be before the loan date.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -157,6 +182,7 @@ export default function LoanDetailPage() {
         note: note || null,
         person_id: selectedPerson.id,
         principal_amount: decimalInput(amount),
+        repay_date: localDateValue(repayDate),
       };
       if (isCreate) {
         await createLoanRecord(body);
@@ -288,6 +314,21 @@ export default function LoanDetailPage() {
                     label={direction === "given" ? "Given Date" : "Taken Date"}
                     value={date}
                     onChange={(value) => value instanceof Date && setDate(value)}
+                  />
+                  <FieldError />
+                </Field>
+                <Field>
+                  <TransactionInput
+                    type="date"
+                    label={
+                      direction === "given"
+                        ? "Expected Return Date"
+                        : "Repayment Due Date"
+                    }
+                    value={repayDate}
+                    onChange={(value) =>
+                      value instanceof Date && setRepayDate(value)
+                    }
                   />
                   <FieldError />
                 </Field>

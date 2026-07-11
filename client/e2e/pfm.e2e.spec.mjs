@@ -171,6 +171,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     note: "E2E given loan",
     person_id: loanPerson.id,
     principal_amount: "300.00",
+    repay_date: nextMonth.toISOString().slice(0, 10),
   });
   await postJson(api, "/api/v1/loans/records", {
     account_id: wallet.id,
@@ -180,6 +181,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     note: "E2E taken loan",
     person_id: loanPerson.id,
     principal_amount: "75.00",
+    repay_date: nextMonth.toISOString().slice(0, 10),
   });
   await postJson(api, `/api/v1/loans/records/${givenLoan.id}/settlements`, {
     amount: "50.00",

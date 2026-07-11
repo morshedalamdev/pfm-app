@@ -1218,6 +1218,11 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Principal Amount",
             "type": "string"
+          },
+          "repay_date": {
+            "format": "date",
+            "title": "Repay Date",
+            "type": "string"
           }
         },
         "required": [
@@ -1225,7 +1230,8 @@
           "account_id",
           "direction",
           "principal_amount",
-          "issued_at"
+          "issued_at",
+          "repay_date"
         ],
         "title": "LoanRecordCreateRequest",
         "type": "object"
@@ -1342,6 +1348,18 @@
             "title": "Principal Amount",
             "type": "string"
           },
+          "repay_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repay Date"
+          },
           "settled_amount": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Settled Amount",
@@ -1384,6 +1402,7 @@
           "outstanding_amount",
           "currency",
           "issued_at",
+          "repay_date",
           "status",
           "note",
           "settled_at",
@@ -1487,6 +1506,18 @@
               }
             ],
             "title": "Principal Amount"
+          },
+          "repay_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repay Date"
           }
         },
         "title": "LoanRecordUpdateRequest",

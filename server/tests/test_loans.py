@@ -145,6 +145,7 @@ def test_loan_people_allow_duplicate_names_but_unique_user_phone(
             "direction": "given",
             "principal_amount": "10.0000",
             "issued_at": "2026-07-01T10:00:00+00:00",
+            "repay_date": "2026-08-01",
         },
     )
     assert archived_record_response.status_code == 409
@@ -170,6 +171,7 @@ def test_loan_record_partial_settlement_and_summary_lifecycle(
         issued_at="2026-07-01T10:00:00+00:00",
     )
     assert given_record["account_id"] == get_default_account_id(context, headers)
+    assert given_record["repay_date"] == "2026-08-01"
     taken_record = create_record(
         context,
         headers,
@@ -178,6 +180,7 @@ def test_loan_record_partial_settlement_and_summary_lifecycle(
         principal_amount="40.0000",
         issued_at="2026-07-02T10:00:00+00:00",
     )
+    assert taken_record["repay_date"] == "2026-08-01"
 
     summary = get_summary(context, headers)
     assert Decimal(summary["total_loan_given"]) == Decimal("100.0000")
@@ -246,12 +249,17 @@ def test_loan_record_partial_settlement_and_summary_lifecycle(
     update_taken_response = context.client.patch(
         f"/api/v1/loans/records/{taken_record['id']}",
         headers=headers,
-        json={"principal_amount": "50.0000", "note": "Updated amount"},
+        json={
+            "principal_amount": "50.0000",
+            "repay_date": "2026-09-01",
+            "note": "Updated amount",
+        },
     )
     assert update_taken_response.status_code == 200
     assert Decimal(update_taken_response.json()["outstanding_amount"]) == Decimal(
         "50.0000"
     )
+    assert update_taken_response.json()["repay_date"] == "2026-09-01"
 
     settled_list_response = context.client.get(
         "/api/v1/loans/records",
@@ -303,6 +311,7 @@ def test_loan_validation_ownership_cursors_and_openapi(
                 "direction": "given",
                 "principal_amount": "10.0000",
                 "issued_at": "2026-07-01T10:00:00+00:00",
+                "repay_date": "2026-08-01",
             },
         ).status_code
         == 404
@@ -332,6 +341,7 @@ def test_loan_validation_ownership_cursors_and_openapi(
                 "direction": "taken",
                 "principal_amount": 1.2,
                 "issued_at": "2026-07-01T10:00:00+00:00",
+                "repay_date": "2026-08-01",
             },
         ).status_code
         == 422
@@ -346,6 +356,36 @@ def test_loan_validation_ownership_cursors_and_openapi(
                 "direction": "taken",
                 "principal_amount": "10.0000",
                 "issued_at": "2026-07-01T10:00:00",
+                "repay_date": "2026-08-01",
+            },
+        ).status_code
+        == 422
+    )
+    assert (
+        context.client.post(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            json={
+                "account_id": owner_account_id,
+                "person_id": owner_person["id"],
+                "direction": "taken",
+                "principal_amount": "10.0000",
+                "issued_at": "2026-07-01T10:00:00+00:00",
+            },
+        ).status_code
+        == 422
+    )
+    assert (
+        context.client.post(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            json={
+                "account_id": owner_account_id,
+                "person_id": owner_person["id"],
+                "direction": "taken",
+                "principal_amount": "10.0000",
+                "issued_at": "2026-07-02T10:00:00+00:00",
+                "repay_date": "2026-07-01",
             },
         ).status_code
         == 422
@@ -360,6 +400,7 @@ def test_loan_validation_ownership_cursors_and_openapi(
                 "direction": "taken",
                 "principal_amount": "10.0000",
                 "issued_at": "2026-07-01T10:00:00+00:00",
+                "repay_date": "2026-08-01",
             },
         ).status_code
         == 404
@@ -405,6 +446,12 @@ def test_loan_validation_ownership_cursors_and_openapi(
     assert openapi["paths"]["/api/v1/loans/records"]["post"]["security"] == [
         {"HTTPBearer": []}
     ]
+    invalid_update_response = context.client.patch(
+        f"/api/v1/loans/records/{record['id']}",
+        headers=owner_headers,
+        json={"repay_date": "2026-06-30"},
+    )
+    assert invalid_update_response.status_code == 422
 
 
 def test_loan_account_selection_excludes_inactive_but_preserves_history(
@@ -450,6 +497,7 @@ def test_loan_account_selection_excludes_inactive_but_preserves_history(
             "direction": "taken",
             "principal_amount": "5.0000",
             "issued_at": "2026-07-02T10:00:00+00:00",
+            "repay_date": "2026-08-01",
         },
     )
     assert create_with_disabled_response.status_code == 409
@@ -594,6 +642,7 @@ def create_record(
     direction: str,
     principal_amount: str,
     issued_at: str,
+    repay_date: str = "2026-08-01",
 ) -> dict[str, object]:
     response = context.client.post(
         "/api/v1/loans/records",
@@ -604,6 +653,7 @@ def create_record(
             "direction": direction,
             "principal_amount": principal_amount,
             "issued_at": issued_at,
+            "repay_date": repay_date,
         },
     )
     assert response.status_code == 201

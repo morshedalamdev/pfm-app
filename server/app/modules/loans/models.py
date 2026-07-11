@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -124,6 +125,7 @@ class LoanRecord(Base):
         DateTime(timezone=True),
         nullable=False,
     )
+    repay_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
