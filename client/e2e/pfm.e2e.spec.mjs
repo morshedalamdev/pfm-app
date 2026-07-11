@@ -87,6 +87,10 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   const visibleDate = new Date();
   visibleDate.setHours(12, 0, 0, 0);
   const today = visibleDate.toISOString();
+  const yesterday = new Date(visibleDate);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const loanIssuedAt = new Date(visibleDate);
+  loanIssuedAt.setDate(loanIssuedAt.getDate() - 2);
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
@@ -167,11 +171,11 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     account_id: checking.id,
     currency: "USD",
     direction: "given",
-    issued_at: today,
+    issued_at: loanIssuedAt.toISOString(),
     note: "E2E given loan",
     person_id: loanPerson.id,
     principal_amount: "300.00",
-    repay_date: nextMonth.toISOString().slice(0, 10),
+    repay_date: yesterday.toISOString().slice(0, 10),
   });
   await postJson(api, "/api/v1/loans/records", {
     account_id: wallet.id,
@@ -209,6 +213,9 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   });
   await expect(page.getByText("E2E Friend")).toHaveCount(2);
   await expect(page.getByText("$250.00").first()).toBeVisible();
+  const overdueLoan = page.locator('[data-overdue="true"]');
+  await expect(overdueLoan).toHaveCount(1);
+  await expect(overdueLoan).toHaveClass(/border-destructive/);
   await page.getByRole("button", { name: "Manage loan people" }).click();
   await page.getByRole("button", { name: "Select from contacts" }).click();
   await expect(page.getByPlaceholder("Person name")).toHaveValue("E2E Contact");

@@ -232,3 +232,36 @@
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 159 files.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py`: passed with `5 passed, 1 warning`.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `171 passed, 1 warning`.
+
+## Phase 03.5 - Overdue Loan Red State
+
+## Overdue Rule
+
+- A loan is overdue when `repay_date` is before the user's local current date and `outstanding_amount` is greater than zero.
+- The same predicate applies to given and taken loans.
+- A repay date equal to today is not overdue.
+
+## UI Styling
+
+- Overdue loan cards use the existing destructive border, background tint, amount text, and repay-date text classes.
+- The loan details drawer shows a destructive `Overdue` status banner.
+- Non-overdue loans retain the existing card styling.
+
+## Paid/Settled Behavior
+
+- Fully settled loans have zero outstanding amount and are not marked overdue.
+- Partial settlements remain overdue while a positive amount is still outstanding and the repay date is past.
+
+## Edge Cases
+
+- Legacy loans without a repay date are not marked overdue.
+- Archived loans remain excluded by the existing loan-list behavior.
+- No backend schema, API, balance, summary, or repay-date behavior changed in this phase.
+- `cd client && npm run build`: passed.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd client && npm run e2e`: passed with `1 passed` after correcting the overdue fixture so its loan issue date precedes its repay date.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 159 files.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `171 passed, 1 warning`.
