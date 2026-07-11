@@ -101,3 +101,56 @@
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after an approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
+
+## Phase 03.2 - Account Selection Added to Loan Forms
+
+## Changed Files
+
+- `server/app/modules/loans/models.py`
+- `server/app/modules/loans/schemas.py`
+- `server/app/modules/loans/services.py`
+- `server/app/modules/loans/router.py`
+- `server/alembic/versions/202607110302_add_loan_account_selection.py`
+- `server/tests/test_loans.py`
+- `client/generated/openapi.json`
+- `client/generated/api-types.ts`
+- `client/app/(dashboard)/loan/[id]/page.tsx`
+- `client/e2e/pfm.e2e.spec.mjs`
+- `docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md`
+- `PFM_PROJECT_STATE.md`
+
+## Account Selection Behavior
+
+- Given loans require a selected source account.
+- Taken loans require a selected destination account.
+- The shared create/edit form loads accounts through the existing Agent 02 API and renders them with existing form controls.
+- Users can change the selected account from the account drawer.
+- New loan records require `account_id`; API responses retain it.
+- The database stores account ownership through a composite account/user foreign key.
+
+## Default Account Behavior
+
+- New forms auto-select the active default account through `resolveAccountSelectValue`.
+- If no active default exists, the existing Agent 02 helper falls back to the first active account.
+- Editing an account-linked loan initially selects its stored account.
+
+## Disabled Account Handling
+
+- Disabled and archived accounts are excluded from new loan selections.
+- An existing disabled account remains visible and selected while editing its historical loan.
+- The backend accepts an unchanged disabled account on a historical loan but rejects assigning a disabled or archived account to a new or different loan.
+- Existing pre-migration loans remain readable with a nullable legacy `account_id`.
+
+## Notes
+
+- Account balance effects are deferred to phase 03.3.
+- Repay dates, overdue styling, summary-card changes, and account-currency list display were not implemented.
+- `cd client && npm run build`: passed.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd client && npm run e2e`: passed with `1 passed` after updating loan API fixtures with required account IDs.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 157 files.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py`: passed with `4 passed, 1 warning`.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `170 passed, 1 warning`.

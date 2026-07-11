@@ -140,6 +140,7 @@ def test_loan_people_allow_duplicate_names_but_unique_user_phone(
         "/api/v1/loans/records",
         headers=owner_headers,
         json={
+            "account_id": get_default_account_id(context, owner_headers),
             "person_id": first_person["id"],
             "direction": "given",
             "principal_amount": "10.0000",
@@ -168,6 +169,7 @@ def test_loan_record_partial_settlement_and_summary_lifecycle(
         principal_amount="100.0000",
         issued_at="2026-07-01T10:00:00+00:00",
     )
+    assert given_record["account_id"] == get_default_account_id(context, headers)
     taken_record = create_record(
         context,
         headers,
@@ -280,6 +282,8 @@ def test_loan_validation_ownership_cursors_and_openapi(
         name="Other person",
         phone_number="+8801755555555",
     )
+    owner_account_id = get_default_account_id(context, owner_headers)
+    other_account_id = get_default_account_id(context, other_headers)
     record = create_record(
         context,
         owner_headers,
@@ -294,6 +298,7 @@ def test_loan_validation_ownership_cursors_and_openapi(
             "/api/v1/loans/records",
             headers=owner_headers,
             json={
+                "account_id": owner_account_id,
                 "person_id": other_person["id"],
                 "direction": "given",
                 "principal_amount": "10.0000",
@@ -322,6 +327,7 @@ def test_loan_validation_ownership_cursors_and_openapi(
             "/api/v1/loans/records",
             headers=owner_headers,
             json={
+                "account_id": owner_account_id,
                 "person_id": owner_person["id"],
                 "direction": "taken",
                 "principal_amount": 1.2,
@@ -335,6 +341,7 @@ def test_loan_validation_ownership_cursors_and_openapi(
             "/api/v1/loans/records",
             headers=owner_headers,
             json={
+                "account_id": owner_account_id,
                 "person_id": owner_person["id"],
                 "direction": "taken",
                 "principal_amount": "10.0000",
@@ -342,6 +349,20 @@ def test_loan_validation_ownership_cursors_and_openapi(
             },
         ).status_code
         == 422
+    )
+    assert (
+        context.client.post(
+            "/api/v1/loans/records",
+            headers=owner_headers,
+            json={
+                "account_id": other_account_id,
+                "person_id": owner_person["id"],
+                "direction": "taken",
+                "principal_amount": "10.0000",
+                "issued_at": "2026-07-01T10:00:00+00:00",
+            },
+        ).status_code
+        == 404
     )
     assert (
         context.client.get(
@@ -386,6 +407,61 @@ def test_loan_validation_ownership_cursors_and_openapi(
     ]
 
 
+def test_loan_account_selection_excludes_inactive_but_preserves_history(
+    loan_context: LoanApiContext,
+) -> None:
+    context = loan_context
+    headers = auth_headers(context, "loan-account-selection@example.com")
+    person = create_person(
+        context,
+        headers,
+        name="Account person",
+        phone_number="+8801766666666",
+    )
+    account = create_account(
+        context,
+        headers,
+        name="Loan wallet",
+    )
+    record = create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        account_id=account["id"],
+        direction="given",
+        principal_amount="20.0000",
+        issued_at="2026-07-01T10:00:00+00:00",
+    )
+    assert record["account_id"] == account["id"]
+
+    disable_response = context.client.patch(
+        f"/api/v1/accounts/{account['id']}/disable",
+        headers=headers,
+    )
+    assert disable_response.status_code == 200
+
+    create_with_disabled_response = context.client.post(
+        "/api/v1/loans/records",
+        headers=headers,
+        json={
+            "account_id": account["id"],
+            "person_id": person["id"],
+            "direction": "taken",
+            "principal_amount": "5.0000",
+            "issued_at": "2026-07-02T10:00:00+00:00",
+        },
+    )
+    assert create_with_disabled_response.status_code == 409
+
+    historical_update_response = context.client.patch(
+        f"/api/v1/loans/records/{record['id']}",
+        headers=headers,
+        json={"account_id": account["id"], "note": "Historical account retained"},
+    )
+    assert historical_update_response.status_code == 200
+    assert historical_update_response.json()["account_id"] == account["id"]
+
+
 def auth_headers(context: LoanApiContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",
@@ -426,6 +502,7 @@ def create_record(
     headers: dict[str, str],
     *,
     person_id: object,
+    account_id: object | None = None,
     direction: str,
     principal_amount: str,
     issued_at: str,
@@ -434,6 +511,7 @@ def create_record(
         "/api/v1/loans/records",
         headers=headers,
         json={
+            "account_id": account_id or get_default_account_id(context, headers),
             "person_id": person_id,
             "direction": direction,
             "principal_amount": principal_amount,
@@ -442,6 +520,38 @@ def create_record(
     )
     assert response.status_code == 201
     return dict(response.json())
+
+
+def create_account(
+    context: LoanApiContext,
+    headers: dict[str, str],
+    *,
+    name: str,
+) -> dict[str, object]:
+    response = context.client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={
+            "name": name,
+            "type": "cash",
+            "currency": "USD",
+            "opening_balance": "100.0000",
+        },
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def get_default_account_id(
+    context: LoanApiContext,
+    headers: dict[str, str],
+) -> object:
+    response = context.client.get("/api/v1/accounts", headers=headers)
+    assert response.status_code == 200
+    default_account = next(
+        account for account in response.json()["items"] if account["is_default"]
+    )
+    return default_account["id"]
 
 
 def create_settlement(

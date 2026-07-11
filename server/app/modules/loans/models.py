@@ -86,7 +86,14 @@ class LoanRecord(Base):
             name="fk_loan_records_person_id_user_id_loan_people",
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["account_id", "user_id"],
+            ["accounts.id", "accounts.user_id"],
+            name="fk_loan_records_account_id_user_id_accounts",
+            ondelete="RESTRICT",
+        ),
         Index("ix_loan_records_user_id", "user_id"),
+        Index("ix_loan_records_user_id_account_id", "user_id", "account_id"),
         Index("ix_loan_records_user_id_person_id", "user_id", "person_id"),
         Index("ix_loan_records_user_id_status", "user_id", "status"),
         Index("ix_loan_records_user_id_direction", "user_id", "direction"),
@@ -105,6 +112,7 @@ class LoanRecord(Base):
         nullable=False,
     )
     person_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     direction: Mapped[str] = mapped_column(String(20), nullable=False)
     principal_amount: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     currency: Mapped[str] = mapped_column(

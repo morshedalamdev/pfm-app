@@ -1168,6 +1168,11 @@
       },
       "LoanRecordCreateRequest": {
         "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
           "currency": {
             "default": "USD",
             "maxLength": 3,
@@ -1217,6 +1222,7 @@
         },
         "required": [
           "person_id",
+          "account_id",
           "direction",
           "principal_amount",
           "issued_at"
@@ -1259,6 +1265,18 @@
       },
       "LoanRecordResponse": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
           "archived_at": {
             "anyOf": [
               {
@@ -1359,6 +1377,7 @@
         "required": [
           "id",
           "person_id",
+          "account_id",
           "direction",
           "principal_amount",
           "settled_amount",
@@ -1377,6 +1396,18 @@
       },
       "LoanRecordUpdateRequest": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
           "currency": {
             "anyOf": [
               {

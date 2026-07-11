@@ -173,6 +173,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | Agent 00 | 00.4 Implementation Checklist for Feature Agents | PASSED | phase commit created after this state update | Created future-agent implementation checklist with likely files, existing behavior, target behavior, risks, test commands, manual QA, and dependencies. |
 | Agent 00 | 00.5 Baseline Test Report and Agent 00 Verification | PASSED | phase commit created after this state update | Created baseline test report and verified backend lint/format/type/tests, frontend build, optional checks, API contract, and full-stack E2E. |
 | Agent 03 | 03.1 Loan/Debt Baseline and Dependency Check | PASSED | phase commit created after this state update | Audited loan/debt behavior and confirmed Agent 02 active/default account selection, disabled-account filtering, currency formatting, and verification outputs are available. |
+| Agent 03 | 03.2 Account Selection Added to Loan Forms | PASSED | phase commit created after this state update | Added persisted account selection to given/taken loan forms with default auto-selection, active-account filtering, ownership validation, and historical disabled-account retention. |
 
 ## 6. Architecture Decision Log
 
@@ -2704,6 +2705,7 @@ Record only active blockers or intentionally deferred decisions.
 - Agent 00 Phase 00.4 Implementation Checklist for Feature Agents is passed. Next allowed phase is Agent 00 Phase 00.5, Baseline Test Report and Agent 00 Verification, after user permission.
 - Agent 00 Phase 00.5 Baseline Test Report and Agent 00 Verification is passed. Agent 00 is complete; next allowed action is Agent 01 planning/generation after user permission.
 - Agent 03 Phase 03.1 Loan/Debt Baseline and Dependency Check is passed. Next allowed phase is Agent 03 Phase 03.2, Account Selection Added to Loan Forms, after user permission.
+- Agent 03 Phase 03.2 Account Selection Added to Loan Forms is passed. Next allowed phase is Agent 03 Phase 03.3, Loan Balance Effects, after user permission.
 
 ## 14. Progress log
 
@@ -2796,3 +2798,4 @@ Append a dated entry after every completed phase.
 - 2026-07-10: Agent 00 Phase 00.4 Implementation Checklist for Feature Agents passed. Created `docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md` with future-agent file targets, existing behavior, required target behavior, risk areas, test commands, manual QA, and dependencies for Agents 01 through 09; verified frontend build and recorded that no client lint script exists.
 - 2026-07-10: Agent 00 Phase 00.5 Baseline Test Report and Agent 00 Verification passed. Created `docs/audit/02_BASELINE_TEST_REPORT.md`, verified audit/checklist completeness, ran backend Ruff, format, mypy, full pytest, frontend build, optional lint/test no-ops, API contract, and full-stack E2E; documented sandbox-only approval requirements and confirmed Agent 00 completed without product feature changes.
 - 2026-07-11: Agent 03 Phase 03.1 Loan/Debt Baseline and Dependency Check passed. Re-audited the existing loan/debt routes, forms, list cards, summary cards, API/types, backend models, and settlement behavior; confirmed Agent 02 active/default account selection, disabled-account filtering, account-currency formatting, account UI, and verification outputs are available; verified the frontend production build and full backend suite with `169 passed, 1 warning`; and set the next allowed phase to Agent 03 Phase 03.2 after user permission.
+- 2026-07-11: Agent 03 Phase 03.2 Account Selection Added to Loan Forms passed. Added nullable legacy-safe loan account persistence, required account IDs for new loans, user ownership and active-account validation, default account auto-selection, account switching in the given/taken form, and historical disabled-account retention; regenerated API contracts; verified Ruff, format, API drift, frontend build, focused loan tests, full backend tests with `170 passed, 1 warning`, and E2E with `1 passed`; and set the next allowed phase to Agent 03 Phase 03.3 after user permission.

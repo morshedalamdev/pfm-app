@@ -164,6 +164,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     phone_number: `555${Date.now().toString().slice(-7)}`,
   });
   const givenLoan = await postJson(api, "/api/v1/loans/records", {
+    account_id: checking.id,
     currency: "USD",
     direction: "given",
     issued_at: today,
@@ -172,6 +173,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     principal_amount: "300.00",
   });
   await postJson(api, "/api/v1/loans/records", {
+    account_id: wallet.id,
     currency: "USD",
     direction: "taken",
     issued_at: today,

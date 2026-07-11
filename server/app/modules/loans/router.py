@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.modules.accounts.repositories import AccountRepository
 from app.modules.auth.dependencies import CurrentUserDependency
 from app.modules.loans.repositories import LoanRepository
 from app.modules.loans.schemas import (
@@ -27,12 +28,14 @@ from app.modules.loans.schemas import (
 )
 from app.modules.loans.services import (
     DuplicateLoanPersonPhoneError,
+    InvalidLoanAccountStateError,
     InvalidLoanPersonCursorError,
     InvalidLoanPersonStateError,
     InvalidLoanRecordCursorError,
     InvalidLoanRecordStateError,
     InvalidLoanSettlementAmountError,
     InvalidLoanSettlementCursorError,
+    LoanAccountNotFoundError,
     LoanPersonNotFoundError,
     LoanRecordNotFoundError,
     LoanService,
@@ -43,7 +46,10 @@ SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 
 
 def build_loan_service(session: AsyncSession) -> LoanService:
-    return LoanService(loans=LoanRepository(session))
+    return LoanService(
+        loans=LoanRepository(session),
+        accounts=AccountRepository(session),
+    )
 
 
 @router.post(
@@ -109,6 +115,10 @@ async def create_loan_record(
         raise person_not_found_error() from exc
     except InvalidLoanPersonStateError as exc:
         raise invalid_person_state_error() from exc
+    except LoanAccountNotFoundError as exc:
+        raise account_not_found_error() from exc
+    except InvalidLoanAccountStateError as exc:
+        raise invalid_account_state_error() from exc
 
 
 @router.get("/records", response_model=LoanRecordListResponse)
@@ -227,6 +237,10 @@ async def update_loan_record(
         raise invalid_record_state_error() from exc
     except InvalidLoanSettlementAmountError as exc:
         raise invalid_settlement_amount_error() from exc
+    except LoanAccountNotFoundError as exc:
+        raise account_not_found_error() from exc
+    except InvalidLoanAccountStateError as exc:
+        raise invalid_account_state_error() from exc
 
 
 @router.delete("/records/{record_id}", response_model=LoanRecordResponse)
@@ -329,6 +343,20 @@ def record_not_found_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Loan record not found",
+    )
+
+
+def account_not_found_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Account not found",
+    )
+
+
+def invalid_account_state_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Account is disabled or archived",
     )
 
 

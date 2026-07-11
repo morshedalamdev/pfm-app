@@ -1218,6 +1218,11 @@ export interface components {
         /** LoanRecordCreateRequest */
         LoanRecordCreateRequest: {
             /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
              * Currency
              * @default USD
              */
@@ -1257,6 +1262,8 @@ export interface components {
         };
         /** LoanRecordResponse */
         LoanRecordResponse: {
+            /** Account Id */
+            account_id: string | null;
             /** Archived At */
             archived_at: string | null;
             /**
@@ -1309,6 +1316,8 @@ export interface components {
         };
         /** LoanRecordUpdateRequest */
         LoanRecordUpdateRequest: {
+            /** Account Id */
+            account_id?: string | null;
             /** Currency */
             currency?: string | null;
             /** Direction */

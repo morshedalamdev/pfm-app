@@ -80,6 +80,7 @@ class LoanPersonUpdateRequest(BaseModel):
 
 class LoanRecordCreateRequest(BaseModel):
     person_id: uuid.UUID
+    account_id: uuid.UUID
     direction: LoanDirection
     principal_amount: PositiveMoney
     currency: str = Field(default="USD", min_length=3, max_length=3)
@@ -119,6 +120,7 @@ class LoanRecordCreateRequest(BaseModel):
 
 class LoanRecordUpdateRequest(BaseModel):
     person_id: uuid.UUID | None = None
+    account_id: uuid.UUID | None = None
     direction: LoanDirection | None = None
     principal_amount: PositiveMoney | None = None
     currency: str | None = Field(default=None, min_length=3, max_length=3)
@@ -207,6 +209,7 @@ class LoanPersonListResponse(BaseModel):
 class LoanRecordResponse(BaseModel):
     id: uuid.UUID
     person_id: uuid.UUID
+    account_id: uuid.UUID | None
     direction: LoanDirection
     principal_amount: Decimal
     settled_amount: Decimal

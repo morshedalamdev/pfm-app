@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import cast
 
+from app.modules.accounts.models import Account
+from app.modules.accounts.repositories import AccountRepository
 from app.modules.loans.models import LoanPerson, LoanRecord, LoanSettlement
 from app.modules.loans.pagination import (
     InvalidLoanPersonCursorError as PersonCursorDecodeError,
@@ -52,6 +54,14 @@ class LoanRecordNotFoundError(Exception):
     pass
 
 
+class LoanAccountNotFoundError(Exception):
+    pass
+
+
+class InvalidLoanAccountStateError(Exception):
+    pass
+
+
 class DuplicateLoanPersonPhoneError(Exception):
     pass
 
@@ -81,8 +91,13 @@ class InvalidLoanSettlementCursorError(Exception):
 
 
 class LoanService:
-    def __init__(self, loans: LoanRepository) -> None:
+    def __init__(
+        self,
+        loans: LoanRepository,
+        accounts: AccountRepository,
+    ) -> None:
         self.loans = loans
+        self.accounts = accounts
 
     async def create_person(
         self,
@@ -191,10 +206,14 @@ class LoanService:
         person = await self.get_person_model(request.person_id, current_user)
         if person.archived_at is not None:
             raise InvalidLoanPersonStateError
+        account = await self.get_account_model(request.account_id, current_user)
+        if account.archived_at is not None or account.is_disabled:
+            raise InvalidLoanAccountStateError
 
         record = LoanRecord(
             user_id=current_user.id,
             person_id=person.id,
+            account_id=account.id,
             direction=request.direction,
             principal_amount=request.principal_amount,
             currency=request.currency,
@@ -288,9 +307,20 @@ class LoanService:
             person = await self.get_person_model(update_data["person_id"], current_user)
             if person.archived_at is not None:
                 raise InvalidLoanPersonStateError
+        if "account_id" in update_data:
+            account_id = update_data["account_id"]
+            if account_id is None:
+                raise LoanAccountNotFoundError
+            account = await self.get_account_model(account_id, current_user)
+            account_changed = record.account_id != account.id
+            if account_changed and (
+                account.archived_at is not None or account.is_disabled
+            ):
+                raise InvalidLoanAccountStateError
 
         for field_name in {
             "person_id",
+            "account_id",
             "direction",
             "principal_amount",
             "currency",
@@ -434,6 +464,16 @@ class LoanService:
             raise LoanRecordNotFoundError
         return record
 
+    async def get_account_model(
+        self,
+        account_id: uuid.UUID,
+        current_user: User,
+    ) -> Account:
+        account = await self.accounts.get_owned(account_id, current_user.id)
+        if account is None:
+            raise LoanAccountNotFoundError
+        return account
+
     async def ensure_phone_number_available(
         self,
         user_id: uuid.UUID,
@@ -476,6 +516,7 @@ class LoanService:
         return LoanRecordResponse(
             id=record.id,
             person_id=record.person_id,
+            account_id=record.account_id,
             direction=cast(LoanDirection, record.direction),
             principal_amount=record.principal_amount,
             settled_amount=settled_amount,

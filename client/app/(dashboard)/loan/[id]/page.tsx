@@ -22,10 +22,19 @@ import {
 } from "@/components/ui/input-group";
 import { useAuthStore } from "@/lib/auth/store";
 import {
+  formatAccountSelectLabel,
+  getAccountById,
+  getActiveAccounts,
+  isAccountActive,
+  resolveAccountSelectValue,
+} from "@/lib/finance/accounts";
+import {
   createLoanRecord,
   getLoanRecord,
+  listAccounts,
   listLoanPeople,
   updateLoanRecord,
+  type Account,
   type LoanPerson,
 } from "@/lib/finance/api";
 import { decimalInput, toDateTime } from "@/lib/finance/format";
@@ -45,6 +54,7 @@ export default function LoanDetailPage() {
   const recordId = params.id;
   const isCreate = recordId === "create" || recordId === "edit";
 
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [direction, setDirection] = useState<LoanDirection>("given");
@@ -53,6 +63,7 @@ export default function LoanDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [note, setNote] = useState("");
   const [people, setPeople] = useState<LoanPerson[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedPersonLabel, setSelectedPersonLabel] = useState("");
   const userCurrency = useAuthStore(
     (state) => state.user?.base_currency ?? "USD",
@@ -63,24 +74,47 @@ export default function LoanDetailPage() {
     () => people.find((person) => personLabel(person) === selectedPersonLabel),
     [people, selectedPersonLabel],
   );
+  const accountOptions = useMemo(() => {
+    const activeAccounts = getActiveAccounts(accounts);
+    const selectedAccount = getAccountById(accounts, selectedAccountId);
+    const visibleAccounts =
+      selectedAccount && !isAccountActive(selectedAccount) && !isCreate
+        ? [selectedAccount, ...activeAccounts]
+        : activeAccounts;
+
+    return visibleAccounts.map((account) => ({
+      id: account.id,
+      label: `${formatAccountSelectLabel(account)}${
+        isAccountActive(account) ? "" : " - Disabled"
+      }`,
+    }));
+  }, [accounts, isCreate, selectedAccountId]);
+  const selectedAccountLabel =
+    accountOptions.find((option) => option.id === selectedAccountId)?.label ?? "";
 
   const loadForm = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [nextPeople, record] = await Promise.all([
+      const [nextAccounts, nextPeople, record] = await Promise.all([
+        listAccounts(),
         listLoanPeople(),
         isCreate ? Promise.resolve(null) : getLoanRecord(recordId),
       ]);
+      setAccounts(nextAccounts);
       setPeople(nextPeople);
       if (record) {
         setAmount(record.principal_amount);
         setDate(new Date(record.issued_at));
         setDirection(record.direction);
         setNote(record.note ?? "");
+        setSelectedAccountId(
+          record.account_id ?? resolveAccountSelectValue(nextAccounts),
+        );
         const person = nextPeople.find((item) => item.id === record.person_id);
         setSelectedPersonLabel(person ? personLabel(person) : "");
       } else {
+        setSelectedAccountId(resolveAccountSelectValue(nextAccounts));
         setSelectedPersonLabel((current) =>
           current || (nextPeople[0] ? personLabel(nextPeople[0]) : ""),
         );
@@ -108,10 +142,15 @@ export default function LoanDetailPage() {
       setError("Add or select a person before saving this loan.");
       return;
     }
+    if (!selectedAccountId) {
+      setError("Add or select an active account before saving this loan.");
+      return;
+    }
 
     setIsSaving(true);
     try {
       const body = {
+        account_id: selectedAccountId,
         currency: userCurrency,
         direction,
         issued_at: toDateTime(date),
@@ -153,18 +192,26 @@ export default function LoanDetailPage() {
             )}
           </div>
         )}
-        {!isLoading && people.length === 0 && (
+        {!isLoading && (people.length === 0 || accountOptions.length === 0) && (
           <div className="space-y-2 rounded-md border border-input p-3">
-            <p className="font-bold">Add a person first.</p>
-            <p className="text-input text-sm">
-              Loan records need a selected person for both given and taken money.
+            <p className="font-bold">
+              {people.length === 0
+                ? "Add a person first."
+                : "Add an active account first."}
             </p>
-            <Link href="/loan">
-              <Button variant="outline">Manage People</Button>
+            <p className="text-input text-sm">
+              {people.length === 0
+                ? "Loan records need a selected person for both given and taken money."
+                : "Loan records need an active account for both given and taken money."}
+            </p>
+            <Link href={people.length === 0 ? "/loan" : "/accounts"}>
+              <Button variant="outline">
+                {people.length === 0 ? "Manage People" : "Manage Accounts"}
+              </Button>
             </Link>
           </div>
         )}
-        {!isLoading && people.length > 0 && (
+        {!isLoading && people.length > 0 && accountOptions.length > 0 && (
           <form onSubmit={handleSubmit}>
             <FieldSet>
               <InputGroup className="border-0 border-b rounded-none h-12">
@@ -203,6 +250,26 @@ export default function LoanDetailPage() {
                 </Button>
               </div>
               <FieldGroup>
+                <Field>
+                  <TransactionInput
+                    type="select"
+                    label={
+                      direction === "given"
+                        ? "Give From Account"
+                        : "Take Into Account"
+                    }
+                    list={accountOptions.map((option) => option.label)}
+                    value={selectedAccountLabel}
+                    onChange={(value) => {
+                      if (typeof value !== "string") return;
+                      const selectedOption = accountOptions.find(
+                        (option) => option.label === value,
+                      );
+                      if (selectedOption) setSelectedAccountId(selectedOption.id);
+                    }}
+                  />
+                  <FieldError />
+                </Field>
                 <Field>
                   <TransactionInput
                     type="select"
