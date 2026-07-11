@@ -154,3 +154,44 @@
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 157 files.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py`: passed with `4 passed, 1 warning`.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `170 passed, 1 warning`.
+
+## Phase 03.3 - Loan Balance Effects
+
+## Given Loan Balance Rule
+
+- Creating a given loan subtracts its principal amount from the selected account's loan balance adjustment.
+- The account `current_balance` now includes opening balance plus the persisted loan adjustment.
+- No insufficient-funds validation was added because the existing finance flows do not enforce that rule; a given loan can produce a negative current balance.
+
+## Taken Loan Balance Rule
+
+- Creating a taken loan adds its principal amount to the selected account's loan balance adjustment.
+- The adjustment is account-specific and does not affect unrelated accounts.
+
+## Atomicity / Double-Counting Protection
+
+- The account adjustment and loan record are committed in the same database transaction.
+- Re-reading or reloading a loan does not reapply its balance effect.
+- Existing edits that change account, direction, or principal reverse the previous effect and apply the replacement effect once.
+- Note-only and other non-balance edits do not change account balances.
+- Migration `202607110303` backfills adjustments for existing account-linked loans.
+
+## Repayment/Delete Notes
+
+- Loan settlements do not adjust account balances in this phase.
+- Archiving/deleting a loan does not reverse its original account effect in this phase.
+- Repayment and deletion reversal behavior remains deferred for later loan work.
+
+## Edge Cases
+
+- Existing legacy loans without an account reference do not affect an account balance.
+- Historical loans retain their account effect if the linked account is later disabled.
+- Failed loan creation does not commit an account adjustment.
+- `cd client && npm run build`: passed.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 158 files.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py tests/test_accounts_categories.py`: passed with `14 passed, 1 warning`.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after updating the intended account schema assertion with `171 passed, 1 warning`.

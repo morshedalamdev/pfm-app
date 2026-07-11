@@ -61,6 +61,7 @@ def test_account_model_schema() -> None:
         "type",
         "currency",
         "opening_balance",
+        "loan_balance_adjustment",
         "is_archived",
         "archived_at",
         "is_disabled",
@@ -73,6 +74,7 @@ def test_account_model_schema() -> None:
     assert table.columns.type.type.length == 40
     assert table.columns.currency.type.length == 3
     assert_numeric_money(table.columns.opening_balance.type)
+    assert_numeric_money(table.columns.loan_balance_adjustment.type)
     assert "uq_accounts_id_user_id" in constraint_names(
         [
             constraint

@@ -70,6 +70,11 @@ class Account(Base):
         nullable=False,
         server_default="0",
     )
+    loan_balance_adjustment: Mapped[Decimal] = mapped_column(
+        Numeric(18, 4),
+        nullable=False,
+        server_default="0",
+    )
     is_archived: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -101,4 +106,4 @@ class Account(Base):
 
     @property
     def current_balance(self) -> Decimal:
-        return self.opening_balance
+        return self.opening_balance + self.loan_balance_adjustment

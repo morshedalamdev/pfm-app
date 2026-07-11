@@ -221,6 +221,10 @@ class LoanService:
             status="open",
             note=request.note,
         )
+        account.loan_balance_adjustment += self.balance_effect(
+            request.direction,
+            request.principal_amount,
+        )
         await self.loans.create_record(record)
         await self.loans.commit()
         await self.loans.refresh_record(record)
@@ -303,6 +307,12 @@ class LoanService:
             raise InvalidLoanRecordStateError
 
         update_data = request.model_dump(exclude_unset=True)
+        old_account = (
+            await self.get_account_model(record.account_id, current_user)
+            if record.account_id is not None
+            else None
+        )
+        new_account = old_account
         if "person_id" in update_data:
             person = await self.get_person_model(update_data["person_id"], current_user)
             if person.archived_at is not None:
@@ -317,6 +327,25 @@ class LoanService:
                 account.archived_at is not None or account.is_disabled
             ):
                 raise InvalidLoanAccountStateError
+            new_account = account
+
+        balance_fields_changed = bool(
+            {"account_id", "direction", "principal_amount"} & update_data.keys()
+        )
+        if balance_fields_changed:
+            if old_account is not None:
+                old_account.loan_balance_adjustment -= self.balance_effect(
+                    cast(LoanDirection, record.direction),
+                    record.principal_amount,
+                )
+            if new_account is not None:
+                new_account.loan_balance_adjustment += self.balance_effect(
+                    cast(
+                        LoanDirection,
+                        update_data.get("direction", record.direction),
+                    ),
+                    update_data.get("principal_amount", record.principal_amount),
+                )
 
         for field_name in {
             "person_id",
@@ -502,6 +531,10 @@ class LoanService:
         elif record.status == "settled":
             record.status = "open"
             record.settled_at = None
+
+    @staticmethod
+    def balance_effect(direction: LoanDirection, amount: Decimal) -> Decimal:
+        return -amount if direction == "given" else amount
 
     def build_record_response(
         self,

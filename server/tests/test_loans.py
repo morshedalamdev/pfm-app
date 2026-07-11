@@ -433,6 +433,7 @@ def test_loan_account_selection_excludes_inactive_but_preserves_history(
         issued_at="2026-07-01T10:00:00+00:00",
     )
     assert record["account_id"] == account["id"]
+    assert get_account_balance(context, headers, account["id"]) == Decimal("80.0000")
 
     disable_response = context.client.patch(
         f"/api/v1/accounts/{account['id']}/disable",
@@ -452,6 +453,7 @@ def test_loan_account_selection_excludes_inactive_but_preserves_history(
         },
     )
     assert create_with_disabled_response.status_code == 409
+    assert get_account_balance(context, headers, account["id"]) == Decimal("80.0000")
 
     historical_update_response = context.client.patch(
         f"/api/v1/loans/records/{record['id']}",
@@ -460,6 +462,92 @@ def test_loan_account_selection_excludes_inactive_but_preserves_history(
     )
     assert historical_update_response.status_code == 200
     assert historical_update_response.json()["account_id"] == account["id"]
+    assert get_account_balance(context, headers, account["id"]) == Decimal("80.0000")
+
+
+def test_loan_balance_effects_apply_once_and_follow_existing_edits(
+    loan_context: LoanApiContext,
+) -> None:
+    context = loan_context
+    headers = auth_headers(context, "loan-balance-effects@example.com")
+    person = create_person(
+        context,
+        headers,
+        name="Balance person",
+        phone_number="+8801777777777",
+    )
+    primary = create_account(context, headers, name="Primary loan account")
+    secondary = create_account(context, headers, name="Secondary loan account")
+
+    given_record = create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        account_id=primary["id"],
+        direction="given",
+        principal_amount="20.0000",
+        issued_at="2026-07-01T10:00:00+00:00",
+    )
+    assert get_account_balance(context, headers, primary["id"]) == Decimal("80.0000")
+    assert get_account_balance(context, headers, primary["id"]) == Decimal("80.0000")
+
+    create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        account_id=primary["id"],
+        direction="taken",
+        principal_amount="5.0000",
+        issued_at="2026-07-02T10:00:00+00:00",
+    )
+    assert get_account_balance(context, headers, primary["id"]) == Decimal("85.0000")
+
+    note_update = context.client.patch(
+        f"/api/v1/loans/records/{given_record['id']}",
+        headers=headers,
+        json={"note": "No balance change"},
+    )
+    assert note_update.status_code == 200
+    assert get_account_balance(context, headers, primary["id"]) == Decimal("85.0000")
+
+    amount_update = context.client.patch(
+        f"/api/v1/loans/records/{given_record['id']}",
+        headers=headers,
+        json={"principal_amount": "30.0000"},
+    )
+    assert amount_update.status_code == 200
+    assert get_account_balance(context, headers, primary["id"]) == Decimal("75.0000")
+
+    account_update = context.client.patch(
+        f"/api/v1/loans/records/{given_record['id']}",
+        headers=headers,
+        json={"account_id": secondary["id"]},
+    )
+    assert account_update.status_code == 200
+    assert get_account_balance(context, headers, primary["id"]) == Decimal("105.0000")
+    assert get_account_balance(context, headers, secondary["id"]) == Decimal("70.0000")
+
+    direction_update = context.client.patch(
+        f"/api/v1/loans/records/{given_record['id']}",
+        headers=headers,
+        json={"direction": "taken"},
+    )
+    assert direction_update.status_code == 200
+    assert get_account_balance(context, headers, secondary["id"]) == Decimal("130.0000")
+
+    overdraw_account = create_account(context, headers, name="Overdraw account")
+    create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        account_id=overdraw_account["id"],
+        direction="given",
+        principal_amount="150.0000",
+        issued_at="2026-07-03T10:00:00+00:00",
+    )
+    assert get_account_balance(context, headers, overdraw_account["id"]) == Decimal(
+        "-50.0000"
+    )
 
 
 def auth_headers(context: LoanApiContext, email: str) -> dict[str, str]:
@@ -552,6 +640,19 @@ def get_default_account_id(
         account for account in response.json()["items"] if account["is_default"]
     )
     return default_account["id"]
+
+
+def get_account_balance(
+    context: LoanApiContext,
+    headers: dict[str, str],
+    account_id: object,
+) -> Decimal:
+    response = context.client.get(
+        f"/api/v1/accounts/{account_id}",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    return Decimal(response.json()["current_balance"])
 
 
 def create_settlement(
