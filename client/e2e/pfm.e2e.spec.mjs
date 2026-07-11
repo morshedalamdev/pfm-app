@@ -44,16 +44,26 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page).toHaveURL(`${appBaseUrl}/`);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
-  await openFooterMenu(page);
-  await expect(page.getByText("Account", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Add account" }).click();
+  await page.goto("/accounts");
+  await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
   await page.getByLabel("Account name").fill("Pocket Pay");
-  await page.getByLabel("Account type").selectOption("mobile_pay");
+  await page.getByLabel("Account currency").selectOption("BDT");
+  await page.getByLabel("Initial budget / balance").fill("125.50");
   await page.getByRole("button", { name: "Add Account" }).click();
-  await expect(page.getByText("Pocket Pay")).toBeVisible();
-  await page.getByRole("button", { name: "Remove Pocket Pay" }).click();
+  const pocketPay = page.getByRole("button", { name: /Pocket Pay/ });
+  await expect(pocketPay).toContainText("BDT");
+  await pocketPay.click();
+  const accountDialog = page.getByRole("dialog");
+  await expect(
+    accountDialog.getByRole("heading", { name: "Pocket Pay" }),
+  ).toBeVisible();
+  await expect(accountDialog.getByText("BDT", { exact: true })).toBeVisible();
+  await expect(accountDialog.getByText(/BDT.*125\.50/).first()).toBeVisible();
+  await expect(accountDialog.getByText("Active", { exact: true })).toBeVisible();
+  await accountDialog.getByRole("button", { name: "Delete Account" }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Pocket Pay")).toHaveCount(0);
-  await page.getByRole("link", { name: "Settings" }).click();
+  await page.goto("/settings");
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
   await page.getByRole("button", { name: "Save Settings" }).click();
@@ -332,8 +342,4 @@ async function assertRenderedWithoutOverflow(page, path, viewportLabel) {
     );
   });
   expect(hasHorizontalOverflow, `${viewportLabel} ${path}`).toBe(false);
-}
-
-async function openFooterMenu(page) {
-  await page.locator("footer").getByRole("button").last().click();
 }
