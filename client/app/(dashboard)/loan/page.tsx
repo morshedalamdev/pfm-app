@@ -34,9 +34,11 @@ import {
   deleteLoanPerson,
   deleteLoanRecord,
   getLoanSummary,
+  listAccounts,
   listLoanPeople,
   listLoanRecords,
   updateLoanPerson,
+  type Account,
   type LoanDirectionFilter,
   type LoanPerson,
   type LoanRecord,
@@ -75,6 +77,7 @@ const emptyPersonForm: PersonFormState = {
 };
 
 export default function LoanPage() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
   const [direction, setDirection] = useState<LoanDirectionFilter>("all");
@@ -97,11 +100,13 @@ export default function LoanPage() {
     setIsLoading(true);
     setError(null);
     try {
+      const nextAccounts = await listAccounts({ includeArchived: true });
       const [nextPeople, nextRecords, nextSummary] = await Promise.all([
         listLoanPeople(),
         listLoanRecords({ direction, status: "all" }),
         getLoanSummary(userCurrency),
       ]);
+      setAccounts(nextAccounts);
       setPeople(nextPeople);
       setRecords(nextRecords);
       setSummary(nextSummary);
@@ -123,6 +128,10 @@ export default function LoanPage() {
   const peopleById = useMemo(
     () => new Map(people.map((person) => [person.id, person])),
     [people],
+  );
+  const accountsById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
   );
 
   const visibleRecords = useMemo(() => {
@@ -320,6 +329,9 @@ export default function LoanPage() {
               }
               personName={peopleById.get(record.person_id)?.name ?? "Unknown person"}
               record={record}
+              displayCurrency={
+                accountsById.get(record.account_id ?? "")?.currency ?? record.currency
+              }
               settlementError={
                 settlingRecordId === record.id ? settlementError : null
               }

@@ -109,6 +109,12 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     opening_balance: "100.00",
     type: "cash",
   });
+  const loanWallet = await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "Loan Wallet",
+    opening_balance: "100.00",
+    type: "wallet",
+  });
   await postJson(api, "/api/v1/accounts", {
     currency: "USD",
     name: "Emergency Savings",
@@ -178,7 +184,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     repay_date: yesterday.toISOString().slice(0, 10),
   });
   await postJson(api, "/api/v1/loans/records", {
-    account_id: wallet.id,
+    account_id: loanWallet.id,
     currency: "USD",
     direction: "taken",
     issued_at: today,
@@ -207,32 +213,6 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   ]);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
-  await page.goto("/loan");
-  await expect(page.getByRole("heading", { name: "Loan & Debt" })).toBeVisible({
-    timeout: 15000,
-  });
-  const loanSummary = page.getByRole("region", { name: "Loan due summary" });
-  await expect(loanSummary.locator(":scope > *")).toHaveCount(2);
-  await expect(loanSummary.getByText("Given Loan Due", { exact: true })).toBeVisible();
-  await expect(loanSummary.getByText("Taken Loan Due", { exact: true })).toBeVisible();
-  await expect(page.getByText("E2E Friend")).toHaveCount(2);
-  await expect(page.getByText("$250.00").first()).toBeVisible();
-  const overdueLoan = page.locator('[data-overdue="true"]');
-  await expect(overdueLoan).toHaveCount(1);
-  await expect(overdueLoan).toHaveClass(/border-destructive/);
-  await page.getByRole("button", { name: "Manage loan people" }).click();
-  await page.getByRole("button", { name: "Select from contacts" }).click();
-  await expect(page.getByPlaceholder("Person name")).toHaveValue("E2E Contact");
-  await expect(page.getByPlaceholder("Phone number")).toHaveValue("5552223333");
-  await expect(page.getByText("Contact details filled.")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByPlaceholder("Person name")).toBeHidden();
-
-  for (const viewport of viewports) {
-    await page.setViewportSize(viewport);
-    await assertRenderedWithoutOverflow(page, "/loan", viewport.label);
-  }
-
   await page.goto("/transaction/create");
   await expect(page.locator("form")).toBeVisible({ timeout: 60_000 });
   await page
@@ -252,7 +232,9 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await page.getByRole("tab", { name: "Income" }).click();
   await page.locator("form").getByText("Account", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Checking" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Wallet" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Wallet", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Emergency Savings" }),
   ).toBeVisible();
@@ -271,7 +253,9 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(
     page.getByRole("button", { name: "Account: Checking" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Account: Wallet" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Account: Wallet", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Account: Emergency Savings" }),
   ).toBeVisible();
@@ -284,6 +268,33 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByRole("button", { name: "Groceries" })).toBeVisible();
   await page.keyboard.press("Escape");
   await assertDateSelectionStyle(page);
+
+  await page.goto("/loan");
+  await expect(page.getByRole("heading", { name: "Loan & Debt" })).toBeVisible({
+    timeout: 15000,
+  });
+  const loanSummary = page.getByRole("region", { name: "Loan due summary" });
+  await expect(loanSummary.locator(":scope > *")).toHaveCount(2);
+  await expect(loanSummary.getByText("Given Loan Due", { exact: true })).toBeVisible();
+  await expect(loanSummary.getByText("Taken Loan Due", { exact: true })).toBeVisible();
+  await expect(page.getByText("E2E Friend")).toHaveCount(2);
+  await expect(page.getByText("$250.00").first()).toBeVisible();
+  await expect(page.getByText(/BDT.*75\.00/).first()).toBeVisible();
+  const overdueLoan = page.locator('[data-overdue="true"]');
+  await expect(overdueLoan).toHaveCount(1);
+  await expect(overdueLoan).toHaveClass(/border-destructive/);
+  await page.getByRole("button", { name: "Manage loan people" }).click();
+  await page.getByRole("button", { name: "Select from contacts" }).click();
+  await expect(page.getByPlaceholder("Person name")).toHaveValue("E2E Contact");
+  await expect(page.getByPlaceholder("Phone number")).toHaveValue("5552223333");
+  await expect(page.getByText("Contact details filled.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByPlaceholder("Person name")).toBeHidden();
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await assertRenderedWithoutOverflow(page, "/loan", viewport.label);
+  }
 });
 
 async function postJson(api, path, body, headers = {}) {

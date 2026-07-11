@@ -38,6 +38,7 @@ import { decimalInput, formatMoney } from "@/lib/finance/format";
 
 type LoanItemProps = {
   deleteError?: string | null;
+  displayCurrency: string;
   isDeleting?: boolean;
   isSettling?: boolean;
   onDelete?: () => void;
@@ -73,6 +74,7 @@ function localTodayValue(): string {
 
 export default function LoanItem({
   deleteError,
+  displayCurrency,
   isDeleting = false,
   isSettling = false,
   onDelete,
@@ -167,10 +169,10 @@ export default function LoanItem({
                   isOverdue ? "text-destructive" : ""
                 }`}
               >
-                {formatMoney(record.outstanding_amount, record.currency)}
+                {formatMoney(record.outstanding_amount, displayCurrency)}
               </h4>
               <h6 className="text-input">
-                of {formatMoney(record.principal_amount, record.currency)}
+                of {formatMoney(record.principal_amount, displayCurrency)}
               </h6>
             </div>
           </div>
@@ -219,16 +221,16 @@ export default function LoanItem({
             {record.note && <p className="text-secondary/80">{record.note}</p>}
             <div className="flex items-center justify-between my-2">
               <p className="font-bold text-3xl">
-                {formatMoney(record.outstanding_amount, record.currency)}
+                {formatMoney(record.outstanding_amount, displayCurrency)}
               </p>
-              <p>of {formatMoney(record.principal_amount, record.currency)}</p>
+              <p>of {formatMoney(record.principal_amount, displayCurrency)}</p>
             </div>
             <div className="flex items-center justify-between text-secondary/80">
               <div className="flex items-center gap-1">
                 <Calendar className="size-3" />
                 {dateLabel(record.issued_at)}
               </div>
-              <p>{formatMoney(record.settled_amount, record.currency)} settled</p>
+              <p>{formatMoney(record.settled_amount, displayCurrency)} settled</p>
             </div>
             <div className="mt-1 flex items-center gap-1 text-secondary/80">
               <Calendar className="size-3" />
@@ -258,7 +260,7 @@ export default function LoanItem({
                   className="flex items-center justify-between text-sm"
                 >
                   <span>{dateLabel(settlement.settled_at)}</span>
-                  <span>{formatMoney(settlement.amount, settlement.currency)}</span>
+                  <span>{formatMoney(settlement.amount, displayCurrency)}</span>
                 </div>
               ))}
             </div>

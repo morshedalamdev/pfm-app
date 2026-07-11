@@ -301,3 +301,33 @@
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 159 files.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `171 passed, 1 warning`.
+
+## Phase 03.7 - Account Currency Applied to Loan Lists
+
+## Currency Source
+
+- The loan list loads the user's accounts, including disabled and archived accounts needed by historical records.
+- Each linked loan resolves its display currency from the account identified by `account_id`.
+- Stored loan currency no longer overrides the linked account currency on the list surface.
+
+## Legacy Loan Fallback
+
+- A legacy loan without `account_id` continues to use its stored loan currency.
+- A loan whose historical account cannot be resolved also falls back to its stored loan currency.
+
+## List Display
+
+- Given and taken loan cards format outstanding and principal amounts using the selected account currency.
+- No loan form, summary-card, backend contract, balance, settlement, overdue, or repay-date behavior changed in this phase.
+
+## Detail Display
+
+- The detail drawer opened from a loan list card uses the same resolved account currency for outstanding, principal, settled, and settlement-history amounts.
+- `cd client && npm run build`: passed after allowing the configured Google Font fetch.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd client && npm run e2e`: passed with `1 passed` after moving loan verification to the end of the integrated journey and making existing wallet selectors exact for the added `Loan Wallet` fixture.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 159 files.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `171 passed, 1 warning`.
