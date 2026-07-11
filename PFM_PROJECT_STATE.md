@@ -179,6 +179,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | Agent 03 | 03.5 Overdue Loan Red State | PASSED | phase commit created after this state update | Added local-date overdue detection and destructive red card/detail styling for unpaid past-due given and taken loans. |
 | Agent 03 | 03.6 Loan Summary Cards Updated | PASSED | phase commit created after this state update | Replaced the three-card loan summary with given-loan-due and taken-loan-due cards backed by existing unpaid outstanding totals. |
 | Agent 03 | 03.7 Account Currency Applied to Loan Lists | PASSED | phase commit created after this state update | Loan list cards and their detail drawers now resolve amount display currency from each loan's selected account with a legacy stored-currency fallback. |
+| Agent 03 | 03.8 Loan/Debt Regression Verification | PASSED | phase commit created after this state update | Verified account selection, balance effects, repay dates, overdue styling, two-card due summaries, account-currency display, disabled-account behavior, and the full backend/frontend regression suite. |
 
 ## 6. Architecture Decision Log
 
@@ -2716,6 +2717,7 @@ Record only active blockers or intentionally deferred decisions.
 - Agent 03 Phase 03.5 Overdue Loan Red State is passed. Next allowed phase is Agent 03 Phase 03.6, Loan Summary Cards Updated, after user permission.
 - Agent 03 Phase 03.6 Loan Summary Cards Updated is passed. Next allowed phase is Agent 03 Phase 03.7, Account Currency Applied to Loan Lists, after user permission.
 - Agent 03 Phase 03.7 Account Currency Applied to Loan Lists is passed. Next allowed phase is Agent 03 Phase 03.8, Loan/Debt Regression Verification, after user permission.
+- Agent 03 Phase 03.8 Loan/Debt Regression Verification is passed. Agent 03 is complete; next allowed action is Agent 04 planning/generation after user permission.
 
 ## 14. Progress log
 
@@ -2814,3 +2816,4 @@ Append a dated entry after every completed phase.
 - 2026-07-11: Agent 03 Phase 03.5 Overdue Loan Red State passed. Added local-date overdue detection for unpaid past-due given and taken loans, destructive red card and detail styling, and browser coverage proving only the overdue unpaid fixture receives the red state; corrected the E2E fixture issue date to satisfy repay-date validation; verified Ruff, format, API drift, frontend build, full backend tests with `171 passed, 1 warning`, and E2E with `1 passed`; and set the next allowed phase to Agent 03 Phase 03.6 after user permission.
 - 2026-07-11: Agent 03 Phase 03.6 Loan Summary Cards Updated passed. Replaced the three-card loan summary with exactly two responsive cards for unpaid given-loan due and taken-loan due totals, retained base-currency filtering and formatting without adding conversion behavior, added focused browser assertions for the summary region, verified Ruff, format, API drift, frontend build, full backend tests with `171 passed, 1 warning`, and E2E with `1 passed`, and set the next allowed phase to Agent 03 Phase 03.7 after user permission.
 - 2026-07-11: Agent 03 Phase 03.7 Account Currency Applied to Loan Lists passed. Loan list cards and their detail drawers now resolve amount display currency from the selected account, retain stored loan currency as the legacy fallback, bound the added account request before existing loan requests, and add browser coverage for a linked BDT account whose loan record carries USD; verified Ruff, format, API drift, frontend build, full backend tests with `171 passed, 1 warning`, and E2E with `1 passed`, and set the next allowed phase to Agent 03 Phase 03.8 after user permission.
+- 2026-07-11: Agent 03 Phase 03.8 Loan/Debt Regression Verification passed. Created the Agent 03 test report, verified every required account-integration behavior through backend tests, E2E assertions, and code inspection, passed Ruff, format, strict mypy for 110 files, API drift, frontend build, focused tests with `14 passed, 1 warning`, full backend tests with `171 passed, 1 warning`, E2E with `1 passed`, and whitespace checks; Agent 03 is complete and Agent 04 planning/generation requires user permission.
