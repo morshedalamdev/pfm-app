@@ -11,8 +11,11 @@
 - `docs/audit/02_BASELINE_TEST_REPORT.md`
 - `docs/agents/01_SIDEBAR_NAVIGATION_UPDATE.md`
 - `docs/agents/01_SIDEBAR_NAVIGATION_TEST_REPORT.md`
+- `docs/agents/02_ACCOUNT_PAGE_AND_RULES.md`
+- `docs/agents/02_ACCOUNT_TEST_REPORT.md`
 - `client/package.json`
 - `client/lib/finance/api.ts`
+- `client/lib/finance/accounts.ts`
 - `client/app/(dashboard)/loan/page.tsx`
 - `client/app/(dashboard)/loan/[id]/page.tsx`
 - `client/components/items/LoanItem.tsx`
@@ -51,21 +54,22 @@
 - Account records include `name`, `type`, `currency`, `opening_balance`, `is_archived`, and `archived_at`.
 - Active account listing excludes archived accounts through `include_archived=false`.
 - Empty users receive a backend-created default `Cash` account through `ensure_default_account`.
-- Account delete/archive is blocked when referenced by existing transaction or recurring-rule records.
-- `AccountBoard` can create and delete accounts, but the current `/accounts` route is only a placeholder shell.
-- No Agent 02 output docs were found at `docs/agents/02_ACCOUNT_PAGE_AND_RULES.md` or `docs/agents/02_ACCOUNT_TEST_REPORT.md`.
-- No primary/default account field or user-selectable default account behavior was found in the account model, schemas, API response, frontend UI, or generated account types.
+- Agent 02 added `is_default`, `is_disabled`, `disabled_at`, and `current_balance` account fields.
+- Agent 02 added active/default account helpers, including `getActiveAccounts`, `getDefaultAccount`, `getDefaultAccountId`, `getAccountSelectOptions`, and `resolveAccountSelectValue`.
+- Agent 02 added account-currency formatting helpers for later loan and transaction forms.
+- The dedicated `/accounts` page supports account creation, details, disable, safe delete, and default-account selection.
+- Account delete/archive is blocked when referenced by existing transaction or recurring-rule records; loan references remain deferred until loans store account IDs.
+- Agent 02 documentation and verification outputs are present, with its required checks passing.
 
 ## Missing Dependencies
 
-- Agent 02 documentation outputs are missing.
-- Agent 02 standalone account page behavior is incomplete; `/accounts` is still a placeholder route.
-- Agent 02 primary/default-account logic is missing. Existing default bootstrap creates the first `Cash` account for empty users, but it does not identify a user-selected primary/default account for loan forms.
-- Loan/debt can consume active account listing in a later phase, but the requested default/primary auto-selection dependency is not available yet.
+- No required Agent 02 account dependency is missing for phase 03.2.
+- Agent 02 is complete on `feature/account-page-and-account-rules`, but is not merged into `main`; the Agent 03 branch was fast-forwarded to that completed dependency tip for this audit.
+- Loan account linkage and loan-aware account delete eligibility remain Agent 03 work for later phases.
 
 ## Planned Files to Change
 
-- Blocked until Agent 02 default/primary-account behavior exists:
+- Phase 03.2 and later are expected to change:
   - `server/app/modules/loans/models.py`
   - `server/app/modules/loans/schemas.py`
   - `server/app/modules/loans/services.py`
@@ -82,18 +86,18 @@
 
 ## Blockers
 
-- Agent 03 is blocked before phase 03.2 because Agent 02 output docs are missing and the account primary/default-account dependency required by the Agent 03 brief does not exist in code.
+- No code dependency blocker was found. Phase 03.2 must not start without user permission.
 
 ## Test Commands
 
 - `cd client && npm run build`
 - `cd client && npm run lint`: not available; `client/package.json` has no `lint` script.
 - `cd client && npm run typecheck`: not available; `client/package.json` has no `typecheck` script.
-- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py tests/test_accounts_categories.py`
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`
 
 ## Check Results
 
-- `cd client && npm run build`: sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font. Approved rerun could not start because escalated command approval was rejected by the app usage limit.
+- `cd client && npm run build`: passed after an approved rerun. The sandboxed run failed because Next.js could not fetch the configured Google-hosted Urbanist font.
 - `cd client && npm run lint`: not run because no `lint` script exists.
 - `cd client && npm run typecheck`: not run because no `typecheck` script exists.
-- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_loans.py tests/test_accounts_categories.py`: sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`. Approved rerun could not start because escalated command approval was rejected by the app usage limit.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed after an approved rerun with `169 passed, 1 warning`. The sandboxed run failed because the disposable PostgreSQL fixture could not bind `127.0.0.1`.
