@@ -211,6 +211,10 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Loan & Debt" })).toBeVisible({
     timeout: 15000,
   });
+  const loanSummary = page.getByRole("region", { name: "Loan due summary" });
+  await expect(loanSummary.locator(":scope > *")).toHaveCount(2);
+  await expect(loanSummary.getByText("Given Loan Due", { exact: true })).toBeVisible();
+  await expect(loanSummary.getByText("Taken Loan Due", { exact: true })).toBeVisible();
   await expect(page.getByText("E2E Friend")).toHaveCount(2);
   await expect(page.getByText("$250.00").first()).toBeVisible();
   const overdueLoan = page.locator('[data-overdue="true"]');

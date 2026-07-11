@@ -177,6 +177,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | Agent 03 | 03.3 Loan Balance Effects | PASSED | phase commit created after this state update | Added atomic given-loan deductions and taken-loan additions to selected account balances, with migration backfill and edit-safe effect replacement. |
 | Agent 03 | 03.4 Repay Date Added | PASSED | `5ed635e` | Added required direction-specific repay dates to loan create/edit contracts, forms, list cards, and details with legacy-safe persistence and date validation. |
 | Agent 03 | 03.5 Overdue Loan Red State | PASSED | phase commit created after this state update | Added local-date overdue detection and destructive red card/detail styling for unpaid past-due given and taken loans. |
+| Agent 03 | 03.6 Loan Summary Cards Updated | PASSED | phase commit created after this state update | Replaced the three-card loan summary with given-loan-due and taken-loan-due cards backed by existing unpaid outstanding totals. |
 
 ## 6. Architecture Decision Log
 
@@ -2712,6 +2713,7 @@ Record only active blockers or intentionally deferred decisions.
 - Agent 03 Phase 03.3 Loan Balance Effects is passed. Next allowed phase is Agent 03 Phase 03.4, Repay Date Added, after user permission.
 - Agent 03 Phase 03.4 Repay Date Added is passed. Next allowed phase is Agent 03 Phase 03.5, Overdue Loan Red State, after user permission.
 - Agent 03 Phase 03.5 Overdue Loan Red State is passed. Next allowed phase is Agent 03 Phase 03.6, Loan Summary Cards Updated, after user permission.
+- Agent 03 Phase 03.6 Loan Summary Cards Updated is passed. Next allowed phase is Agent 03 Phase 03.7, Multi-Currency and Account Edge Cases, after user permission.
 
 ## 14. Progress log
 
@@ -2808,3 +2810,4 @@ Append a dated entry after every completed phase.
 - 2026-07-11: Agent 03 Phase 03.3 Loan Balance Effects passed. Added persisted account loan adjustments, atomic given-loan deductions and taken-loan additions, migration backfill for account-linked loans, and edit-safe effect replacement without adding insufficient-funds, settlement, repayment, or deletion-reversal rules; verified Ruff, format, API drift, frontend build, focused loan/account tests, and the full backend suite with `171 passed, 1 warning`; and set the next allowed phase to Agent 03 Phase 03.4 after user permission.
 - 2026-07-11: Agent 03 Phase 03.4 Repay Date Added passed in commit `5ed635e`. Added legacy-safe `repay_date` persistence, required create and partial-update validation, direction-specific form labels, and repay-date display in loan cards/details without implementing overdue styling; verified Ruff, format, API drift, frontend build, focused loan tests, and the full backend suite with `171 passed, 1 warning`; the optional E2E rerun was blocked by the app usage limit; and set the next allowed phase to Agent 03 Phase 03.5 after user permission.
 - 2026-07-11: Agent 03 Phase 03.5 Overdue Loan Red State passed. Added local-date overdue detection for unpaid past-due given and taken loans, destructive red card and detail styling, and browser coverage proving only the overdue unpaid fixture receives the red state; corrected the E2E fixture issue date to satisfy repay-date validation; verified Ruff, format, API drift, frontend build, full backend tests with `171 passed, 1 warning`, and E2E with `1 passed`; and set the next allowed phase to Agent 03 Phase 03.6 after user permission.
+- 2026-07-11: Agent 03 Phase 03.6 Loan Summary Cards Updated passed. Replaced the three-card loan summary with exactly two responsive cards for unpaid given-loan due and taken-loan due totals, retained base-currency filtering and formatting without adding conversion behavior, added focused browser assertions for the summary region, verified Ruff, format, API drift, frontend build, full backend tests with `171 passed, 1 warning`, and E2E with `1 passed`, and set the next allowed phase to Agent 03 Phase 03.7 after user permission.

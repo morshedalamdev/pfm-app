@@ -262,18 +262,17 @@ export default function LoanPage() {
           </Link>
         </div>
       </Header>
-      <section className="grid grid-cols-3 gap-2 p-3 pb-0">
+      <section
+        aria-label="Loan due summary"
+        className="grid grid-cols-2 gap-2 p-3 pb-0"
+      >
         <HeaderItem
-          title="Given"
+          title="Given Loan Due"
           amount={formatMoney(summary?.total_loan_given ?? "0", userCurrency)}
         />
         <HeaderItem
-          title="Taken"
+          title="Taken Loan Due"
           amount={formatMoney(summary?.total_loan_taken ?? "0", userCurrency)}
-        />
-        <HeaderItem
-          title="Due"
-          amount={formatMoney(summary?.due_loan ?? "0", userCurrency)}
         />
       </section>
       <section className="flex items-center justify-between gap-1.5 p-3">

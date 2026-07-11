@@ -265,3 +265,39 @@
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 159 files.
 - `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `171 passed, 1 warning`.
+
+## Phase 03.6 - Loan Summary Cards Updated
+
+## Removed Card
+
+- The loan page no longer shows the third net `Due` summary card.
+- The summary row now contains exactly two cards.
+
+## Given Loan Due Calculation
+
+- `Given Loan Due` displays the existing `total_loan_given` summary value.
+- The backend calculates it as the sum of each given loan's principal minus its settlements, clamped at zero, so paid amounts are excluded.
+
+## Taken Loan Due Calculation
+
+- `Taken Loan Due` displays the existing `total_loan_taken` summary value.
+- The backend calculates it as the sum of each taken loan's principal minus its settlements, clamped at zero, so paid amounts are excluded.
+
+## Currency Display Rule
+
+- Both cards use the user's current base currency for the summary request and money formatting.
+- The existing summary endpoint filters records to that currency. Cross-currency conversion and aggregation remain deferred.
+
+## Responsive Layout
+
+- The two summary cards share an equal-width two-column row at supported viewport sizes.
+- The summary region has an accessible label used by focused browser regression coverage.
+- No backend schema, API, balance, settlement, overdue, or repay-date behavior changed in this phase.
+- `cd client && npm run build`: passed after allowing the configured Google Font fetch.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd client && npm run e2e`: passed with `1 passed`.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff check app tests`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" ruff format --check app tests alembic/versions`: passed for 159 files.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `171 passed, 1 warning`.
