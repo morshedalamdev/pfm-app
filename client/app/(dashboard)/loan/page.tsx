@@ -34,9 +34,11 @@ import {
   deleteLoanPerson,
   deleteLoanRecord,
   getLoanSummary,
+  listAccounts,
   listLoanPeople,
   listLoanRecords,
   updateLoanPerson,
+  type Account,
   type LoanDirectionFilter,
   type LoanPerson,
   type LoanRecord,
@@ -75,6 +77,7 @@ const emptyPersonForm: PersonFormState = {
 };
 
 export default function LoanPage() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
   const [direction, setDirection] = useState<LoanDirectionFilter>("all");
@@ -97,11 +100,13 @@ export default function LoanPage() {
     setIsLoading(true);
     setError(null);
     try {
+      const nextAccounts = await listAccounts({ includeArchived: true });
       const [nextPeople, nextRecords, nextSummary] = await Promise.all([
         listLoanPeople(),
         listLoanRecords({ direction, status: "all" }),
         getLoanSummary(userCurrency),
       ]);
+      setAccounts(nextAccounts);
       setPeople(nextPeople);
       setRecords(nextRecords);
       setSummary(nextSummary);
@@ -123,6 +128,10 @@ export default function LoanPage() {
   const peopleById = useMemo(
     () => new Map(people.map((person) => [person.id, person])),
     [people],
+  );
+  const accountsById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
   );
 
   const visibleRecords = useMemo(() => {
@@ -262,18 +271,17 @@ export default function LoanPage() {
           </Link>
         </div>
       </Header>
-      <section className="grid grid-cols-3 gap-2 p-3 pb-0">
+      <section
+        aria-label="Loan due summary"
+        className="grid grid-cols-2 gap-2 p-3 pb-0"
+      >
         <HeaderItem
-          title="Given"
+          title="Given Loan Due"
           amount={formatMoney(summary?.total_loan_given ?? "0", userCurrency)}
         />
         <HeaderItem
-          title="Taken"
+          title="Taken Loan Due"
           amount={formatMoney(summary?.total_loan_taken ?? "0", userCurrency)}
-        />
-        <HeaderItem
-          title="Due"
-          amount={formatMoney(summary?.due_loan ?? "0", userCurrency)}
         />
       </section>
       <section className="flex items-center justify-between gap-1.5 p-3">
@@ -321,6 +329,9 @@ export default function LoanPage() {
               }
               personName={peopleById.get(record.person_id)?.name ?? "Unknown person"}
               record={record}
+              displayCurrency={
+                accountsById.get(record.account_id ?? "")?.currency ?? record.currency
+              }
               settlementError={
                 settlingRecordId === record.id ? settlementError : null
               }

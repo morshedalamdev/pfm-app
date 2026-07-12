@@ -38,6 +38,7 @@ import { decimalInput, formatMoney } from "@/lib/finance/format";
 
 type LoanItemProps = {
   deleteError?: string | null;
+  displayCurrency: string;
   isDeleting?: boolean;
   isSettling?: boolean;
   onDelete?: () => void;
@@ -48,19 +49,32 @@ type LoanItemProps = {
 };
 
 function dateLabel(value: string): string {
+  const parsedValue = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00`)
+    : new Date(value);
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(parsedValue);
 }
 
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function localTodayValue(): string {
+  const today = new Date();
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export default function LoanItem({
   deleteError,
+  displayCurrency,
   isDeleting = false,
   isSettling = false,
   onDelete,
@@ -123,11 +137,24 @@ export default function LoanItem({
   const isGiven = record.direction === "given";
   const statusText = isGiven ? "Owes you" : "You owe";
   const itemTitle = isGiven ? "Given Details" : "Taken Details";
+  const repayDateLabel = isGiven ? "Expected back" : "Repay by";
+  const isOverdue = Boolean(
+    record.repay_date &&
+      record.repay_date < localTodayValue() &&
+      Number(record.outstanding_amount) > 0,
+  );
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => void handleOpenChange(open)}>
       <DrawerTrigger asChild>
-        <div className="border border-input rounded-md p-3 space-y-3 text-xs">
+        <div
+          data-overdue={isOverdue ? "true" : "false"}
+          className={`border rounded-md p-3 space-y-3 text-xs ${
+            isOverdue
+              ? "border-destructive bg-destructive/10"
+              : "border-input"
+          }`}
+        >
           <div className="flex flex-wrap">
             <Button variant="secondary" size="icon">
               {isGiven ? <HandCoins /> : <Coins />}
@@ -137,11 +164,15 @@ export default function LoanItem({
               <h5 className="text-input line-clamp-1">{statusText}</h5>
             </div>
             <div className="text-end">
-              <h4 className="font-bold text-base">
-                {formatMoney(record.outstanding_amount, record.currency)}
+              <h4
+                className={`font-bold text-base ${
+                  isOverdue ? "text-destructive" : ""
+                }`}
+              >
+                {formatMoney(record.outstanding_amount, displayCurrency)}
               </h4>
               <h6 className="text-input">
-                of {formatMoney(record.principal_amount, record.currency)}
+                of {formatMoney(record.principal_amount, displayCurrency)}
               </h6>
             </div>
           </div>
@@ -156,6 +187,15 @@ export default function LoanItem({
             </div>
             <p className="capitalize">{record.status}</p>
           </div>
+          <div
+            className={`flex items-center gap-1 ${
+              isOverdue ? "font-semibold text-destructive" : "text-input"
+            }`}
+          >
+            <Calendar className="size-2.5" />
+            {repayDateLabel}{" "}
+            {record.repay_date ? dateLabel(record.repay_date) : "not set"}
+          </div>
         </div>
       </DrawerTrigger>
       <DrawerContent>
@@ -164,6 +204,11 @@ export default function LoanItem({
         </DrawerHeader>
         <div className="px-3 space-y-3 overflow-y-auto">
           <div>
+            {isOverdue && (
+              <p className="mb-2 rounded-md border border-destructive bg-destructive/10 px-2 py-1 font-semibold text-destructive">
+                Overdue
+              </p>
+            )}
             <div className="flex gap-1">
               <h3 className="flex-1 font-bold text-lg line-clamp-1">
                 {personName}
@@ -176,16 +221,21 @@ export default function LoanItem({
             {record.note && <p className="text-secondary/80">{record.note}</p>}
             <div className="flex items-center justify-between my-2">
               <p className="font-bold text-3xl">
-                {formatMoney(record.outstanding_amount, record.currency)}
+                {formatMoney(record.outstanding_amount, displayCurrency)}
               </p>
-              <p>of {formatMoney(record.principal_amount, record.currency)}</p>
+              <p>of {formatMoney(record.principal_amount, displayCurrency)}</p>
             </div>
             <div className="flex items-center justify-between text-secondary/80">
               <div className="flex items-center gap-1">
                 <Calendar className="size-3" />
                 {dateLabel(record.issued_at)}
               </div>
-              <p>{formatMoney(record.settled_amount, record.currency)} settled</p>
+              <p>{formatMoney(record.settled_amount, displayCurrency)} settled</p>
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-secondary/80">
+              <Calendar className="size-3" />
+              {repayDateLabel}{" "}
+              {record.repay_date ? dateLabel(record.repay_date) : "not set"}
             </div>
           </div>
           <div className="rounded-md border border-border p-2">
@@ -210,7 +260,7 @@ export default function LoanItem({
                   className="flex items-center justify-between text-sm"
                 >
                   <span>{dateLabel(settlement.settled_at)}</span>
-                  <span>{formatMoney(settlement.amount, settlement.currency)}</span>
+                  <span>{formatMoney(settlement.amount, displayCurrency)}</span>
                 </div>
               ))}
             </div>

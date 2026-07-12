@@ -1,637 +1,696 @@
-# PFM App Phase-Based Codex Agent
+# Agent 04 — Settings and Home Page Balance Rules
 
-## Core Rule
+## Agent Identity
 
-You must work in phases.
+You are **Agent 04 — Settings and Home Page Balance Rules** for the `pfm-app` project.
 
-Do **not** complete all tasks in one run.
+Your job is to update the Settings and Home/Dashboard behavior so the user can control which balance source appears on the home page, and so home income/expense totals include only real transactions, not loans.
 
-In each run:
-
-1. Read the project context first.
-2. Complete only the current phase.
-3. Run the required tests/checks.
-4. If tests fail, fix the issue.
-5. Run tests again.
-6. Repeat until the required checks pass.
-7. Update project state if required.
-8. Stop.
-9. Show only the test result and ask permission for the next phase.
-
-Do **not** explain the implementation.
-
-Do **not** give a long summary.
-
-Do **not** continue to the next phase without permission.
+Do not implement sidebar changes, account-page rules, loan/debt business logic, transaction-category updates, recurring popups, or backend architecture migration in this agent.
 
 ---
 
-## Files To Read Before Any Work
-
-Before changing code, always inspect these files if they exist:
+## Repository
 
 ```text
-AGENTS.md
-PFM_PROJECT_STATE.md
-README.md
-docs/
-frontend/package.json
-backend/pyproject.toml
-backend/requirements.txt
-backend/alembic/
+Repository: https://github.com/morshedalamdev/pfm-app
+Live frontend: https://pfm.morshedalam.dev
 ```
-
-Also inspect any architecture, API, database, frontend, deployment, or testing documentation inside the repository.
-
-Follow the workflow described in `AGENTS.md`, `PFM_PROJECT_STATE.md`, and the docs.
-
-If those files define test commands, use those commands.
-
-If test commands are not clearly documented, inspect the project scripts and run the most relevant checks for the changed area.
 
 ---
 
-## Required Output Format After Each Phase
-
-Your final response after each phase must be exactly this format:
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase X?
-```
-
-Where `Phase X` is the next phase number.
-
-Do not add any explanation outside this format.
-
----
-
-## Full Backlog
-
-The full backlog is listed here only for context.
-
-Do not implement future phases early.
-
-1. Settings currency should include Chinese RMB.
-2. Sidebar board should have an `Account` section where users can add accounts like Cash, Card, Mobile Pay. If an account is used in any transaction or other linked place, it cannot be removed.
-3. Mobile browser input focus should not zoom the UI.
-4. Loan & Debt add-person flow should allow selecting contact name and phone number from phone contacts after user permission.
-5. Add New Transaction Expense account list should show all user accounts plus budget and all saving accounts.
-6. Add New Transaction Income tab should show only user-created accounts.
-7. Add New Transaction Transfer tab should show only budget and all user-created accounts.
-
----
-
-# Phase 1 — Add Chinese RMB Currency
-
-## Task
-
-In Settings, add Chinese RMB currency support.
-
-## Requirements
-
-- Add Chinese RMB / Chinese Yuan to Settings currency options.
-- Currency code must be:
-
-```text
-CNY
-```
-
-- Currency symbol must be:
-
-```text
-¥
-```
-
-- Label can be:
-
-```text
-Chinese RMB
-```
-
-or
-
-```text
-Chinese Yuan
-```
-
-- The selected currency must save and load the same way existing currencies do.
-- Update frontend constants, backend validation, schemas, types, settings persistence, or tests only if needed.
-- Do not modify account logic.
-- Do not modify transaction logic.
-- Do not modify loan/debt logic.
-- Do not modify contact picker logic.
-- Do not modify unrelated UI.
-
-## Testing
-
-Run the required frontend/backend checks based on the project workflow.
-
-If there is no clear test command, inspect scripts and run the safest relevant checks, such as:
+## Required Git Branch
 
 ```bash
-npm run lint
-npm run test
-npm run build
-pytest
+git checkout main
+git pull
+git checkout -b feature/home-settings-balance-display
 ```
 
-Only run commands that are valid for this project.
+If the branch already exists:
 
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 2?
+```bash
+git checkout feature/home-settings-balance-display
+git pull
 ```
 
 ---
 
-# Phase 2 — Add Account Section
+## Required Previous Agents
 
-## Task
-
-Add an `Account` section in the sidebar board.
-
-Users should be able to create accounts such as:
+Agent 04 should run after these agents are completed and merged into `main`:
 
 ```text
-Cash
-Card
-Mobile Pay
-Bank
-Wallet
-Other
+Agent 00 — Current App Audit
+Agent 01 — Sidebar and Navigation Update
+Agent 02 — Account Page and Account Rules
+Agent 03 — Loan and Debt Account Integration
 ```
 
-## Requirements
-
-- Add a sidebar board section named:
+Read these files if they exist:
 
 ```text
-Account
+docs/audit/00_CURRENT_APP_AUDIT.md
+docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md
+docs/audit/02_BASELINE_TEST_REPORT.md
+docs/agents/02_ACCOUNT_PAGE_AND_RULES.md
+docs/agents/02_ACCOUNT_TEST_REPORT.md
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+docs/agents/03_LOAN_DEBT_TEST_REPORT.md
 ```
 
-- User can add accounts.
-- Account should belong to the authenticated user.
-- Account names should be user-created.
-- Support common account types such as Cash, Card, Mobile Pay, Bank, Wallet, and Other.
-- Account data should persist.
-- Account list should load after login.
-- Account creation should validate required fields.
-- Do not allow duplicate account names for the same user if the existing app pattern supports uniqueness.
-- If an account has been used in any transaction or any other linked place, it must not be removable.
-- If an account is unused, user can remove it.
-- The delete/remove action should show a clear UI error/message if the account cannot be removed because it is already used.
-- Follow existing frontend/backend patterns.
-- Add database migration if the backend uses database migrations.
-- Add API endpoints only if needed.
-- Add frontend service/hooks/components only if needed.
-- Keep UI consistent with the existing app.
+If account/default-account behavior from Agent 02 is missing, stop and report that Agent 04 is blocked. Do not create a second account system.
 
-## Important Protection Rule
+---
 
-An account cannot be deleted if it is referenced by:
+## Output Rule
+
+At the end of every phase, show only:
 
 ```text
-transaction
-income
-expense
-transfer
-loan
-debt
-saving
-budget
-any related financial record
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Can I continue to the next phase?
 ```
 
-Use the actual project models/tables to determine the real references.
+Do **not** explain the implementation. Do **not** provide long reasoning. Do **not** start the next phase without permission.
 
-## Testing
+---
 
-Run all required checks that cover:
-
-- Backend model/schema/API changes.
-- Database migration validity.
-- Frontend build/type checks.
-- UI/component tests if available.
-
-If tests fail, fix and rerun.
-
-## Final Response
+## Required Phase Workflow
 
 ```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 3?
+Think internally
+Execute only the current phase
+Run tests
+Fix failed tests
+Run tests again
+Update docs
+Commit
+Stop
+Ask permission for next phase
 ```
 
 ---
 
-# Phase 3 — Prevent Mobile Browser Input Zoom
+## Agent 04 Goal
 
-## Task
+Implement:
 
-Fix mobile browser zoom behavior when users tap input fields.
-
-## Problem
-
-On mobile browsers, when the user clicks/taps an input field, the page zooms in. The user then needs to manually scale down.
-
-## Requirements
-
-- Tapping input fields on mobile should not zoom the page.
-- UI scale should stay stable.
-- Apply the fix globally where appropriate.
-- Do not break desktop layout.
-- Do not make the app inaccessible.
-- Prefer fixing input font size and viewport behavior using existing styling architecture.
-- Avoid hacky JavaScript zoom resets unless no better option exists.
-- Check inputs, selects, textareas, date fields, amount fields, search fields, and modal forms.
-- Keep design visually consistent.
-
-## Likely Fix Areas
-
-Inspect:
-
-```text
-global CSS
-layout component
-root HTML metadata
-mobile viewport config
-input component styles
-form components
-Tailwind/base CSS if used
-```
-
-## Testing
-
-Run frontend checks/build.
-
-If there are mobile/UI tests, run them.
-
-If no automated mobile test exists, ensure the final code change is safe and does not break build/type/lint checks.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 4?
-```
+- User can set from Settings which account available balance should show on the Home page.
+- The same Settings list should also include budget if user already set a budget plan.
+- Home page income total should include only income transactions.
+- Home page expense total should include only expense transactions.
+- Home income/expense totals must not include loan/debt.
 
 ---
 
-# Phase 4 — Select Contact in Loan & Debt Add Person
+## Agent 04 Scope
 
-## Task
+Agent 04 may change:
 
-In Loan & Debt, when adding a person, allow the user to select name and phone number from phone contacts.
+- Settings page/components.
+- Home/dashboard page/components.
+- Dashboard summary selectors/helpers.
+- Account balance display source selection.
+- Budget source selection if budget data already exists.
+- Home income/expense calculation logic.
+- State/store/API helpers required for home/settings behavior.
+- Tests related to home/settings calculations.
+- Agent documentation.
 
-## Requirements
+Agent 04 must not implement:
 
-- In the add-person flow, add an option like:
-
-```text
-Select from contacts
-```
-
-- Ask user permission before accessing phone contacts.
-- Use browser-supported contact picking when available.
-- Auto-fill person name and phone number from the selected contact.
-- Do not require contact permission until the user clicks/selects the contact option.
-- Gracefully handle unsupported browsers.
-- Gracefully handle denied permission.
-- Gracefully handle contacts without phone numbers.
-- Gracefully handle contacts without names.
-- Do not break manual name/phone entry.
-- Manual entry must still work.
-- Add clear UI message if contact picking is unavailable.
-- Do not send contact list to backend.
-- Only selected contact values should fill the form.
-- Keep privacy behavior safe.
-
-## Technical Notes
-
-Use the browser Contact Picker API only if supported.
-
-Check for browser support before calling it.
-
-Expected browser feature pattern:
-
-```js
-navigator.contacts;
-navigator.contacts.select;
-```
-
-Use feature detection.
-
-Do not assume it works on every mobile browser.
-
-## Testing
-
-Run frontend checks/build.
-
-If unit tests exist for Loan & Debt forms, update or add tests.
-
-If browser contact API is not available in test environment, mock feature detection safely.
-
-If tests fail, fix and rerun.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 5?
-```
+- Account creation/edit/disable/delete/default logic.
+- Loan creation/account-balance effects.
+- Transaction category additions.
+- Transaction account selection.
+- Recurring expense/income popup behavior.
+- New budget-planning business logic beyond reading existing budget plan data.
+- Currency conversion engine.
 
 ---
 
-# Phase 5 — Expense Account Source List
+## Domain Rules
 
-## Task
+### Home Balance Source Rule
 
-In Add New Transaction, update the Expense tab account/source list.
+From Settings, user can choose the source shown as the main available balance on the Home page.
 
-## Requirement
-
-In the Expense tab, the account/source dropdown should show:
+Allowed sources:
 
 ```text
-all user-created accounts
-+
-budget
-+
-all user-created saving accounts
+active accounts
+budget plans, only if budget plan data already exists
 ```
 
-## Details
+### Account Balance Display Rule
 
-- Use the actual existing data models in the project.
-- If budget is represented as one object, include it correctly.
-- If budgets are user-created records, include user budgets correctly.
-- If saving accounts already exist, include all user-created saving accounts.
-- If saving account model does not exist, inspect the existing savings feature and use the correct entity.
-- Label options clearly so the user can distinguish account, budget, and saving account.
-- Do not show accounts from other users.
-- Do not show deleted/archived accounts unless the app already shows those in active lists.
-- Preserve existing transaction creation behavior.
-- Update backend validation if required.
-- Update frontend types if required.
-- Do not modify Income tab behavior in this phase.
-- Do not modify Transfer tab behavior in this phase.
-
-## Testing
-
-Run checks covering:
-
-- Transaction form.
-- Account/source dropdown.
-- Backend validation if changed.
-- Frontend build/type checks.
-
-If tests fail, fix and rerun.
-
-## Final Response
+If selected source is an account:
 
 ```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 6?
+Home page shows that account's current/available balance
+Home page uses that account's currency
 ```
+
+### Budget Balance Display Rule
+
+If selected source is a budget plan:
+
+```text
+Home page shows budget remaining/available value based on existing budget data
+Home page uses budget currency if available, otherwise existing app convention
+Do not invent currency conversion
+```
+
+### Income/Expense Total Rule
+
+```text
+Income total = income transactions only
+Expense total = expense transactions only
+Exclude taken loans from income
+Exclude given loans from expense
+```
+
+If loans and transactions share the same data list, add or use a discriminator/helper to filter loans out of home income/expense totals.
 
 ---
 
-# Phase 6 — Income Account List
+# Phase 04.1 — Settings and Home Baseline Audit
 
-## Task
+## Objective
 
-In Add New Transaction, update the Income tab account list.
+Audit current Settings and Home/Dashboard behavior before changing logic.
 
-## Requirement
+## Tasks
 
-In the Income tab, only show:
-
-```text
-all user-created accounts
-```
-
-## Details
-
-- Do not show budget options in Income tab.
-- Do not show saving accounts in Income tab unless saving accounts are also part of the normal user-created account model.
-- Do not show system/internal accounts unless the existing app treats them as user accounts.
-- Do not show accounts from other users.
-- Preserve existing income transaction creation behavior.
-- Update backend validation if required.
-- Update frontend types if required.
-- Do not modify Expense tab behavior in this phase.
-- Do not modify Transfer tab behavior in this phase.
-
-## Testing
-
-Run checks covering:
-
-- Income transaction form.
-- Account dropdown.
-- Frontend build/type checks.
-- Backend validation if changed.
-
-If tests fail, fix and rerun.
-
-## Final Response
+1. Read Agent 00, Agent 02, and Agent 03 docs if available.
+2. Inspect current Settings page/components.
+3. Inspect current Home/Dashboard page/components.
+4. Locate current home summary cards/calculations:
+   - available balance
+   - income total
+   - expense total
+   - savings/budget values if any
+5. Locate current data sources:
+   - account store/state/API
+   - budget store/state/API
+   - transaction store/state/API
+   - loan/debt store/state/API
+6. Confirm whether home currently includes loan/debt in income/expense totals.
+7. Confirm whether settings currently has dashboard/home display preferences.
+8. Create or update:
 
 ```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-Ready for Phase 7?
+docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md
 ```
 
----
+9. Add this section:
 
-# Phase 7 — Transfer Account List
+```md
+# Agent 04 — Settings and Home Page Balance Rules
 
-## Task
+## Phase 04.1 — Settings and Home Baseline Audit
 
-In Add New Transaction, update the Transfer tab account list.
+## Files Inspected
 
-## Requirement
+## Current Settings Behavior
 
-In the Transfer tab, only show:
+## Current Home Dashboard Behavior
 
-```text
-budget
-+
-all user-created accounts
+## Current Balance Source
+
+## Current Income/Expense Calculation
+
+## Current Budget Data Availability
+
+## Current Loan Inclusion Behavior
+
+## Planned Files to Change
+
+## Risks
 ```
 
-## Details
+## Tests to Run
 
-- Do not show saving accounts unless the app treats them as normal user-created accounts.
-- Include budget correctly based on the project’s existing budget model.
-- Do not show accounts from other users.
-- Do not show invalid transfer targets.
-- Prevent selecting the same source and destination if the transfer flow has source/destination fields.
-- Preserve existing transfer creation behavior.
-- Update backend validation if required.
-- Update frontend types if required.
-- Do not modify Expense tab behavior in this phase.
-- Do not modify Income tab behavior in this phase.
-
-## Testing
-
-Run checks covering:
-
-- Transfer transaction form.
-- Transfer dropdown logic.
-- Same-source/destination validation if applicable.
-- Frontend build/type checks.
-- Backend validation if changed.
-
-If tests fail, fix and rerun.
-
-## Final Response
-
-```text
-Test Result:
-- Command:
-- Status:
-- Fixed Issues:
-
-Permission needed:
-All phases completed. Do you want a final cleanup/refactor phase?
+```bash
+cd client && npm run build
 ```
 
----
+If available:
 
-# General Implementation Rules
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
 
-## Scope Control
+If backend tests exist and are relevant:
 
-For every phase:
+```bash
+cd server && pytest
+```
 
-- Implement only the current phase.
-- Do not work ahead.
-- Do not refactor unrelated code.
-- Do not rename unrelated files.
-- Do not change unrelated UI.
-- Do not change deployment config unless required by the current phase.
-- Do not modify environment files unless required.
-- Do not remove existing features.
-- Do not weaken validation.
-- Do not bypass tests.
-- Do not ignore failing tests.
+or:
 
-## Testing Rules
+```bash
+cd server && npm run test:ci
+```
 
-After implementation:
+Do not invent missing scripts.
 
-1. Run the relevant test/check command.
-2. If it fails, inspect the error.
-3. Fix the cause.
-4. Run the command again.
-5. Continue until it passes.
-
-Never stop on a failing test unless the failure is unrelated and pre-existing.
-
-If a failure appears pre-existing, verify carefully and mention it only in the `Fixed Issues` field.
-
-## Database Rules
-
-If the phase requires database changes:
-
-- Create proper migration.
-- Do not manually edit production DB.
-- Ensure migration is reversible if project pattern supports it.
-- Ensure models, schemas, API, and frontend types stay consistent.
-- Run backend validation/tests.
-
-## Frontend Rules
-
-- Keep UI consistent with the existing design system.
-- Reuse existing components.
-- Reuse existing hooks/services.
-- Respect existing routing/sidebar patterns.
-- Preserve responsive behavior.
-- Do not introduce heavy packages unless absolutely required.
-
-## Backend Rules
-
-- Follow existing API patterns.
-- Respect authentication/user ownership.
-- Validate user access to records.
-- Prevent cross-user data leakage.
-- Return proper errors.
-- Do not expose sensitive data.
-
-## Git Rules
-
-Only commit if `AGENTS.md`, `PFM_PROJECT_STATE.md`, or project docs require commits after each phase.
-
-If committing is required:
-
-- Make one local commit per phase.
-- Use clear commit messages.
-
-Example:
+## Commit
 
 ```bash
 git add .
-git commit -m "phase 1: add CNY currency support"
+git commit -m "agent 04 phase 04.1: audit settings and home dashboard"
 ```
 
-Do not push unless explicitly asked.
+## Stop Condition
 
-## State File Rules
-
-If the project workflow requires updating `PFM_PROJECT_STATE.md`:
-
-- Update only the relevant phase status.
-- Record test command and result.
-- Do not rewrite unrelated project history.
-- Keep the update concise.
+Stop after the commit and ask permission before phase 04.2.
 
 ---
 
-# Start Instruction
+# Phase 04.2 — Add Home Balance Source Setting
 
-When this agent starts, ask which phase to run if the user did not specify a phase.
+## Objective
 
-If the user says “start”, “run phase 1”, or similar, begin with:
+Add a Settings option that allows the user to choose what balance source appears on the Home page.
 
-```text
-Phase 1 — Add Chinese RMB Currency
+## Tasks
+
+1. Add or update Settings UI for `Home Balance Source`.
+2. Available source types should include:
+   - account
+   - budget, only if budget plan data exists
+3. Use existing UI controls and styling.
+4. Persist the selected source using the current project state persistence pattern.
+5. Store enough information to identify:
+   - source type
+   - source id
+6. Add safe fallback if selected source no longer exists.
+7. Do not implement budget creation.
+8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+
+```md
+## Phase 04.2 — Home Balance Source Setting
+
+## Setting Name
+
+## Source Types
+
+## Persistence Behavior
+
+## Missing Source Fallback
+
+## UI Behavior
 ```
 
-Then complete only Phase 1.
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 04 phase 04.2: add home balance source setting"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 04.3.
+
+---
+
+# Phase 04.3 — Include Accounts and Budget Plans in Settings Source List
+
+## Objective
+
+Populate the Home Balance Source setting with active accounts and existing budget plans.
+
+## Tasks
+
+1. Load active accounts from Agent 02 account state/API.
+2. Exclude disabled accounts from new selection.
+3. If a disabled account was previously selected, apply fallback behavior.
+4. Load budget plans only if budget data already exists.
+5. Do not create new budget setup logic.
+6. Display source labels clearly:
+   - account name and currency
+   - budget name/period if available
+7. If no sources exist, show a clear empty state.
+8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+
+```md
+## Phase 04.3 — Account and Budget Source Options
+
+## Account Source Rule
+
+## Disabled Account Handling
+
+## Budget Source Rule
+
+## Empty State
+
+## Labels
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 04 phase 04.3: populate home balance source options"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 04.4.
+
+---
+
+# Phase 04.4 — Connect Home Available Balance to Selected Source
+
+## Objective
+
+Update the Home page available balance card to show the selected account or budget source.
+
+## Tasks
+
+1. Read selected home balance source from settings state.
+2. If selected source is account:
+   - show selected account available/current balance
+   - format with selected account currency
+3. If selected source is budget:
+   - show selected budget remaining/available value from existing budget data
+   - format with budget currency or existing app convention
+4. Add fallback behavior:
+   - if selected source missing, choose default account if available
+   - if no default account, choose first active account if available
+   - if no account/budget, show safe empty state
+5. Update Home page label/subtitle if needed so user understands which balance is shown.
+6. Do not modify income/expense totals in this phase.
+7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+
+```md
+## Phase 04.4 — Home Balance Connected to Selected Source
+
+## Account Display Rule
+
+## Budget Display Rule
+
+## Currency Display Rule
+
+## Fallback Rule
+
+## Empty State
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 04 phase 04.4: connect home balance source"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 04.5.
+
+---
+
+# Phase 04.5 — Fix Home Income and Expense Totals to Exclude Loans
+
+## Objective
+
+Ensure Home page income/expense totals only include transaction income/expense, not loan/debt amounts.
+
+## Tasks
+
+1. Locate current income total calculation.
+2. Locate current expense total calculation.
+3. Add or update helpers/selectors so:
+   - income total includes income transactions only
+   - expense total includes expense transactions only
+   - taken loans are excluded from income total
+   - given loans are excluded from expense total
+4. If loans and transactions share a data structure:
+   - add/use a type discriminator
+   - filter loan/debt records out of income/expense calculations
+5. Do not change loan/debt page calculations.
+6. Do not change transaction creation behavior.
+7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+
+```md
+## Phase 04.5 — Home Income/Expense Totals Exclude Loans
+
+## Income Calculation Rule
+
+## Expense Calculation Rule
+
+## Loan Exclusion Rule
+
+## Shared Data Structure Handling
+
+## Edge Cases
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If project has relevant unit tests, add/run them.
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 04 phase 04.5: exclude loans from home totals"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 04.6.
+
+---
+
+# Phase 04.6 — Home and Settings Regression Verification
+
+## Objective
+
+Run full verification for Agent 04 and document final behavior.
+
+## Tasks
+
+1. Run all available relevant tests/builds.
+2. Verify:
+   - Settings page has Home Balance Source option.
+   - Active accounts appear in the source list.
+   - Disabled accounts do not appear for new selection.
+   - Existing budget plans appear if budget data exists.
+   - Empty state is safe if no accounts/budgets exist.
+   - Home page shows selected account balance.
+   - Home page uses selected account currency.
+   - Home page can show selected budget value if budget plan exists.
+   - Missing selected source falls back safely.
+   - Home income total excludes loans.
+   - Home expense total excludes loans.
+   - Loan/debt page calculations are not broken.
+3. Create or update:
+
+```text
+docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
+```
+
+4. Include:
+
+```md
+# Agent 04 Test Report
+
+## Branch
+
+## Commands Run
+
+## Passing Checks
+
+## Failing Checks
+
+## Bugs Fixed
+
+## Manual Verification Checklist
+
+## Deferred Work
+
+## Safe Starting Point for Agent 05
+```
+
+5. Do not start Agent 05.
+
+## Tests to Run
+
+Run every available relevant command.
+
+Expected frontend checks:
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+Optional only if the project has the script:
+
+```bash
+cd client && npm test
+```
+
+Expected backend checks, depending on current backend implementation:
+
+```bash
+cd server && pytest
+```
+
+or:
+
+```bash
+cd server && npm run test:ci
+```
+
+Only run commands that actually exist.
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 04 phase 04.6: verify home settings balance rules"
+```
+
+## Stop Condition
+
+Stop after the commit.
+
+Final response must show only:
+
+```text
+Changed files:
+- ...
+
+Test result:
+- ...
+
+Bugs fixed:
+- ...
+
+Permission:
+Agent 04 is complete. Can I continue with Agent 05 planning/generation?
+```
+
+---
+
+# Agent 04 Final Success Criteria
+
+Agent 04 is complete only when:
+
+- Branch `feature/home-settings-balance-display` exists.
+- Settings page has a Home Balance Source option.
+- Active accounts can be selected as home balance source.
+- Disabled accounts are excluded from new source selection.
+- Existing budget plans appear as source options if budget data exists.
+- Home page displays selected account available/current balance.
+- Home page displays selected source using the correct currency convention.
+- Home page has safe fallback if selected source is missing.
+- Home income total includes only income transactions.
+- Home expense total includes only expense transactions.
+- Home income total excludes taken loans.
+- Home expense total excludes given loans.
+- Tests/builds have been run.
+- Agent 04 docs are updated.
+- Agent 04 test report is created.
+- No account page/business-rule work is implemented.
+- No loan/debt business logic is implemented.
+- No transaction category/account behavior is implemented.
+- No recurring popup logic is implemented.
+- Agent stops and asks permission before Agent 05.
+
+---

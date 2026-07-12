@@ -12,6 +12,7 @@ def test_finance_openapi_money_fields_are_decimal_strings() -> None:
         ("AccountCreateRequest", "opening_balance"),
         ("AccountUpdateRequest", "opening_balance"),
         ("AccountResponse", "opening_balance"),
+        ("AccountResponse", "current_balance"),
         ("TransactionCreateRequest", "amount"),
         ("TransactionUpdateRequest", "amount"),
         ("TransactionResponse", "amount"),

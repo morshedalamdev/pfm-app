@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import cast
 
 from app.modules.accounts.models import Account
 from app.modules.accounts.pagination import (
@@ -12,6 +13,8 @@ from app.modules.accounts.pagination import (
 from app.modules.accounts.repositories import AccountRepository
 from app.modules.accounts.schemas import (
     AccountCreateRequest,
+    AccountDeleteBlockReason,
+    AccountDeleteEligibilityResponse,
     AccountListResponse,
     AccountResponse,
     AccountUpdateRequest,
@@ -36,6 +39,10 @@ class InvalidAccountCursorError(Exception):
     pass
 
 
+class InvalidDefaultAccountError(Exception):
+    pass
+
+
 class AccountService:
     def __init__(self, accounts: AccountRepository) -> None:
         self.accounts = accounts
@@ -54,6 +61,7 @@ class AccountService:
             type=request.type,
             currency=request.currency,
             opening_balance=request.opening_balance,
+            is_default=not await self.accounts.has_active_default(current_user.id),
         )
         await self.accounts.create(account)
         await self.accounts.commit()
@@ -73,10 +81,15 @@ class AccountService:
         except InvalidCursorError as exc:
             raise InvalidAccountCursorError from exc
 
-        if cursor is None and await ensure_default_account(
-            self.accounts,
-            current_user.id,
-            currency=current_user.base_currency,
+        if (
+            cursor is None
+            and await ensure_default_account(
+                self.accounts,
+                current_user.id,
+                currency=current_user.base_currency,
+            )
+            or cursor is None
+            and await self.ensure_active_default(current_user.id)
         ):
             await self.accounts.commit()
 
@@ -140,6 +153,96 @@ class AccountService:
         if account.archived_at is None:
             account.archived_at = datetime.now(UTC)
             account.is_archived = True
+            if account.is_default:
+                account.is_default = False
+                await self.accounts.flush()
+                await self.ensure_active_default(
+                    current_user.id,
+                    exclude_account_id=account.id,
+                )
             await self.accounts.commit()
             await self.accounts.refresh(account)
         return account
+
+    async def disable_account(
+        self,
+        account_id: uuid.UUID,
+        current_user: User,
+    ) -> Account:
+        account = await self.get_account(account_id, current_user)
+        if account.archived_at is not None:
+            raise AccountNotFoundError
+        if not account.is_disabled:
+            account.is_disabled = True
+            account.disabled_at = datetime.now(UTC)
+            if account.is_default:
+                account.is_default = False
+                await self.accounts.flush()
+                await self.ensure_active_default(
+                    current_user.id,
+                    exclude_account_id=account.id,
+                )
+            await self.accounts.commit()
+            await self.accounts.refresh(account)
+        return account
+
+    async def set_default_account(
+        self,
+        account_id: uuid.UUID,
+        current_user: User,
+    ) -> Account:
+        account = await self.get_account(account_id, current_user)
+        if account.archived_at is not None or account.is_disabled:
+            raise InvalidDefaultAccountError
+
+        await self.accounts.clear_default_accounts(current_user.id)
+        await self.accounts.flush()
+        account.is_default = True
+        await self.accounts.commit()
+        await self.accounts.refresh(account)
+        return account
+
+    async def get_default_account(self, current_user: User) -> Account | None:
+        if await self.ensure_active_default(current_user.id):
+            await self.accounts.commit()
+        return await self.accounts.get_default(current_user.id)
+
+    async def list_active_accounts(self, current_user: User) -> list[Account]:
+        if await self.ensure_active_default(current_user.id):
+            await self.accounts.commit()
+        return await self.accounts.list_active(current_user.id)
+
+    async def can_delete_account(
+        self,
+        account_id: uuid.UUID,
+        current_user: User,
+    ) -> AccountDeleteEligibilityResponse:
+        account = await self.get_account(account_id, current_user)
+        reasons = [
+            cast(AccountDeleteBlockReason, reason)
+            for reason in await self.accounts.reference_reasons(
+                account.id,
+                current_user.id,
+            )
+        ]
+        return AccountDeleteEligibilityResponse(
+            account_id=account.id,
+            can_delete=len(reasons) == 0,
+            reasons=reasons,
+        )
+
+    async def ensure_active_default(
+        self,
+        user_id: uuid.UUID,
+        *,
+        exclude_account_id: uuid.UUID | None = None,
+    ) -> bool:
+        if await self.accounts.has_active_default(user_id):
+            return False
+
+        for account in await self.accounts.list_active(user_id):
+            if exclude_account_id is not None and account.id == exclude_account_id:
+                continue
+            account.is_default = True
+            return True
+        return False

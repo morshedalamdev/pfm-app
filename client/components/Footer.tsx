@@ -20,6 +20,7 @@ import {
   SquarePenIcon,
   TargetIcon,
   Trash2Icon,
+  WalletIcon,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
@@ -28,7 +29,6 @@ import { Skeleton } from "./ui/skeleton";
 import { apiGet } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/auth/store";
 import type { components } from "@/generated/api-types";
-import { AccountBoard } from "@/components/AccountBoard";
 
 type NotificationUnreadCountResponse =
   components["schemas"]["NotificationUnreadCountResponse"];
@@ -40,6 +40,9 @@ const LIST = [
   { href: "/loan", icon: <CoinsIcon />, label: "Loan" },
 ];
 const MAIN_ROUTES = ["/", "/analytics", "/transaction", "/loan"];
+const BOARD_LINK_CLASS =
+  "border-b border-input/50 rounded-none justify-start gap-1.5 px-0! x-animation";
+const BOARD_LINK_ACTIVE_CLASS = "text-white bg-icon/20";
 
 export default function Footer() {
   const pathname = usePathname();
@@ -50,6 +53,14 @@ export default function Footer() {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const displayName = user?.email?.split("@")[0] ?? "Profile";
   const displayEmail = user?.email ?? "Not signed in";
+
+  const boardLinkClass = (href: string) => {
+    const isActive =
+      pathname === href ||
+      (href !== "/budget" && pathname.startsWith(`${href}/`));
+
+    return `${BOARD_LINK_CLASS} ${isActive ? BOARD_LINK_ACTIVE_CLASS : ""}`;
+  };
 
   useEffect(() => {
     if (!MAIN_ROUTES.includes(pathname)) {
@@ -140,10 +151,19 @@ export default function Footer() {
                 <p className="text-xs font-black tracking-wide text-input uppercase">
                   Board
                 </p>
+                <Link href="/accounts">
+                  <Button
+                    variant="ghost"
+                    className={boardLinkClass("/accounts")}
+                  >
+                    <WalletIcon />
+                    Accounts
+                  </Button>
+                </Link>
                 <Link href="/savings">
                   <Button
                     variant="ghost"
-                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
+                    className={boardLinkClass("/savings")}
                   >
                     <TargetIcon />
                     Savings Goals
@@ -152,7 +172,7 @@ export default function Footer() {
                 <Link href="/budget">
                   <Button
                     variant="ghost"
-                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
+                    className={boardLinkClass("/budget")}
                   >
                     <ClipboardListIcon />
                     Budget Planning
@@ -161,13 +181,12 @@ export default function Footer() {
                 <Link href="/budget/setup">
                   <Button
                     variant="ghost"
-                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
+                    className={boardLinkClass("/budget/setup")}
                   >
                     <ClipboardPenLineIcon />
                     Budget Setup
                   </Button>
                 </Link>
-                <AccountBoard />
                 <p className="text-xs font-black tracking-wide text-input uppercase mt-5">
                   customer support
                 </p>

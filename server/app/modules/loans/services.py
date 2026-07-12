@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import cast
 
+from app.modules.accounts.models import Account
+from app.modules.accounts.repositories import AccountRepository
 from app.modules.loans.models import LoanPerson, LoanRecord, LoanSettlement
 from app.modules.loans.pagination import (
     InvalidLoanPersonCursorError as PersonCursorDecodeError,
@@ -52,6 +54,18 @@ class LoanRecordNotFoundError(Exception):
     pass
 
 
+class LoanAccountNotFoundError(Exception):
+    pass
+
+
+class InvalidLoanAccountStateError(Exception):
+    pass
+
+
+class InvalidLoanRepayDateError(Exception):
+    pass
+
+
 class DuplicateLoanPersonPhoneError(Exception):
     pass
 
@@ -81,8 +95,13 @@ class InvalidLoanSettlementCursorError(Exception):
 
 
 class LoanService:
-    def __init__(self, loans: LoanRepository) -> None:
+    def __init__(
+        self,
+        loans: LoanRepository,
+        accounts: AccountRepository,
+    ) -> None:
         self.loans = loans
+        self.accounts = accounts
 
     async def create_person(
         self,
@@ -191,16 +210,25 @@ class LoanService:
         person = await self.get_person_model(request.person_id, current_user)
         if person.archived_at is not None:
             raise InvalidLoanPersonStateError
+        account = await self.get_account_model(request.account_id, current_user)
+        if account.archived_at is not None or account.is_disabled:
+            raise InvalidLoanAccountStateError
 
         record = LoanRecord(
             user_id=current_user.id,
             person_id=person.id,
+            account_id=account.id,
             direction=request.direction,
             principal_amount=request.principal_amount,
             currency=request.currency,
             issued_at=request.issued_at,
+            repay_date=request.repay_date,
             status="open",
             note=request.note,
+        )
+        account.loan_balance_adjustment += self.balance_effect(
+            request.direction,
+            request.principal_amount,
         )
         await self.loans.create_record(record)
         await self.loans.commit()
@@ -284,17 +312,59 @@ class LoanService:
             raise InvalidLoanRecordStateError
 
         update_data = request.model_dump(exclude_unset=True)
+        old_account = (
+            await self.get_account_model(record.account_id, current_user)
+            if record.account_id is not None
+            else None
+        )
+        new_account = old_account
         if "person_id" in update_data:
             person = await self.get_person_model(update_data["person_id"], current_user)
             if person.archived_at is not None:
                 raise InvalidLoanPersonStateError
+        if "account_id" in update_data:
+            account_id = update_data["account_id"]
+            if account_id is None:
+                raise LoanAccountNotFoundError
+            account = await self.get_account_model(account_id, current_user)
+            account_changed = record.account_id != account.id
+            if account_changed and (
+                account.archived_at is not None or account.is_disabled
+            ):
+                raise InvalidLoanAccountStateError
+            new_account = account
+
+        next_issued_at = update_data.get("issued_at", record.issued_at)
+        next_repay_date = update_data.get("repay_date", record.repay_date)
+        if next_repay_date is not None and next_repay_date < next_issued_at.date():
+            raise InvalidLoanRepayDateError
+
+        balance_fields_changed = bool(
+            {"account_id", "direction", "principal_amount"} & update_data.keys()
+        )
+        if balance_fields_changed:
+            if old_account is not None:
+                old_account.loan_balance_adjustment -= self.balance_effect(
+                    cast(LoanDirection, record.direction),
+                    record.principal_amount,
+                )
+            if new_account is not None:
+                new_account.loan_balance_adjustment += self.balance_effect(
+                    cast(
+                        LoanDirection,
+                        update_data.get("direction", record.direction),
+                    ),
+                    update_data.get("principal_amount", record.principal_amount),
+                )
 
         for field_name in {
             "person_id",
+            "account_id",
             "direction",
             "principal_amount",
             "currency",
             "issued_at",
+            "repay_date",
             "note",
         }:
             if field_name in update_data:
@@ -434,6 +504,16 @@ class LoanService:
             raise LoanRecordNotFoundError
         return record
 
+    async def get_account_model(
+        self,
+        account_id: uuid.UUID,
+        current_user: User,
+    ) -> Account:
+        account = await self.accounts.get_owned(account_id, current_user.id)
+        if account is None:
+            raise LoanAccountNotFoundError
+        return account
+
     async def ensure_phone_number_available(
         self,
         user_id: uuid.UUID,
@@ -463,6 +543,10 @@ class LoanService:
             record.status = "open"
             record.settled_at = None
 
+    @staticmethod
+    def balance_effect(direction: LoanDirection, amount: Decimal) -> Decimal:
+        return -amount if direction == "given" else amount
+
     def build_record_response(
         self,
         record: LoanRecord,
@@ -476,12 +560,14 @@ class LoanService:
         return LoanRecordResponse(
             id=record.id,
             person_id=record.person_id,
+            account_id=record.account_id,
             direction=cast(LoanDirection, record.direction),
             principal_amount=record.principal_amount,
             settled_amount=settled_amount,
             outstanding_amount=outstanding_amount,
             currency=record.currency,
             issued_at=record.issued_at,
+            repay_date=record.repay_date,
             status=cast(LoanRecordStatus, record.status),
             note=record.note,
             settled_at=record.settled_at,

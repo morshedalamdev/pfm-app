@@ -9,6 +9,7 @@ from app.modules.accounts.models import Account
 from app.modules.accounts.repositories import AccountRepository
 from app.modules.accounts.schemas import (
     AccountCreateRequest,
+    AccountDeleteEligibilityResponse,
     AccountListResponse,
     AccountResponse,
     AccountUpdateRequest,
@@ -19,6 +20,7 @@ from app.modules.accounts.services import (
     AccountService,
     DuplicateAccountError,
     InvalidAccountCursorError,
+    InvalidDefaultAccountError,
 )
 from app.modules.auth.dependencies import CurrentUserDependency
 from app.modules.users.models import User
@@ -83,6 +85,24 @@ async def get_account(
     return AccountResponse.model_validate(account)
 
 
+@router.get(
+    "/{account_id}/delete-eligibility",
+    response_model=AccountDeleteEligibilityResponse,
+)
+async def can_delete_account(
+    account_id: str,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> AccountDeleteEligibilityResponse:
+    try:
+        return await build_account_service(session).can_delete_account(
+            parse_uuid_or_404(account_id),
+            current_user,
+        )
+    except AccountNotFoundError as exc:
+        raise not_found_error("Account not found") from exc
+
+
 @router.patch("/{account_id}", response_model=AccountResponse)
 async def update_account(
     account_id: str,
@@ -100,6 +120,40 @@ async def update_account(
         raise not_found_error("Account not found") from exc
     except DuplicateAccountError as exc:
         raise duplicate_account_error() from exc
+    return AccountResponse.model_validate(account)
+
+
+@router.patch("/{account_id}/default", response_model=AccountResponse)
+async def set_default_account(
+    account_id: str,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> AccountResponse:
+    try:
+        account = await build_account_service(session).set_default_account(
+            parse_uuid_or_404(account_id),
+            current_user,
+        )
+    except AccountNotFoundError as exc:
+        raise not_found_error("Account not found") from exc
+    except InvalidDefaultAccountError as exc:
+        raise invalid_default_account_error() from exc
+    return AccountResponse.model_validate(account)
+
+
+@router.patch("/{account_id}/disable", response_model=AccountResponse)
+async def disable_account(
+    account_id: str,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> AccountResponse:
+    try:
+        account = await build_account_service(session).disable_account(
+            parse_uuid_or_404(account_id),
+            current_user,
+        )
+    except AccountNotFoundError as exc:
+        raise not_found_error("Account not found") from exc
     return AccountResponse.model_validate(account)
 
 
@@ -157,4 +211,11 @@ def account_in_use_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail="Account cannot be removed because it is already used.",
+    )
+
+
+def invalid_default_account_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Disabled or archived account cannot be the default.",
     )

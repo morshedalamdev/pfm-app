@@ -76,6 +76,38 @@
         "title": "AccountCreateRequest",
         "type": "object"
       },
+      "AccountDeleteEligibilityResponse": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "can_delete": {
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "enum": [
+                "transaction",
+                "recurring_rule",
+                "loan_not_connected"
+              ],
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "account_id",
+          "can_delete",
+          "reasons"
+        ],
+        "title": "AccountDeleteEligibilityResponse",
+        "type": "object"
+      },
       "AccountListResponse": {
         "properties": {
           "has_more": {
@@ -132,6 +164,23 @@
             "title": "Currency",
             "type": "string"
           },
+          "current_balance": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current Balance",
+            "type": "string"
+          },
+          "disabled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled At"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -139,6 +188,14 @@
           },
           "is_archived": {
             "title": "Is Archived",
+            "type": "boolean"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "is_disabled": {
+            "title": "Is Disabled",
             "type": "boolean"
           },
           "name": {
@@ -166,8 +223,12 @@
           "type",
           "currency",
           "opening_balance",
+          "current_balance",
           "is_archived",
           "archived_at",
+          "is_disabled",
+          "disabled_at",
+          "is_default",
           "created_at",
           "updated_at"
         ],
@@ -1107,6 +1168,11 @@
       },
       "LoanRecordCreateRequest": {
         "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
           "currency": {
             "default": "USD",
             "maxLength": 3,
@@ -1152,13 +1218,20 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Principal Amount",
             "type": "string"
+          },
+          "repay_date": {
+            "format": "date",
+            "title": "Repay Date",
+            "type": "string"
           }
         },
         "required": [
           "person_id",
+          "account_id",
           "direction",
           "principal_amount",
-          "issued_at"
+          "issued_at",
+          "repay_date"
         ],
         "title": "LoanRecordCreateRequest",
         "type": "object"
@@ -1198,6 +1271,18 @@
       },
       "LoanRecordResponse": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
           "archived_at": {
             "anyOf": [
               {
@@ -1263,6 +1348,18 @@
             "title": "Principal Amount",
             "type": "string"
           },
+          "repay_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repay Date"
+          },
           "settled_amount": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Settled Amount",
@@ -1298,12 +1395,14 @@
         "required": [
           "id",
           "person_id",
+          "account_id",
           "direction",
           "principal_amount",
           "settled_amount",
           "outstanding_amount",
           "currency",
           "issued_at",
+          "repay_date",
           "status",
           "note",
           "settled_at",
@@ -1316,6 +1415,18 @@
       },
       "LoanRecordUpdateRequest": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
           "currency": {
             "anyOf": [
               {
@@ -1395,6 +1506,18 @@
               }
             ],
             "title": "Principal Amount"
+          },
+          "repay_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repay Date"
           }
         },
         "title": "LoanRecordUpdateRequest",
@@ -3775,6 +3898,33 @@
             ],
             "title": "Full Name"
           },
+          "home_balance_source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Id"
+          },
+          "home_balance_source_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "account",
+                  "budget"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Type"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -3815,6 +3965,8 @@
           "occupation",
           "about",
           "base_currency_changed_at",
+          "home_balance_source_type",
+          "home_balance_source_id",
           "is_active",
           "created_at"
         ],
@@ -3872,6 +4024,33 @@
               }
             ],
             "title": "Full Name"
+          },
+          "home_balance_source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Id"
+          },
+          "home_balance_source_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "account",
+                  "budget"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Type"
           },
           "occupation": {
             "anyOf": [
@@ -4218,6 +4397,147 @@
           }
         ],
         "summary": "Update Account",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/accounts/{account_id}/default": {
+      "patch": {
+        "operationId": "set_default_account_api_v1_accounts__account_id__default_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Default Account",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/accounts/{account_id}/delete-eligibility": {
+      "get": {
+        "operationId": "can_delete_account_api_v1_accounts__account_id__delete_eligibility_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeleteEligibilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Can Delete Account",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/accounts/{account_id}/disable": {
+      "patch": {
+        "operationId": "disable_account_api_v1_accounts__account_id__disable_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disable Account",
         "tags": [
           "accounts"
         ]

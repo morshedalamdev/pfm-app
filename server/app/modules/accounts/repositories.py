@@ -55,7 +55,59 @@ class AccountRepository:
         result = await self._session.execute(select(exists().where(*conditions)))
         return bool(result.scalar())
 
+    async def has_active_default(self, user_id: uuid.UUID) -> bool:
+        result = await self._session.execute(
+            select(
+                exists().where(
+                    Account.user_id == user_id,
+                    Account.archived_at.is_(None),
+                    Account.is_disabled.is_(False),
+                    Account.is_default.is_(True),
+                )
+            )
+        )
+        return bool(result.scalar())
+
+    async def get_default(self, user_id: uuid.UUID) -> Account | None:
+        result = await self._session.execute(
+            select(Account).where(
+                Account.user_id == user_id,
+                Account.archived_at.is_(None),
+                Account.is_disabled.is_(False),
+                Account.is_default.is_(True),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_active(self, user_id: uuid.UUID) -> list[Account]:
+        result = await self._session.execute(
+            select(Account)
+            .where(
+                Account.user_id == user_id,
+                Account.archived_at.is_(None),
+                Account.is_disabled.is_(False),
+            )
+            .order_by(desc(Account.created_at), desc(Account.id))
+        )
+        return list(result.scalars().all())
+
+    async def clear_default_accounts(self, user_id: uuid.UUID) -> None:
+        result = await self._session.execute(
+            select(Account).where(
+                Account.user_id == user_id,
+                Account.is_default.is_(True),
+            )
+        )
+        for account in result.scalars().all():
+            account.is_default = False
+
     async def is_referenced(self, account_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        return bool(await self.reference_reasons(account_id, user_id))
+
+    async def reference_reasons(
+        self, account_id: uuid.UUID, user_id: uuid.UUID
+    ) -> list[str]:
+        reasons: list[str] = []
         transaction_result = await self._session.execute(
             select(
                 exists().where(
@@ -65,7 +117,7 @@ class AccountRepository:
             )
         )
         if bool(transaction_result.scalar()):
-            return True
+            reasons.append("transaction")
 
         recurring_result = await self._session.execute(
             select(
@@ -75,7 +127,10 @@ class AccountRepository:
                 )
             )
         )
-        return bool(recurring_result.scalar())
+        if bool(recurring_result.scalar()):
+            reasons.append("recurring_rule")
+
+        return reasons
 
     async def list_owned(
         self,
@@ -96,6 +151,9 @@ class AccountRepository:
 
     async def commit(self) -> None:
         await self._session.commit()
+
+    async def flush(self) -> None:
+        await self._session.flush()
 
     async def rollback(self) -> None:
         await self._session.rollback()
