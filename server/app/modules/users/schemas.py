@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.modules.auth.validation import normalize_email
 
 DEFAULT_BASE_CURRENCY = "USD"
+HomeBalanceSourceType = Literal["account", "budget"]
 
 
 class UserResponse(BaseModel):
@@ -19,6 +21,8 @@ class UserResponse(BaseModel):
     about: str | None
     base_currency: str = DEFAULT_BASE_CURRENCY
     base_currency_changed_at: datetime | None
+    home_balance_source_type: HomeBalanceSourceType | None
+    home_balance_source_id: uuid.UUID | None
     is_active: bool
     created_at: datetime
 
@@ -32,6 +36,8 @@ class UserUpdateRequest(BaseModel):
     occupation: str | None = Field(default=None, max_length=80)
     about: str | None = Field(default=None, max_length=1000)
     base_currency: str | None = Field(default=None, min_length=3, max_length=3)
+    home_balance_source_type: HomeBalanceSourceType | None = None
+    home_balance_source_id: uuid.UUID | None = None
 
     @field_validator("email")
     @classmethod
@@ -57,3 +63,11 @@ class UserUpdateRequest(BaseModel):
         if not normalized.isalpha() or len(normalized) != 3:
             raise ValueError("Currency must be a 3-letter ISO code.")
         return normalized
+
+    @model_validator(mode="after")
+    def validate_home_balance_source(self) -> UserUpdateRequest:
+        if self.home_balance_source_type is None and self.home_balance_source_id is None:
+            return self
+        if self.home_balance_source_type is None or self.home_balance_source_id is None:
+            raise ValueError("Home balance source type and id must be set together.")
+        return self

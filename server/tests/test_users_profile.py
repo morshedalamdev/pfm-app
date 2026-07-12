@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -56,6 +57,7 @@ def profile_client(disposable_postgres_url: str) -> Iterator[TestClient]:
 
 def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None:
     tokens = register_and_login(profile_client, "profile-owner@example.com")
+    source_id = uuid.uuid4()
 
     response = profile_client.patch(
         "/api/v1/users/me",
@@ -67,6 +69,8 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
             "occupation": "  business ",
             "about": "  Building a calmer money cockpit. ",
             "base_currency": " cny ",
+            "home_balance_source_type": "account",
+            "home_balance_source_id": str(source_id),
         },
     )
 
@@ -79,6 +83,8 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     assert body["about"] == "Building a calmer money cockpit."
     assert body["base_currency"] == "CNY"
     assert body["base_currency_changed_at"] is not None
+    assert body["home_balance_source_type"] == "account"
+    assert body["home_balance_source_id"] == str(source_id)
     assert "password" not in body
     assert "password_hash" not in body
 
@@ -89,6 +95,8 @@ def test_current_user_profile_can_be_updated(profile_client: TestClient) -> None
     assert me_response.status_code == 200
     assert me_response.json()["full_name"] == "Profile Owner"
     assert me_response.json()["base_currency"] == "CNY"
+    assert me_response.json()["home_balance_source_type"] == "account"
+    assert me_response.json()["home_balance_source_id"] == str(source_id)
     assert (
         me_response.json()["base_currency_changed_at"]
         == body["base_currency_changed_at"]
@@ -171,6 +179,42 @@ def test_current_user_profile_rejects_invalid_base_currency(
     )
 
     assert response.status_code == 422
+
+
+def test_current_user_profile_requires_complete_home_balance_source(
+    profile_client: TestClient,
+) -> None:
+    tokens = register_and_login(profile_client, "profile-source@example.com")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    incomplete_response = profile_client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"home_balance_source_type": "account"},
+    )
+    assert incomplete_response.status_code == 422
+
+    invalid_type_response = profile_client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={
+            "home_balance_source_type": "loan",
+            "home_balance_source_id": str(uuid.uuid4()),
+        },
+    )
+    assert invalid_type_response.status_code == 422
+
+    clear_response = profile_client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={
+            "home_balance_source_type": None,
+            "home_balance_source_id": None,
+        },
+    )
+    assert clear_response.status_code == 200
+    assert clear_response.json()["home_balance_source_type"] is None
+    assert clear_response.json()["home_balance_source_id"] is None
 
 
 def test_current_user_profile_rejects_duplicate_email(

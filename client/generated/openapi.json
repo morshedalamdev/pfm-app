@@ -3898,6 +3898,33 @@
             ],
             "title": "Full Name"
           },
+          "home_balance_source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Id"
+          },
+          "home_balance_source_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "account",
+                  "budget"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Type"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -3938,6 +3965,8 @@
           "occupation",
           "about",
           "base_currency_changed_at",
+          "home_balance_source_type",
+          "home_balance_source_id",
           "is_active",
           "created_at"
         ],
@@ -3995,6 +4024,33 @@
               }
             ],
             "title": "Full Name"
+          },
+          "home_balance_source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Id"
+          },
+          "home_balance_source_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "account",
+                  "budget"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Balance Source Type"
           },
           "occupation": {
             "anyOf": [

@@ -122,3 +122,50 @@
 ## Bugs Fixed
 
 - None. No baseline code changes were required in phase 04.1.
+
+## Phase 04.2 — Home Balance Source Setting
+
+## Setting Name
+
+- `Home Balance Source`
+
+## Source Types
+
+- `account`
+- `budget`, shown only when current-month budget data exists or when a budget source is already saved on the user profile.
+- `automatic` UI fallback, persisted as `null` source type and `null` source id.
+
+## Persistence Behavior
+
+- The setting is persisted on the current user profile through `PATCH /api/v1/users/me`.
+- The backend stores `home_balance_source_type` and `home_balance_source_id` on `users`.
+- The API response exposes both fields through `UserResponse`.
+- The API update request accepts both fields through `UserUpdateRequest`.
+- A source type and source id must be saved together.
+
+## Missing Source Fallback
+
+- Clearing the setting stores `null` type and `null` id so later home-display phases can use automatic fallback.
+- If the UI is left without a source id for an account or budget source, save is blocked and the user can choose automatic fallback.
+- Full account/budget existence fallback remains for phase 04.3 and phase 04.4 when source options and home display are connected.
+
+## UI Behavior
+
+- Settings now shows a `Home Balance Source` section below currency.
+- Users can choose automatic fallback, account, or budget when budget source data is available.
+- Account or budget selection captures a source id without loading account or budget option lists in this phase.
+- Account creation, loan, transaction, and recurring behavior were not changed.
+
+## Phase 04.2 Check Results
+
+- `cd client && npm run build`: passed after an approved rerun allowed the configured Google-hosted Urbanist font fetch.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `172 passed, 1 warning` after an approved rerun allowed the disposable PostgreSQL fixture to bind `127.0.0.1`.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" python -m compileall app tests`: passed.
+- `git diff --check`: passed.
+
+## Phase 04.2 Bugs Fixed
+
+- None beyond the phase implementation.

@@ -27,6 +27,12 @@ async def update_current_user(
 ) -> UserResponse:
     repository = UserRepository(session)
     updates = request.model_dump(exclude_unset=True)
+    if updates.get("home_balance_source_type") is None and (
+        "home_balance_source_type" in updates or "home_balance_source_id" in updates
+    ):
+        updates["home_balance_source_type"] = None
+        updates["home_balance_source_id"] = None
+
     requested_currency = updates.get("base_currency")
     if (
         isinstance(requested_currency, str)

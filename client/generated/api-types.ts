@@ -2239,6 +2239,10 @@ export interface components {
             email: string;
             /** Full Name */
             full_name: string | null;
+            /** Home Balance Source Id */
+            home_balance_source_id: string | null;
+            /** Home Balance Source Type */
+            home_balance_source_type: ("account" | "budget") | null;
             /**
              * Id
              * Format: uuid
@@ -2261,6 +2265,10 @@ export interface components {
             email?: string | null;
             /** Full Name */
             full_name?: string | null;
+            /** Home Balance Source Id */
+            home_balance_source_id?: string | null;
+            /** Home Balance Source Type */
+            home_balance_source_type?: ("account" | "budget") | null;
             /** Occupation */
             occupation?: string | null;
             /** Phone Number */
