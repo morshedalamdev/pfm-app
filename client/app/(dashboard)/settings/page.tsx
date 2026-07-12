@@ -1,12 +1,11 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import BackBtn from "@/components/BackBtn";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
@@ -24,14 +23,22 @@ import type { components } from "@/generated/api-types";
 import { apiPatch } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/lib/auth/store";
-import { listBudgets } from "@/lib/finance/api";
+import { getActiveAccounts } from "@/lib/finance/accounts";
+import {
+  type Account,
+  type Budget,
+  listAccounts,
+  listBudgets,
+} from "@/lib/finance/api";
 
 type User = components["schemas"]["UserResponse"];
 type UserUpdateRequest = components["schemas"]["UserUpdateRequest"];
 type HomeBalanceSourceType = NonNullable<
   UserUpdateRequest["home_balance_source_type"]
 >;
-type HomeBalanceSourceSelection = "automatic" | HomeBalanceSourceType;
+type HomeBalanceSourceSelection =
+  | "automatic"
+  | `${HomeBalanceSourceType}:${string}`;
 
 const CURRENCY_OPTIONS = [
   { value: "USD", label: "USD - US Dollar" },
@@ -51,9 +58,15 @@ export default function SettingsPage() {
   const hydrate = useAuthStore((state) => state.hydrate);
   const [currency, setCurrency] = useState("USD");
   const [homeBalanceSourceType, setHomeBalanceSourceType] =
-    useState<HomeBalanceSourceSelection>("automatic");
+    useState<HomeBalanceSourceType | "automatic">("automatic");
   const [homeBalanceSourceId, setHomeBalanceSourceId] = useState("");
-  const [hasBudgetSourceOption, setHasBudgetSourceOption] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [accountSourcesLoaded, setAccountSourcesLoaded] = useState(false);
+  const [budgetSourcesLoaded, setBudgetSourcesLoaded] = useState(false);
+  const [isSourceLoading, setIsSourceLoading] = useState(true);
+  const [sourceLoadError, setSourceLoadError] = useState<string | null>(null);
+  const [sourceWarning, setSourceWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,6 +74,13 @@ export default function SettingsPage() {
   const currentCurrency =
     CURRENCY_OPTIONS.find((option) => option.value === user?.base_currency) ??
     CURRENCY_OPTIONS[0];
+  const activeAccounts = useMemo(() => getActiveAccounts(accounts), [accounts]);
+  const sourceSelection: HomeBalanceSourceSelection =
+    homeBalanceSourceType === "automatic" || !homeBalanceSourceId
+      ? "automatic"
+      : `${homeBalanceSourceType}:${homeBalanceSourceId}`;
+  const hasSourceOptions = activeAccounts.length > 0 || budgets.length > 0;
+  const allSourceListsLoaded = accountSourcesLoaded && budgetSourcesLoaded;
 
   useEffect(() => {
     if (status === "idle") {
@@ -77,34 +97,79 @@ export default function SettingsPage() {
   }, [user]);
 
   useEffect(() => {
-    let isMounted = true;
+    const controller = new AbortController();
 
-    async function loadBudgetSourceAvailability() {
-      try {
-        const budgets = await listBudgets(currentMonthKey());
-        if (isMounted) {
-          setHasBudgetSourceOption(budgets.length > 0);
-        }
-      } catch {
-        if (isMounted) {
-          setHasBudgetSourceOption(false);
-        }
+    async function loadBalanceSources() {
+      setIsSourceLoading(true);
+      setSourceLoadError(null);
+      setAccountSourcesLoaded(false);
+      setBudgetSourcesLoaded(false);
+
+      const [accountResult, budgetResult] = await Promise.allSettled([
+        listAccounts({ signal: controller.signal }),
+        listBudgets(currentMonthKey(), { signal: controller.signal }),
+      ]);
+
+      if (controller.signal.aborted) {
+        return;
       }
+
+      setAccounts(
+        accountResult.status === "fulfilled" ? accountResult.value : [],
+      );
+      setBudgets(budgetResult.status === "fulfilled" ? budgetResult.value : []);
+      setAccountSourcesLoaded(accountResult.status === "fulfilled");
+      setBudgetSourcesLoaded(budgetResult.status === "fulfilled");
+      if (
+        accountResult.status === "rejected" ||
+        budgetResult.status === "rejected"
+      ) {
+        setSourceLoadError("Some balance sources could not be loaded.");
+      }
+      setIsSourceLoading(false);
     }
 
-    void loadBudgetSourceAvailability();
+    void loadBalanceSources();
 
-    return () => {
-      isMounted = false;
-    };
+    return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (isSourceLoading || homeBalanceSourceType === "automatic") {
+      return;
+    }
+
+    const selectedSourceListLoaded =
+      homeBalanceSourceType === "account"
+        ? accountSourcesLoaded
+        : budgetSourcesLoaded;
+    const sourceExists =
+      homeBalanceSourceType === "account"
+        ? activeAccounts.some((account) => account.id === homeBalanceSourceId)
+        : budgets.some((budget) => budget.id === homeBalanceSourceId);
+
+    if (selectedSourceListLoaded && !sourceExists) {
+      setHomeBalanceSourceType("automatic");
+      setHomeBalanceSourceId("");
+      setSourceWarning(
+        "The previously selected source is unavailable. Automatic fallback will be used.",
+      );
+    }
+  }, [
+    activeAccounts,
+    accountSourcesLoaded,
+    budgets,
+    budgetSourcesLoaded,
+    homeBalanceSourceId,
+    homeBalanceSourceType,
+    isSourceLoading,
+  ]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setMessage(null);
 
-    const trimmedHomeBalanceSourceId = homeBalanceSourceId.trim();
     const homeBalanceSourceRequest =
       homeBalanceSourceType === "automatic"
         ? {
@@ -112,17 +177,9 @@ export default function SettingsPage() {
             home_balance_source_type: null,
           }
         : {
-            home_balance_source_id: trimmedHomeBalanceSourceId,
+            home_balance_source_id: homeBalanceSourceId,
             home_balance_source_type: homeBalanceSourceType,
           };
-
-    if (
-      homeBalanceSourceType !== "automatic" &&
-      trimmedHomeBalanceSourceId.length === 0
-    ) {
-      setError("Enter a source ID or use automatic fallback.");
-      return;
-    }
 
     setIsSaving(true);
 
@@ -196,18 +253,30 @@ export default function SettingsPage() {
                 </p>
                 <InputGroup>
                   <Select
-                    value={homeBalanceSourceType}
+                    value={sourceSelection}
                     onValueChange={(value) => {
                       const nextValue = value as HomeBalanceSourceSelection;
-                      setHomeBalanceSourceType(nextValue);
                       if (nextValue === "automatic") {
+                        setHomeBalanceSourceType("automatic");
                         setHomeBalanceSourceId("");
+                      } else {
+                        const separatorIndex = nextValue.indexOf(":");
+                        setHomeBalanceSourceType(
+                          nextValue.slice(
+                            0,
+                            separatorIndex,
+                          ) as HomeBalanceSourceType,
+                        );
+                        setHomeBalanceSourceId(
+                          nextValue.slice(separatorIndex + 1),
+                        );
                       }
+                      setSourceWarning(null);
                     }}
-                    disabled={isLoading || isSaving}
+                    disabled={isLoading || isSaving || isSourceLoading}
                   >
                     <SelectTrigger className="border-0">
-                      <SelectValue placeholder="Select source type" />
+                      <SelectValue placeholder="Select balance source" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -215,12 +284,40 @@ export default function SettingsPage() {
                         <SelectItem value="automatic">
                           Automatic fallback
                         </SelectItem>
-                        <SelectItem value="account">Account</SelectItem>
-                        {(hasBudgetSourceOption ||
-                          homeBalanceSourceType === "budget") && (
-                          <SelectItem value="budget">Budget</SelectItem>
-                        )}
                       </SelectGroup>
+                      {activeAccounts.length > 0 ? (
+                        <SelectGroup>
+                          <SelectLabel>Active Accounts</SelectLabel>
+                          {activeAccounts.map((account) => (
+                            <SelectItem
+                              key={account.id}
+                              value={`account:${account.id}`}
+                            >
+                              {account.name} ({account.currency})
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ) : null}
+                      {budgets.length > 0 ? (
+                        <SelectGroup>
+                          <SelectLabel>Budget Plans</SelectLabel>
+                          {budgets.map((budget) => (
+                            <SelectItem
+                              key={budget.id}
+                              value={`budget:${budget.id}`}
+                            >
+                              {budgetSourceLabel(budget)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ) : null}
+                      {allSourceListsLoaded && !hasSourceOptions ? (
+                        <SelectGroup>
+                          <SelectLabel>
+                            No active accounts or budget plans available
+                          </SelectLabel>
+                        </SelectGroup>
+                      ) : null}
                     </SelectContent>
                   </Select>
                   <InputGroupAddon className="text-white font-bold">
@@ -228,22 +325,15 @@ export default function SettingsPage() {
                   </InputGroupAddon>
                 </InputGroup>
               </Field>
-              {homeBalanceSourceType !== "automatic" ? (
-                <Field data-invalid={Boolean(error)}>
-                  <InputGroup>
-                    <Input
-                      value={homeBalanceSourceId}
-                      onChange={(event) =>
-                        setHomeBalanceSourceId(event.target.value)
-                      }
-                      placeholder="Source ID"
-                      disabled={isLoading || isSaving}
-                    />
-                    <InputGroupAddon className="text-white font-bold">
-                      ID:
-                    </InputGroupAddon>
-                  </InputGroup>
-                </Field>
+              {sourceLoadError ? (
+                <p className="text-sm font-medium text-destructive">
+                  {sourceLoadError}
+                </p>
+              ) : null}
+              {sourceWarning ? (
+                <p className="text-sm font-medium text-muted-foreground">
+                  {sourceWarning}
+                </p>
               ) : null}
               {message ? (
                 <p className="text-sm font-medium text-primary">{message}</p>
@@ -264,4 +354,14 @@ export default function SettingsPage() {
 function currentMonthKey(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function budgetSourceLabel(budget: Budget): string {
+  const name = budget.category_name ?? "Monthly Budget";
+  const period = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${budget.period_start}T00:00:00Z`));
+  return `${name} - ${period} (${budget.currency})`;
 }

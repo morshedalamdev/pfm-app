@@ -169,3 +169,46 @@
 ## Phase 04.2 Bugs Fixed
 
 - None beyond the phase implementation.
+
+## Phase 04.3 — Account and Budget Source Options
+
+## Account Source Rule
+
+- Settings loads accounts through the existing `listAccounts` API helper.
+- Only active accounts are offered as new Home Balance Source choices.
+- Account options store the account id with source type `account`.
+
+## Disabled Account Handling
+
+- Disabled and archived accounts are excluded with the shared Agent 02 active-account rule.
+- If the saved account source is no longer active, the form switches to automatic fallback and warns that the previous source is unavailable.
+
+## Budget Source Rule
+
+- Settings loads existing, non-archived budget plans for the current month through `listBudgets`.
+- Budget options are shown only when those plans already exist and store the budget id with source type `budget`.
+- No budget setup or creation behavior was added.
+
+## Empty State
+
+- Automatic fallback remains selectable when there are no active accounts or existing budget plans.
+- The source list states that no active accounts or budget plans are available.
+- If either source request fails, the successfully loaded source type remains usable and the form reports that some sources could not be loaded.
+
+## Labels
+
+- Account options show account name and currency.
+- Budget options show category name or `Monthly Budget`, plan month and year, and currency.
+
+## Phase 04.3 Check Results
+
+- `cd client && npm run build`: passed.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `172 passed, 1 warning`.
+- `git diff --check`: passed.
+
+## Phase 04.3 Bugs Fixed
+
+- Prevented a temporary account or budget API failure from being treated as proof that a previously selected source no longer exists.
