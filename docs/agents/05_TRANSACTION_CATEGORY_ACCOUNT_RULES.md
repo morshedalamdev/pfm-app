@@ -232,3 +232,53 @@ No repository-owned production transaction mock-data module was found. Transacti
 ## Phase 05.3 Bugs Fixed
 
 - None beyond the requested default-account initialization.
+
+## Phase 05.4 — Account Dropdown Override
+
+## Dropdown Source
+
+- The existing transaction form select/drawer style is retained for Expense, Income, and Transfer account choices.
+- Account options are derived from the accounts API and filtered through Agent 02's shared active-account helper.
+- The phase 05.3 active default account remains preselected for new Expense and Income transactions.
+- Users can select another active account before submitting.
+
+## Active Account Rule
+
+- Disabled and archived accounts are excluded from all new transaction account option lists, including transfer source and account destinations.
+- Transfer source defaults to the active default account and its initial destination uses another active account when available.
+- Historical transaction records remain readable; an edit must reference an active account before it can be saved.
+
+## Selected Account Persistence
+
+- The selected Expense source label resolves to its active account record and submits that record's `id` as `account_id`.
+- Income selection resolves the chosen active account name to its record and submits its `id` as `account_id`.
+- Transfer source and destination overrides continue to submit their resolved active account IDs.
+- No transaction schema or balance behavior changed because account IDs were already part of the transaction payload and persisted record.
+
+## Validation Behavior
+
+- Client submit validation rejects missing account selections and non-account Expense or Transfer choices using the existing messages.
+- Backend transaction reference validation now rejects disabled accounts in addition to missing, cross-user, and archived accounts.
+- The disabled-account rule applies to create, edit, transfer, and savings-transfer paths that share the transaction account validator.
+
+## Reused Components
+
+- Reused `TransactionInput` for the existing dropdown/drawer UI.
+- Reused Agent 02's `getActiveAccounts()` and `resolveAccountSelectValue()` helpers.
+- No second account store, account component, or account business-rule system was added.
+- Balance effects and recurring behavior were not changed.
+
+## Phase 05.4 Check Results
+
+- `cd client && npm run build`: passed after an approved rerun allowed the configured Google-hosted Urbanist font fetch.
+- `cd client && npm run api:check`: passed; generated API artifacts are up to date.
+- `node --check client/e2e/pfm.e2e.spec.mjs`: passed.
+- Focused backend transaction suite: passed with `16 passed, 1 warning`.
+- Full backend suite: passed with `173 passed, 1 warning`.
+- Ruff lint and format checks passed for the changed backend and transaction test files.
+- `cd client && npm run lint`, `npm run typecheck`, and `npm test` were unavailable because those scripts do not exist.
+
+## Phase 05.4 Bugs Fixed
+
+- Disabled accounts no longer appear as selectable transaction accounts.
+- Direct API transaction create/update, transfer, and savings-transfer requests can no longer use a disabled account.

@@ -531,7 +531,7 @@ class TransactionService:
         current_user: User,
     ) -> Account:
         account = await self.accounts.get_owned(account_id, current_user.id)
-        if account is None or account.archived_at is not None:
+        if account is None or account.archived_at is not None or account.is_disabled:
             raise InvalidTransactionReferenceError
         return account
 

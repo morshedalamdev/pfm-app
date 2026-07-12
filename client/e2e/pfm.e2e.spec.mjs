@@ -289,9 +289,13 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByRole("button", { name: "Checking" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Wallet", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Emergency Savings" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Emergency Savings" }).click();
+  await expect(
+    page.locator("form").getByText("Emergency Savings", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Budget: Monthly Budget" }),
@@ -310,7 +314,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Account: Wallet", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Account: Emergency Savings" }),
   ).toBeVisible();

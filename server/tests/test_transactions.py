@@ -250,7 +250,7 @@ def test_transaction_validation_and_reference_rules(
     assert transfer_type_response.status_code == 422
 
 
-def test_transaction_ownership_and_archived_reference_rejection(
+def test_transaction_ownership_and_inactive_reference_rejection(
     transaction_context: TransactionApiContext,
 ) -> None:
     context = transaction_context
@@ -325,6 +325,41 @@ def test_transaction_ownership_and_archived_reference_rejection(
         },
     )
     assert cross_user_category_response.status_code == 422
+
+    disabled_account = create_account(
+        context,
+        owner_headers,
+        "Disabled Cash",
+        "cash",
+        "0",
+    )
+    assert (
+        context.client.patch(
+            f"/api/v1/accounts/{disabled_account['id']}/disable",
+            headers=owner_headers,
+        ).status_code
+        == 200
+    )
+
+    disabled_account_response = context.client.post(
+        "/api/v1/transactions",
+        headers=owner_headers,
+        json={
+            "account_id": disabled_account["id"],
+            "category_id": category["id"],
+            "type": "income",
+            "amount": "1.0000",
+            "transaction_at": "2026-03-02T00:00:00+00:00",
+        },
+    )
+    assert disabled_account_response.status_code == 422
+
+    disabled_account_update_response = context.client.patch(
+        f"/api/v1/transactions/{transaction['id']}",
+        headers=owner_headers,
+        json={"account_id": disabled_account["id"]},
+    )
+    assert disabled_account_update_response.status_code == 422
 
     archived_account = create_account(context, owner_headers, "Archived", "cash", "0")
     archived_category = create_category(

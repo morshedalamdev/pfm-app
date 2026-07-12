@@ -16,7 +16,10 @@ import { Button } from "@/components/ui/button";
 import TransactionInput from "@/components/inputs/TransactionInput";
 import BackBtn from "@/components/BackBtn";
 import { useParams, useRouter } from "next/navigation";
-import { resolveAccountSelectValue } from "@/lib/finance/accounts";
+import {
+  getActiveAccounts,
+  resolveAccountSelectValue,
+} from "@/lib/finance/accounts";
 import {
   createRecurringRule,
   createTransaction,
@@ -99,11 +102,12 @@ export default function CreateTransactionPage() {
   const [toDestinationName, setToDestinationName] = useState("");
   const [type, setType] = useState<FormType>("expense");
 
+  const activeAccounts = useMemo(() => getActiveAccounts(accounts), [accounts]);
   const accountNames = useMemo(
-    () => accounts.map((account) => account.name),
-    [accounts],
+    () => activeAccounts.map((account) => account.name),
+    [activeAccounts],
   );
-  const incomeAccounts = useMemo(() => accounts, [accounts]);
+  const incomeAccounts = activeAccounts;
   const incomeAccountNames = useMemo(
     () => incomeAccounts.map((account) => account.name),
     [incomeAccounts],
@@ -116,7 +120,7 @@ export default function CreateTransactionPage() {
   const expenseSources = useMemo<ExpenseSource[]>(
     () => {
       const sources = [
-        ...accounts.map((account) => ({
+        ...activeAccounts.map((account) => ({
           id: account.id,
           kind: "account" as const,
           label: accountSourceLabel(account),
@@ -137,7 +141,7 @@ export default function CreateTransactionPage() {
           sources.findIndex((item) => item.label === source.label) === index,
       );
     },
-    [accounts, budgets],
+    [activeAccounts, budgets],
   );
   const expenseSourceNames = useMemo(
     () => expenseSources.map((source) => source.label),
@@ -156,7 +160,7 @@ export default function CreateTransactionPage() {
           kind: "budget" as const,
           label: budgetSourceLabel(budget),
         })),
-        ...accounts.map((account) => ({
+        ...activeAccounts.map((account) => ({
           id: account.id,
           kind: "account" as const,
           label: accountDestinationLabel(account),
@@ -168,7 +172,7 @@ export default function CreateTransactionPage() {
           index,
       );
     },
-    [accounts, budgets],
+    [activeAccounts, budgets],
   );
   const transferDestinationNames = useMemo(
     () => transferDestinations.map((destination) => destination.label),
@@ -219,9 +223,13 @@ export default function CreateTransactionPage() {
           )?.name ?? "",
         );
       } else {
+        const nextActiveAccounts = getActiveAccounts(nextAccounts);
         const initialAccountId = resolveAccountSelectValue(nextAccounts);
         const initialAccount = nextAccounts.find(
           (account) => account.id === initialAccountId,
+        );
+        const initialTransferDestination = nextActiveAccounts.find(
+          (account) => account.id !== initialAccountId,
         );
         if (!initialAccount) {
           setError(
@@ -236,11 +244,13 @@ export default function CreateTransactionPage() {
             current ||
             (initialAccount ? accountSourceLabel(initialAccount) : ""),
         );
-        setFromAccountName((current) => current || nextAccounts[0]?.name || "");
+        setFromAccountName((current) => current || initialAccount?.name || "");
         setToDestinationName(
           (current) =>
             current ||
-            (nextAccounts[1] ? accountDestinationLabel(nextAccounts[1]) : ""),
+            (initialTransferDestination
+              ? accountDestinationLabel(initialTransferDestination)
+              : ""),
         );
         setSelectedCategoryName((current) => current || nextExpenses[0]?.name || "");
       }
@@ -312,22 +322,26 @@ export default function CreateTransactionPage() {
     );
     const selectedExpenseAccount =
       selectedExpenseSource?.kind === "account"
-        ? accounts.find((account) => account.id === selectedExpenseSource.id)
+        ? activeAccounts.find(
+            (account) => account.id === selectedExpenseSource.id,
+          )
         : undefined;
     const selectedAccount =
       type === "expense"
         ? selectedExpenseAccount
         : type === "income"
           ? selectByName(incomeAccounts, selectedAccountName)
-          : selectByName(accounts, selectedAccountName);
+          : selectByName(activeAccounts, selectedAccountName);
     const selectedCategory = selectByName(activeCategories, selectedCategoryName);
-    const fromAccount = selectByName(accounts, fromAccountName);
+    const fromAccount = selectByName(activeAccounts, fromAccountName);
     const transferDestination = transferDestinations.find(
       (destination) => destination.label === toDestinationName,
     );
     const toAccount =
       transferDestination?.kind === "account"
-        ? accounts.find((account) => account.id === transferDestination.id)
+        ? activeAccounts.find(
+            (account) => account.id === transferDestination.id,
+          )
         : undefined;
 
     if (type === "transfer") {
