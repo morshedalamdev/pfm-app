@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import TransactionInput from "@/components/inputs/TransactionInput";
 import BackBtn from "@/components/BackBtn";
 import { useParams, useRouter } from "next/navigation";
+import { resolveAccountSelectValue } from "@/lib/finance/accounts";
 import {
   createRecurringRule,
   createTransaction,
@@ -218,11 +219,22 @@ export default function CreateTransactionPage() {
           )?.name ?? "",
         );
       } else {
-        setSelectedAccountName((current) => current || nextAccounts[0]?.name || "");
+        const initialAccountId = resolveAccountSelectValue(nextAccounts);
+        const initialAccount = nextAccounts.find(
+          (account) => account.id === initialAccountId,
+        );
+        if (!initialAccount) {
+          setError(
+            "No active account is available. Create or enable an account before saving a transaction.",
+          );
+        }
+        setSelectedAccountName(
+          (current) => current || initialAccount?.name || "",
+        );
         setSelectedExpenseSourceName(
           (current) =>
             current ||
-            (nextAccounts[0] ? accountSourceLabel(nextAccounts[0]) : ""),
+            (initialAccount ? accountSourceLabel(initialAccount) : ""),
         );
         setFromAccountName((current) => current || nextAccounts[0]?.name || "");
         setToDestinationName(

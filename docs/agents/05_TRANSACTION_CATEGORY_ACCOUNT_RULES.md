@@ -195,3 +195,40 @@ No repository-owned production transaction mock-data module was found. Transacti
 ## Phase 05.2 Bugs Fixed
 
 - None beyond the requested category addition.
+
+## Phase 05.3 — Default Account Auto-Selection
+
+## Default Source
+
+- Create mode uses Agent 02's shared `resolveAccountSelectValue()` helper against the accounts returned by the existing account API.
+- Both the Expense and Income form states initialize from the resolved active default account.
+- Edit mode continues to load the account already stored on the transaction.
+
+## Fallback Rule
+
+- If no active default exists, the shared helper selects the first active account in the existing API order.
+- Transfer initialization was not changed in this phase.
+
+## Disabled Account Handling
+
+- The shared helper never returns a disabled or archived account for automatic selection.
+- Existing dropdown contents were not changed; active-only manual dropdown behavior remains scoped to phase 05.4.
+
+## Validation Behavior
+
+- If there is no active account, Income and Expense remain unselected and the form displays a message directing the user to create or enable an account.
+- Existing submit validation continues to require an account and category.
+- Balance effects, transaction persistence behavior, and recurring behavior were not changed.
+
+## Phase 05.3 Check Results
+
+- `cd client && npm run build`: passed after an approved rerun allowed the configured Google-hosted Urbanist font fetch.
+- `cd client && npm run api:check`: passed; generated API artifacts are up to date.
+- `node --check client/e2e/pfm.e2e.spec.mjs`: passed before the optional browser-test attempt; no E2E file changes were retained.
+- `cd client && npm run lint`: not run because no script exists.
+- `cd client && npm run typecheck`: not run because no script exists.
+- `cd client && npm test`: not run because no script exists.
+
+## Phase 05.3 Bugs Fixed
+
+- None beyond the requested default-account initialization.
