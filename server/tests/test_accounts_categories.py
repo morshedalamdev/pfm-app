@@ -105,9 +105,24 @@ def test_default_dropdown_data_bootstraps_for_empty_user(
 
     assert expense_response.status_code == 200
     expense_items = expense_response.json()["items"]
-    assert {"Groceries", "Dining", "Transport", "Bills & Fees"}.issubset(
-        {item["name"] for item in expense_items}
-    )
+    assert {
+        "Groceries",
+        "Dining",
+        "Transport",
+        "Bills & Fees",
+        "Hangout",
+        "Vacation",
+        "Party",
+    }.issubset({item["name"] for item in expense_items})
+    assert {
+        item["name"]: item["icon_key"]
+        for item in expense_items
+        if item["name"] in {"Hangout", "Vacation", "Party"}
+    } == {
+        "Hangout": "coffee",
+        "Vacation": "plane",
+        "Party": "party-popper",
+    }
     assert all(item["kind"] == "expense" for item in expense_items)
     assert all(item["is_default"] is True for item in expense_items)
 

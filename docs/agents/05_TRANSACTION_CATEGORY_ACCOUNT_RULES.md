@@ -155,3 +155,43 @@ No repository-owned production transaction mock-data module was found. Transacti
 ## Phase 05.1 Bugs Fixed
 
 - None. No baseline code issue required repair during the audit.
+
+## Phase 05.2 — Transaction Categories Added
+
+## Added Categories
+
+- Hangout
+- Vacation
+- Party
+
+## Category Group
+
+- All three categories are default expense categories.
+- New users receive them through the existing expense-category bootstrap.
+- Existing users receive missing records through the phase 05.2 data migration; a same-named expense category is preserved through conflict-safe insertion.
+
+## UI Display
+
+- The transaction form already loads expense categories from the backend, so the three categories appear in the existing Expense category selector without form behavior changes.
+- Hangout uses the existing Lucide icon convention with `Coffee`.
+- Vacation uses `Plane`.
+- Party uses `PartyPopper`.
+- No category color system exists, so no color behavior was added.
+
+## Notes
+
+- Income categories were not changed.
+- Account, balance, loan, Home, transaction persistence, and recurring behavior were not changed.
+
+## Phase 05.2 Check Results
+
+- `cd client && npm run build`: passed after an approved rerun allowed the configured Google-hosted Urbanist font fetch.
+- `cd client && npm run api:check`: passed; generated API artifacts are up to date.
+- Focused backend category suite: passed with `9 passed, 1 warning`.
+- Full backend suite: passed with `173 passed, 1 warning`.
+- Ruff lint passed for the changed backend and test files.
+- Ruff format check passed for the changed backend and test files after formatting the updated assertion.
+
+## Phase 05.2 Bugs Fixed
+
+- None beyond the requested category addition.
