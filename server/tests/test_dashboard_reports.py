@@ -130,7 +130,13 @@ def test_dashboard_report_aggregates_source_records_and_boundaries(
     )
     assert archive_response.status_code == 200
 
-    income_category = create_category(context, headers, "Salary", "income", "briefcase")
+    income_category = create_category(
+        context,
+        headers,
+        "Salary",
+        "income",
+        "briefcase",
+    )
     expense_category = create_category(
         context, headers, "Dining", "expense", "utensils"
     )
@@ -285,6 +291,72 @@ def test_dashboard_report_year_income_buckets_and_auth_contract(
     assert unauthorized_response.status_code == 401
 
 
+def test_dashboard_report_income_expense_totals_exclude_loans(
+    report_context: ReportApiContext,
+) -> None:
+    context = report_context
+    headers = auth_headers(context, "dashboard-loan-exclusion@example.com")
+    account = create_account(context, headers, "Checking", "bank", "0.0000")
+    income_category = create_category(context, headers, "Salary", "income", "briefcase")
+    expense_category = create_category(
+        context,
+        headers,
+        "Groceries",
+        "expense",
+        "shopping-cart",
+    )
+    person = create_loan_person(context, headers, "Loan Contact", "+8801712345678")
+
+    create_transaction(
+        context,
+        headers,
+        account["id"],
+        income_category["id"],
+        "income",
+        "125.0000",
+        "2026-01-10T10:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        account["id"],
+        expense_category["id"],
+        "expense",
+        "45.0000",
+        "2026-01-11T10:00:00+00:00",
+    )
+    create_loan_record(
+        context,
+        headers,
+        account["id"],
+        person["id"],
+        "given",
+        "700.0000",
+        "2026-01-12T10:00:00+00:00",
+    )
+    create_loan_record(
+        context,
+        headers,
+        account["id"],
+        person["id"],
+        "taken",
+        "900.0000",
+        "2026-01-13T10:00:00+00:00",
+    )
+
+    response = context.client.get(
+        "/api/v1/reports/dashboard",
+        headers=headers,
+        params={"period": "month", "type": "expense", "as_of": "2026-01-15"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert Decimal(payload["income_amount"]) == Decimal("125.0000")
+    assert Decimal(payload["expense_amount"]) == Decimal("45.0000")
+    assert Decimal(payload["net_flow_amount"]) == Decimal("80.0000")
+
+
 def auth_headers(context: ReportApiContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",
@@ -376,6 +448,46 @@ def create_transfer(
             "to_account_id": to_account_id,
             "amount": amount,
             "transaction_at": transaction_at,
+        },
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def create_loan_person(
+    context: ReportApiContext,
+    headers: dict[str, str],
+    name: str,
+    phone_number: str,
+) -> dict[str, object]:
+    response = context.client.post(
+        "/api/v1/loans/people",
+        headers=headers,
+        json={"name": name, "phone_number": phone_number},
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def create_loan_record(
+    context: ReportApiContext,
+    headers: dict[str, str],
+    account_id: object,
+    person_id: object,
+    direction: str,
+    principal_amount: str,
+    issued_at: str,
+) -> dict[str, object]:
+    response = context.client.post(
+        "/api/v1/loans/records",
+        headers=headers,
+        json={
+            "account_id": account_id,
+            "person_id": person_id,
+            "direction": direction,
+            "principal_amount": principal_amount,
+            "issued_at": issued_at,
+            "repay_date": "2026-02-15",
         },
     )
     assert response.status_code == 201

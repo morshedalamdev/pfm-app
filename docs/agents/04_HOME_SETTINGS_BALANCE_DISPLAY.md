@@ -256,3 +256,48 @@
 ## Phase 04.4 Bugs Fixed
 
 - Home available balance no longer ignores the saved source by always displaying the aggregate dashboard report balance.
+
+## Phase 04.5 — Home Income/Expense Totals Exclude Loans
+
+## Income Calculation Rule
+
+- Home income continues to use the dashboard report `income_amount`.
+- The report summary query is explicitly limited to non-voided `income` and `expense` transaction rows in the selected period.
+- Income sums only rows whose transaction type is `income`.
+
+## Expense Calculation Rule
+
+- Home expense continues to use the dashboard report `expense_amount`.
+- Expense sums only rows whose transaction type is `expense`.
+- Transfers and other transaction types do not contribute to either summary total.
+
+## Loan Exclusion Rule
+
+- Given loans do not contribute to Home expense.
+- Taken loans do not contribute to Home income.
+- A dashboard API regression test creates both loan directions alongside real income and expense transactions and verifies that only transaction amounts are returned.
+
+## Shared Data Structure Handling
+
+- Loan records and transaction rows use separate database tables and API resources.
+- No loan discriminator is needed in the transaction model because the dashboard summary reads only the transactions table and now explicitly filters to income and expense types.
+
+## Edge Cases
+
+- Voided income and expense transactions remain excluded.
+- Transactions outside the selected report period remain excluded.
+- Loan principal amounts do not affect Home income, expense, or net-flow totals even though loan creation can adjust an account balance.
+
+## Phase 04.5 Check Results
+
+- `cd client && npm run build`: passed.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q tests/test_dashboard_reports.py`: passed with `4 passed, 1 warning`.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `173 passed, 1 warning`.
+- `git diff --check`: passed.
+
+## Phase 04.5 Bugs Fixed
+
+- Home income and expense summary selection is now explicitly constrained to real income and expense transaction rows, with given and taken loans covered by regression tests.

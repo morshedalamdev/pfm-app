@@ -107,6 +107,7 @@ class ReportRepository:
             ).where(
                 Transaction.user_id == user_id,
                 Transaction.voided_at.is_(None),
+                Transaction.type.in_(("income", "expense")),
                 Transaction.transaction_at >= start_at,
                 Transaction.transaction_at < end_at,
             )
