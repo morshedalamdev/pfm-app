@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import BackBtn from "@/components/BackBtn";
 import Header from "@/components/Header";
@@ -53,6 +54,7 @@ const CURRENCY_OPTIONS = [
 ];
 
 export default function SettingsPage() {
+  const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const status = useAuthStore((state) => state.status);
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -97,22 +99,20 @@ export default function SettingsPage() {
   }, [user]);
 
   useEffect(() => {
-    let isMounted = true;
+    if (pathname !== "/settings") {
+      return;
+    }
 
     async function loadBalanceSources() {
       setIsSourceLoading(true);
-      setSourceLoadError(null);
       setAccountSourcesLoaded(false);
       setBudgetSourcesLoaded(false);
+      setSourceLoadError(null);
 
       const [accountResult, budgetResult] = await Promise.allSettled([
         listAccounts(),
         listBudgets(currentMonthKey()),
       ]);
-
-      if (!isMounted) {
-        return;
-      }
 
       setAccounts(
         accountResult.status === "fulfilled" ? accountResult.value : [],
@@ -130,11 +130,7 @@ export default function SettingsPage() {
     }
 
     void loadBalanceSources();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (isSourceLoading || homeBalanceSourceType === "automatic") {
@@ -227,7 +223,7 @@ export default function SettingsPage() {
                   <Select
                     value={currency}
                     onValueChange={setCurrency}
-                    disabled={isLoading || isSaving}
+                    disabled={isLoading || isSaving || isSourceLoading}
                   >
                     <SelectTrigger className="border-0">
                       <SelectValue placeholder="Select currency" />
@@ -275,7 +271,7 @@ export default function SettingsPage() {
                       }
                       setSourceWarning(null);
                     }}
-                    disabled={isLoading || isSaving || isSourceLoading}
+                    disabled={isLoading || isSaving}
                   >
                     <SelectTrigger className="border-0">
                       <SelectValue placeholder="Select balance source" />

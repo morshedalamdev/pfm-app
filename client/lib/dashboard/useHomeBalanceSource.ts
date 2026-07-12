@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { useAuthStore } from "@/lib/auth/store";
 import {
@@ -25,6 +26,7 @@ export type HomeBalanceDisplay = {
 type BalanceSourceStatus = "idle" | "loading" | "success" | "error";
 
 export function useHomeBalanceSource() {
+  const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -62,10 +64,14 @@ export function useHomeBalanceSource() {
   }, []);
 
   useEffect(() => {
+    if (pathname !== "/") {
+      return;
+    }
+
     const controller = new AbortController();
     void loadBalanceSources(controller.signal);
     return () => controller.abort();
-  }, [loadBalanceSources]);
+  }, [loadBalanceSources, pathname]);
 
   const balance = useMemo(
     () =>

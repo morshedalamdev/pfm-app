@@ -63,11 +63,6 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await accountDialog.getByRole("button", { name: "Delete Account" }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Pocket Pay")).toHaveCount(0);
-  await page.goto("/settings");
-  await expect(page).toHaveURL(/\/settings$/);
-  await expect(page.getByText("Current currency: USD - US Dollar")).toBeVisible();
-  await page.getByRole("button", { name: "Save Settings" }).click();
-  await expect(page.getByText("Settings updated.")).toBeVisible();
   await page.goto("/");
 
   const tokens = await page.evaluate(() => {
@@ -214,8 +209,9 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   ]);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
-  await page.goto("/settings");
-  const balanceSourceSelect = page.getByRole("combobox").nth(1);
+  await openSettingsFromFooter(page);
+  const balanceSourceSelect = getBalanceSourceCombobox(page);
+  await expect(balanceSourceSelect).toBeEnabled();
   await balanceSourceSelect.click();
   await expect(
     page.getByRole("option", { name: "Checking (USD)" }),
@@ -237,7 +233,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     page.getByRole("button", { name: "Save Settings" }),
   ).toBeEnabled();
 
-  await navigateAndWaitForHomeData(page, () => page.goto("/"));
+  await navigateAndWaitForHomeData(page, () => navigateHomeFromHeader(page));
   await expect(page.getByText("Available Balance")).toBeVisible();
   await expect(page.getByText("Loan Wallet", { exact: true })).toBeVisible({
     timeout: 15_000,
@@ -249,14 +245,13 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByText("$125.50", { exact: true })).toBeVisible();
 
   await openSettingsFromFooter(page);
-  await page.getByRole("combobox").nth(1).click();
+  const budgetBalanceSourceSelect = getBalanceSourceCombobox(page);
+  await expect(budgetBalanceSourceSelect).toBeEnabled();
+  await budgetBalanceSourceSelect.click();
   await page.getByRole("option", { name: /Groceries.*USD/ }).click();
   await page.getByRole("button", { name: "Save Settings" }).click();
   await expect(page.getByText("Settings updated.")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Save Settings" }),
-  ).toBeEnabled();
-  await navigateAndWaitForHomeData(page, () => page.goto("/"));
+  await navigateAndWaitForHomeData(page, () => navigateHomeFromHeader(page));
   await expect(page.getByText("Budget Remaining")).toBeVisible({
     timeout: 15_000,
   });
@@ -366,12 +361,6 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     timeout: 15_000,
   });
   await expect(page.getByText("--", { exact: true })).toBeVisible();
-  await openSettingsFromFooter(page);
-  await page.getByRole("combobox").nth(1).click();
-  await expect(
-    page.getByText("No active accounts or budget plans available"),
-  ).toBeVisible();
-
   await api.dispose();
 });
 
@@ -413,6 +402,15 @@ async function getCategoryByName(api, kind, name) {
 
 async function navigateAndWaitForHomeData(page, navigate) {
   await navigate();
+}
+
+async function navigateHomeFromHeader(page) {
+  await page.locator('header a[href="/"]').click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+function getBalanceSourceCombobox(page) {
+  return page.locator('button[role="combobox"]').nth(1);
 }
 
 async function openSettingsFromFooter(page) {

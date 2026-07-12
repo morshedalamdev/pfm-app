@@ -66,7 +66,10 @@ class UserUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_home_balance_source(self) -> UserUpdateRequest:
-        if self.home_balance_source_type is None and self.home_balance_source_id is None:
+        if (
+            self.home_balance_source_type is None
+            and self.home_balance_source_id is None
+        ):
             return self
         if self.home_balance_source_type is None or self.home_balance_source_id is None:
             raise ValueError("Home balance source type and id must be set together.")
