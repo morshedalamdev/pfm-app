@@ -212,3 +212,47 @@
 ## Phase 04.3 Bugs Fixed
 
 - Prevented a temporary account or budget API failure from being treated as proof that a previously selected source no longer exists.
+
+## Phase 04.4 — Home Balance Connected to Selected Source
+
+## Account Display Rule
+
+- A valid selected account displays its `current_balance` on the Home available balance card.
+- Disabled and archived selected accounts are treated as missing sources.
+- The account name is shown below the balance.
+
+## Budget Display Rule
+
+- A valid selected current budget plan displays its existing `progress.remaining_amount`.
+- The card label changes to `Budget Remaining` and shows the budget category or `Monthly Budget` with its period.
+- No budget planning or creation logic was added.
+
+## Currency Display Rule
+
+- Account balances use the selected account currency.
+- Budget remaining balances use the selected budget currency.
+- No currency conversion is performed.
+
+## Fallback Rule
+
+- If the selected source is missing, disabled, archived, or not current, Home uses the active default account.
+- If no active default account exists, Home uses the first active account.
+- Automatic source selection follows the same default-account then first-active-account order.
+
+## Empty State
+
+- If no selected source or active fallback account can be resolved, Home displays `--` and `No balance source available`.
+- Source loading failures are shown without replacing a successfully resolved balance, and a retry action is available when no balance can be resolved.
+
+## Phase 04.4 Check Results
+
+- `cd client && npm run build`: passed.
+- `cd client && npm run lint`: not run because no `lint` script exists.
+- `cd client && npm run typecheck`: not run because no `typecheck` script exists.
+- `cd client && npm run api:check`: passed.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" pytest -q`: passed with `172 passed, 1 warning`.
+- `git diff --check`: passed.
+
+## Phase 04.4 Bugs Fixed
+
+- Home available balance no longer ignores the saved source by always displaying the aggregate dashboard report balance.

@@ -7,9 +7,16 @@ import TransactionItem from "@/components/items/TransactionItem";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardData } from "@/lib/dashboard/useDashboardData";
+import { useHomeBalanceSource } from "@/lib/dashboard/useHomeBalanceSource";
 import { formatMoney } from "@/lib/finance/format";
 
 export default function HomePage() {
+  const {
+    balance,
+    error: balanceError,
+    isLoading: balanceLoading,
+    loadBalanceSources,
+  } = useHomeBalanceSource();
   const {
     chartBuckets,
     loadReport,
@@ -35,15 +42,46 @@ export default function HomePage() {
     <Fragment>
       <section className="text-center mt-9 mb-3">
         <h2 className="text-input font-bold uppercase tracking-wide">
-          available balance
+          {balance?.sourceType === "budget"
+            ? "budget remaining"
+            : "available balance"}
         </h2>
-        {reportLoading ? (
+        {balanceLoading ? (
           <Skeleton className="mx-auto mt-2 h-12 w-56" />
+        ) : balance ? (
+          <>
+            <h3 className="text-5xl font-bold">
+              {formatMoney(balance.amount, balance.currency)}
+            </h3>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              {balance.label}
+            </p>
+          </>
         ) : (
-          <h3 className="text-5xl font-bold">
-            {formatMoney(report?.available_balance ?? "0", reportCurrency)}
-          </h3>
+          <>
+            <h3 className="text-5xl font-bold">--</h3>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              No balance source available
+            </p>
+          </>
         )}
+        {balanceError ? (
+          <div className="mt-2">
+            <p className="text-sm font-medium text-destructive">
+              {balanceError}
+            </p>
+            {!balance ? (
+              <Button
+                type="button"
+                variant="reverse"
+                className="mt-2 w-fit"
+                onClick={() => void loadBalanceSources()}
+              >
+                Retry
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </section>
       <section className="grid grid-cols-2 gap-3 p-3">
         {reportLoading ? (
