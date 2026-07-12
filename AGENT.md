@@ -1,12 +1,12 @@
-# Agent 03 — Loan and Debt Account Integration
+# Agent 04 — Settings and Home Page Balance Rules
 
 ## Agent Identity
 
-You are **Agent 03 — Loan and Debt Account Integration** for the `pfm-app` project.
+You are **Agent 04 — Settings and Home Page Balance Rules** for the `pfm-app` project.
 
-Your job is to update only the Loan & Debt area so loans are connected to accounts, balances are affected correctly, repay dates are supported, overdue loans are visually clear, and the loan summary cards match the requested behavior.
+Your job is to update the Settings and Home/Dashboard behavior so the user can control which balance source appears on the home page, and so home income/expense totals include only real transactions, not loans.
 
-You must not implement sidebar changes, account page creation, account business rules, transaction category updates, recurring transaction popups, or home/settings balance-source behavior in this agent.
+Do not implement sidebar changes, account-page rules, loan/debt business logic, transaction-category updates, recurring popups, or backend architecture migration in this agent.
 
 ---
 
@@ -21,20 +21,16 @@ Live frontend: https://pfm.morshedalam.dev
 
 ## Required Git Branch
 
-Every agent must have its own GitHub branch.
-
-Before starting this agent, create and work only on this branch:
-
 ```bash
 git checkout main
 git pull
-git checkout -b feature/loan-debt-account-integration
+git checkout -b feature/home-settings-balance-display
 ```
 
 If the branch already exists:
 
 ```bash
-git checkout feature/loan-debt-account-integration
+git checkout feature/home-settings-balance-display
 git pull
 ```
 
@@ -42,39 +38,32 @@ git pull
 
 ## Required Previous Agents
 
-Agent 03 should run only after these agents are completed and merged into `main`:
+Agent 04 should run after these agents are completed and merged into `main`:
 
 ```text
 Agent 00 — Current App Audit
 Agent 01 — Sidebar and Navigation Update
 Agent 02 — Account Page and Account Rules
+Agent 03 — Loan and Debt Account Integration
 ```
 
-Agent 03 depends on Agent 02 because loans must select from existing accounts and must use the account currency/default-account behavior created there.
-
-Before making changes, read these files if they exist:
+Read these files if they exist:
 
 ```text
 docs/audit/00_CURRENT_APP_AUDIT.md
 docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md
 docs/audit/02_BASELINE_TEST_REPORT.md
-docs/agents/01_SIDEBAR_NAVIGATION_UPDATE.md
-docs/agents/01_SIDEBAR_NAVIGATION_TEST_REPORT.md
 docs/agents/02_ACCOUNT_PAGE_AND_RULES.md
 docs/agents/02_ACCOUNT_TEST_REPORT.md
+docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+docs/agents/03_LOAN_DEBT_TEST_REPORT.md
 ```
 
-If Agent 02 outputs are missing and account selection/default-account logic does not exist, stop and report that Agent 03 is blocked. Do not invent a parallel account system inside Agent 03.
+If account/default-account behavior from Agent 02 is missing, stop and report that Agent 04 is blocked. Do not create a second account system.
 
 ---
 
-## User Requirements for All Agents
-
-Every phase must follow this workflow:
-
-```text
-Think internally → Execute task → Run tests → Fix failed tests → Run tests again → Commit → Stop
-```
+## Output Rule
 
 At the end of every phase, show only:
 
@@ -92,191 +81,165 @@ Permission:
 Can I continue to the next phase?
 ```
 
-Do **not** explain the implementation.  
-Do **not** provide long reasoning.  
-Do **not** start the next phase without permission.  
-Do **not** include architecture explanation in the final output.  
-Only show changed files, test result, bugs fixed, and permission question.
+Do **not** explain the implementation. Do **not** provide long reasoning. Do **not** start the next phase without permission.
 
 ---
 
-## Agent 03 Goal
+## Required Phase Workflow
 
-Update Loan & Debt behavior based on the requested product rules.
-
-Requested Loan & Debt changes:
-
-- User can select which account they want to give loan from.
-- User can select which account they want to take loan into.
-- Given loan must deduct money from the selected account.
-- Taken loan must add money to the selected account.
-- Loan given and loan taken must have a `repay date` input field.
-- Repay date means:
-  - for given loan: the date user expects to get the money back
-  - for taken loan: the date user needs to repay the money by
-- In the loan page, overdue loans must show in red.
-- Loan page currently has three summary boxes; remove one.
-- Loan page should have only two summary boxes:
-  - total due from given loans
-  - total due from taken loans
-- Loan listing should display amounts in the selected account currency.
-- The default/primary account from Agent 02 should auto-select in loan forms, but user can change it from a dropdown.
+```text
+Think internally
+Execute only the current phase
+Run tests
+Fix failed tests
+Run tests again
+Update docs
+Commit
+Stop
+Ask permission for next phase
+```
 
 ---
 
-## Agent 03 Scope
+## Agent 04 Goal
 
-Agent 03 may change:
+Implement:
 
-- Loan/debt page components.
-- Loan/debt forms.
-- Loan/debt state/store/API logic.
-- Loan/debt models/types/schemas.
-- Account balance update integration where directly required for loan/debt behavior.
-- Currency display for loan/debt list and summary.
-- Tests related to loan/debt account integration.
-- Documentation for Agent 03.
+- User can set from Settings which account available balance should show on the Home page.
+- The same Settings list should also include budget if user already set a budget plan.
+- Home page income total should include only income transactions.
+- Home page expense total should include only expense transactions.
+- Home income/expense totals must not include loan/debt.
 
-Agent 03 must not implement:
+---
 
-- Account page UI.
-- Account details dialog.
-- Account creation/edit/disable/delete rules, except consuming existing account behavior.
-- Sidebar/navigation changes.
-- Transaction category changes.
-- Recurring income/expense popup behavior.
-- Home/settings dashboard balance-source behavior.
-- Broad backend architecture migration.
+## Agent 04 Scope
+
+Agent 04 may change:
+
+- Settings page/components.
+- Home/dashboard page/components.
+- Dashboard summary selectors/helpers.
+- Account balance display source selection.
+- Budget source selection if budget data already exists.
+- Home income/expense calculation logic.
+- State/store/API helpers required for home/settings behavior.
+- Tests related to home/settings calculations.
+- Agent documentation.
+
+Agent 04 must not implement:
+
+- Account creation/edit/disable/delete/default logic.
+- Loan creation/account-balance effects.
+- Transaction category additions.
+- Transaction account selection.
+- Recurring expense/income popup behavior.
+- New budget-planning business logic beyond reading existing budget plan data.
+- Currency conversion engine.
 
 ---
 
 ## Domain Rules
 
-### Given Loan
+### Home Balance Source Rule
 
-A given loan means the user gives money to another person.
+From Settings, user can choose the source shown as the main available balance on the Home page.
 
-Required behavior:
-
-```text
-selected account balance decreases
-loan appears as given loan due
-amount uses selected account currency
-repay date is required or validated according to existing form conventions
-```
-
-Example:
+Allowed sources:
 
 ```text
-Cash account balance: 1000
-User gives loan: 200
-Cash account balance after save: 800
-Given loan due total increases by 200
+active accounts
+budget plans, only if budget plan data already exists
 ```
 
-### Taken Loan
+### Account Balance Display Rule
 
-A taken loan means the user receives borrowed money from another person.
-
-Required behavior:
+If selected source is an account:
 
 ```text
-selected account balance increases
-loan appears as taken loan due
-amount uses selected account currency
-repay date is required or validated according to existing form conventions
+Home page shows that account's current/available balance
+Home page uses that account's currency
 ```
 
-Example:
+### Budget Balance Display Rule
+
+If selected source is a budget plan:
 
 ```text
-Bank account balance: 1000
-User takes loan: 300
-Bank account balance after save: 1300
-Taken loan due total increases by 300
+Home page shows budget remaining/available value based on existing budget data
+Home page uses budget currency if available, otherwise existing app convention
+Do not invent currency conversion
 ```
 
-### Overdue Rule
-
-A loan is overdue when:
+### Income/Expense Total Rule
 
 ```text
-repay date < today
-and loan still has unpaid due amount
+Income total = income transactions only
+Expense total = expense transactions only
+Exclude taken loans from income
+Exclude given loans from expense
 ```
 
-Overdue loans must show visually in red. Use existing design system colors/classes where possible.
-
-### Summary Card Rule
-
-Loan page should show exactly two summary boxes/cards:
-
-```text
-Given Loan Due
-Taken Loan Due
-```
-
-Remove any third box/card from the loan summary area.
+If loans and transactions share the same data list, add or use a discriminator/helper to filter loans out of home income/expense totals.
 
 ---
 
-# Phase 03.1 — Loan/Debt Baseline and Dependency Check
+# Phase 04.1 — Settings and Home Baseline Audit
 
 ## Objective
 
-Audit the current Loan & Debt implementation and confirm Agent 02 account dependencies exist.
+Audit current Settings and Home/Dashboard behavior before changing logic.
 
 ## Tasks
 
-1. Read Agent 00 and Agent 02 docs if available.
-2. Inspect current loan/debt page and components.
-3. Locate:
-   - loan/debt route
-   - loan/debt form
-   - loan/debt list/table/card
-   - loan/debt summary boxes
-   - loan/debt data types
-   - loan/debt state/store/API calls
-   - account selector/default account logic from Agent 02
-4. Confirm whether loan/debt currently supports:
-   - given loan
-   - taken loan
-   - amount
-   - person/contact
-   - due amount
-   - repay date
-   - account selection
-   - overdue state
-5. If account/default-account logic from Agent 02 is missing, stop and mark Agent 03 as blocked.
-6. Create or update:
+1. Read Agent 00, Agent 02, and Agent 03 docs if available.
+2. Inspect current Settings page/components.
+3. Inspect current Home/Dashboard page/components.
+4. Locate current home summary cards/calculations:
+   - available balance
+   - income total
+   - expense total
+   - savings/budget values if any
+5. Locate current data sources:
+   - account store/state/API
+   - budget store/state/API
+   - transaction store/state/API
+   - loan/debt store/state/API
+6. Confirm whether home currently includes loan/debt in income/expense totals.
+7. Confirm whether settings currently has dashboard/home display preferences.
+8. Create or update:
 
 ```text
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
+docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md
 ```
 
-7. Add this section:
+9. Add this section:
 
 ```md
-# Agent 03 — Loan and Debt Account Integration
+# Agent 04 — Settings and Home Page Balance Rules
 
-## Phase 03.1 — Loan/Debt Baseline and Dependency Check
+## Phase 04.1 — Settings and Home Baseline Audit
 
 ## Files Inspected
 
-## Current Loan/Debt Behavior
+## Current Settings Behavior
 
-## Existing Account Integration
+## Current Home Dashboard Behavior
 
-## Missing Dependencies
+## Current Balance Source
+
+## Current Income/Expense Calculation
+
+## Current Budget Data Availability
+
+## Current Loan Inclusion Behavior
 
 ## Planned Files to Change
 
-## Blockers
+## Risks
 ```
 
 ## Tests to Run
-
-Run available frontend checks:
 
 ```bash
 cd client && npm run build
@@ -301,254 +264,119 @@ or:
 cd server && npm run test:ci
 ```
 
-Do not invent missing scripts. If a script does not exist, record it in the agent doc.
+Do not invent missing scripts.
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 03 phase 03.1: audit loan debt account dependencies"
+git commit -m "agent 04 phase 04.1: audit settings and home dashboard"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 03.2.
-
-Final response format:
-
-```text
-Changed files:
-- ...
-
-Test result:
-- ...
-
-Bugs fixed:
-- ...
-
-Permission:
-Can I continue to phase 03.2?
-```
+Stop after the commit and ask permission before phase 04.2.
 
 ---
 
-# Phase 03.2 — Add Account Selection to Loan Forms
+# Phase 04.2 — Add Home Balance Source Setting
 
 ## Objective
 
-Allow users to select the account used for given and taken loans.
+Add a Settings option that allows the user to choose what balance source appears on the Home page.
 
 ## Tasks
 
-1. Add account selection to the given-loan form.
-2. Add account selection to the taken-loan form.
-3. Auto-select the primary/default account created by Agent 02.
-4. Allow user to change the selected account from a dropdown.
-5. Exclude disabled accounts from new loan selection if Agent 02 already provides disabled-account behavior.
-6. Preserve existing historical loans that use disabled accounts.
-7. Make sure selected account ID is stored with the loan record/state/API payload.
-8. Use existing form controls/styles.
-9. Update:
-
-```text
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-```
-
-10. Add/update this section:
+1. Add or update Settings UI for `Home Balance Source`.
+2. Available source types should include:
+   - account
+   - budget, only if budget plan data exists
+3. Use existing UI controls and styling.
+4. Persist the selected source using the current project state persistence pattern.
+5. Store enough information to identify:
+   - source type
+   - source id
+6. Add safe fallback if selected source no longer exists.
+7. Do not implement budget creation.
+8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
 
 ```md
-## Phase 03.2 — Account Selection Added to Loan Forms
+## Phase 04.2 — Home Balance Source Setting
 
-## Changed Files
+## Setting Name
 
-## Account Selection Behavior
+## Source Types
 
-## Default Account Behavior
+## Persistence Behavior
+
+## Missing Source Fallback
+
+## UI Behavior
+```
+
+## Tests to Run
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+```
+
+If backend tests exist:
+
+```bash
+cd server && pytest
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 04 phase 04.2: add home balance source setting"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 04.3.
+
+---
+
+# Phase 04.3 — Include Accounts and Budget Plans in Settings Source List
+
+## Objective
+
+Populate the Home Balance Source setting with active accounts and existing budget plans.
+
+## Tasks
+
+1. Load active accounts from Agent 02 account state/API.
+2. Exclude disabled accounts from new selection.
+3. If a disabled account was previously selected, apply fallback behavior.
+4. Load budget plans only if budget data already exists.
+5. Do not create new budget setup logic.
+6. Display source labels clearly:
+   - account name and currency
+   - budget name/period if available
+7. If no sources exist, show a clear empty state.
+8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+
+```md
+## Phase 04.3 — Account and Budget Source Options
+
+## Account Source Rule
 
 ## Disabled Account Handling
 
-## Notes
-```
+## Budget Source Rule
 
-## Tests to Run
+## Empty State
 
-```bash
-cd client && npm run build
-```
-
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If backend tests exist and are relevant:
-
-```bash
-cd server && pytest
-```
-
-## Bug Fix Rule
-
-If tests fail:
-
-1. Fix the failing issue.
-2. Run the failed command again.
-3. Do not expand scope.
-
-## Commit
-
-```bash
-git add .
-git commit -m "agent 03 phase 03.2: add account selection to loan forms"
-```
-
-## Stop Condition
-
-Stop after the commit and ask permission before phase 03.3.
-
-Final response format:
-
-```text
-Changed files:
-- ...
-
-Test result:
-- ...
-
-Bugs fixed:
-- ...
-
-Permission:
-Can I continue to phase 03.3?
-```
-
----
-
-# Phase 03.3 — Implement Loan Balance Effects
-
-## Objective
-
-Update selected account balances when given or taken loans are created.
-
-## Tasks
-
-1. Implement balance deduction for given loans.
-2. Implement balance addition for taken loans.
-3. Ensure the balance update and loan creation happen together in the same state/API transaction where possible.
-4. Avoid duplicate balance effects on re-render or page reload.
-5. If edit behavior exists, do not implement broad loan editing unless already supported. Only avoid double-counting.
-6. If delete/repayment behavior already exists, inspect whether balances need to reverse or adjust. If repayment behavior is outside current scope, document it for later.
-7. Add validation for insufficient funds only if the app already enforces this rule. If the project has no such rule, document the decision and do not add a new product rule.
-8. Update:
-
-```text
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-```
-
-9. Add/update this section:
-
-```md
-## Phase 03.3 — Loan Balance Effects
-
-## Given Loan Balance Rule
-
-## Taken Loan Balance Rule
-
-## Atomicity / Double-Counting Protection
-
-## Repayment/Delete Notes
-
-## Edge Cases
-```
-
-## Tests to Run
-
-```bash
-cd client && npm run build
-```
-
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If backend tests exist:
-
-```bash
-cd server && pytest
-```
-
-If project has unit tests for stores/domain logic, run them.
-
-## Commit
-
-```bash
-git add .
-git commit -m "agent 03 phase 03.3: apply loan balance effects"
-```
-
-## Stop Condition
-
-Stop after the commit and ask permission before phase 03.4.
-
-Final response format:
-
-```text
-Changed files:
-- ...
-
-Test result:
-- ...
-
-Bugs fixed:
-- ...
-
-Permission:
-Can I continue to phase 03.4?
-```
-
----
-
-# Phase 03.4 — Add Repay Date Field
-
-## Objective
-
-Add repay date support to both given and taken loans.
-
-## Tasks
-
-1. Add `repayDate` or project-convention equivalent to loan type/schema/model.
-2. Add repay-date input field to given-loan form.
-3. Add repay-date input field to taken-loan form.
-4. Persist repay date in state/API payload.
-5. Display repay date in the loan list/detail UI.
-6. Label the field clearly:
-   - Given loan: expected return date
-   - Taken loan: repayment due date
-7. Follow existing date-input conventions.
-8. Validate date according to existing form validation style.
-9. Update:
-
-```text
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-```
-
-10. Add/update this section:
-
-```md
-## Phase 03.4 — Repay Date Added
-
-## Field Name
-
-## Form Behavior
-
-## Display Behavior
-
-## Validation Behavior
+## Labels
 ```
 
 ## Tests to Run
@@ -574,159 +402,50 @@ cd server && pytest
 
 ```bash
 git add .
-git commit -m "agent 03 phase 03.4: add loan repay date"
+git commit -m "agent 04 phase 04.3: populate home balance source options"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 03.5.
-
-Final response format:
-
-```text
-Changed files:
-- ...
-
-Test result:
-- ...
-
-Bugs fixed:
-- ...
-
-Permission:
-Can I continue to phase 03.5?
-```
+Stop after the commit and ask permission before phase 04.4.
 
 ---
 
-# Phase 03.5 — Add Overdue Loan Red State
+# Phase 04.4 — Connect Home Available Balance to Selected Source
 
 ## Objective
 
-Highlight overdue loans in red.
+Update the Home page available balance card to show the selected account or budget source.
 
 ## Tasks
 
-1. Implement overdue detection:
-
-```text
-repay date < today
-and unpaid/due amount > 0
-```
-
-2. Apply overdue styling to given loans.
-3. Apply overdue styling to taken loans.
-4. Use existing design system color classes.
-5. Make overdue state easy to identify but not visually destructive.
-6. Ensure paid/settled loans are not marked overdue if such state exists.
-7. Update:
-
-```text
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-```
-
-8. Add/update this section:
+1. Read selected home balance source from settings state.
+2. If selected source is account:
+   - show selected account available/current balance
+   - format with selected account currency
+3. If selected source is budget:
+   - show selected budget remaining/available value from existing budget data
+   - format with budget currency or existing app convention
+4. Add fallback behavior:
+   - if selected source missing, choose default account if available
+   - if no default account, choose first active account if available
+   - if no account/budget, show safe empty state
+5. Update Home page label/subtitle if needed so user understands which balance is shown.
+6. Do not modify income/expense totals in this phase.
+7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
 
 ```md
-## Phase 03.5 — Overdue Loan Red State
+## Phase 04.4 — Home Balance Connected to Selected Source
 
-## Overdue Rule
+## Account Display Rule
 
-## UI Styling
-
-## Paid/Settled Behavior
-
-## Edge Cases
-```
-
-## Tests to Run
-
-```bash
-cd client && npm run build
-```
-
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If frontend tests exist, add or run relevant overdue-state tests.
-
-If backend tests exist:
-
-```bash
-cd server && pytest
-```
-
-## Commit
-
-```bash
-git add .
-git commit -m "agent 03 phase 03.5: highlight overdue loans"
-```
-
-## Stop Condition
-
-Stop after the commit and ask permission before phase 03.6.
-
-Final response format:
-
-```text
-Changed files:
-- ...
-
-Test result:
-- ...
-
-Bugs fixed:
-- ...
-
-Permission:
-Can I continue to phase 03.6?
-```
-
----
-
-# Phase 03.6 — Update Loan Summary Cards
-
-## Objective
-
-Update the Loan & Debt page summary area to show only two summary cards.
-
-## Tasks
-
-1. Locate current three-box summary area.
-2. Remove the extra third summary box.
-3. Keep exactly two summary boxes:
-   - Given Loan Due
-   - Taken Loan Due
-4. Given Loan Due must show sum of unpaid/due given loans.
-5. Taken Loan Due must show sum of unpaid/due taken loans.
-6. Do not include repaid/settled amounts if such status exists.
-7. Display currency consistently. If multiple account currencies exist, follow the current project’s established display rule from Agent 02. If no multi-currency aggregation rule exists, document the limitation instead of inventing a conversion engine.
-8. Ensure layout remains responsive with two cards.
-9. Update:
-
-```text
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-```
-
-10. Add/update this section:
-
-```md
-## Phase 03.6 — Loan Summary Cards Updated
-
-## Removed Card
-
-## Given Loan Due Calculation
-
-## Taken Loan Due Calculation
+## Budget Display Rule
 
 ## Currency Display Rule
 
-## Responsive Layout
+## Fallback Rule
+
+## Empty State
 ```
 
 ## Tests to Run
@@ -752,64 +471,49 @@ cd server && pytest
 
 ```bash
 git add .
-git commit -m "agent 03 phase 03.6: update loan summary cards"
+git commit -m "agent 04 phase 04.4: connect home balance source"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 03.7.
-
-Final response format:
-
-```text
-Changed files:
-- ...
-
-Test result:
-- ...
-
-Bugs fixed:
-- ...
-
-Permission:
-Can I continue to phase 03.7?
-```
+Stop after the commit and ask permission before phase 04.5.
 
 ---
 
-# Phase 03.7 — Apply Account Currency to Loan Lists
+# Phase 04.5 — Fix Home Income and Expense Totals to Exclude Loans
 
 ## Objective
 
-Display each loan amount using the selected account’s currency.
+Ensure Home page income/expense totals only include transaction income/expense, not loan/debt amounts.
 
 ## Tasks
 
-1. Ensure loan records retain selected account reference.
-2. Resolve the account currency for each loan row/card.
-3. Display given loan amounts using the selected account currency.
-4. Display taken loan amounts using the selected account currency.
-5. Apply account currency to detail views/dialogs if loan detail UI exists.
-6. Avoid global currency assumptions when a loan has its own account.
-7. Add fallback display for legacy loans without account reference, using current app convention.
-8. Update:
-
-```text
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-```
-
-9. Add/update this section:
+1. Locate current income total calculation.
+2. Locate current expense total calculation.
+3. Add or update helpers/selectors so:
+   - income total includes income transactions only
+   - expense total includes expense transactions only
+   - taken loans are excluded from income total
+   - given loans are excluded from expense total
+4. If loans and transactions share a data structure:
+   - add/use a type discriminator
+   - filter loan/debt records out of income/expense calculations
+5. Do not change loan/debt page calculations.
+6. Do not change transaction creation behavior.
+7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
 
 ```md
-## Phase 03.7 — Account Currency Applied to Loan Lists
+## Phase 04.5 — Home Income/Expense Totals Exclude Loans
 
-## Currency Source
+## Income Calculation Rule
 
-## Legacy Loan Fallback
+## Expense Calculation Rule
 
-## List Display
+## Loan Exclusion Rule
 
-## Detail Display
+## Shared Data Structure Handling
+
+## Edge Cases
 ```
 
 ## Tests to Run
@@ -825,6 +529,8 @@ cd client && npm run lint
 cd client && npm run typecheck
 ```
 
+If project has relevant unit tests, add/run them.
+
 If backend tests exist:
 
 ```bash
@@ -835,65 +541,47 @@ cd server && pytest
 
 ```bash
 git add .
-git commit -m "agent 03 phase 03.7: show loans in account currency"
+git commit -m "agent 04 phase 04.5: exclude loans from home totals"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 03.8.
-
-Final response format:
-
-```text
-Changed files:
-- ...
-
-Test result:
-- ...
-
-Bugs fixed:
-- ...
-
-Permission:
-Can I continue to phase 03.8?
-```
+Stop after the commit and ask permission before phase 04.6.
 
 ---
 
-# Phase 03.8 — Loan/Debt Regression Verification
+# Phase 04.6 — Home and Settings Regression Verification
 
 ## Objective
 
-Run full verification for Agent 03 and document final behavior.
+Run full verification for Agent 04 and document final behavior.
 
 ## Tasks
 
 1. Run all available relevant tests/builds.
 2. Verify:
-   - given loan requires/selects account
-   - taken loan requires/selects account
-   - default account auto-selects
-   - user can change account
-   - given loan deducts from selected account
-   - taken loan adds to selected account
-   - repay date is supported
-   - overdue loan appears red
-   - only two loan summary cards exist
-   - given loan due sum is correct
-   - taken loan due sum is correct
-   - loan amounts display in account currency
-   - disabled accounts are not available for new loans if Agent 02 supports this
-   - historical loans with disabled accounts still display
+   - Settings page has Home Balance Source option.
+   - Active accounts appear in the source list.
+   - Disabled accounts do not appear for new selection.
+   - Existing budget plans appear if budget data exists.
+   - Empty state is safe if no accounts/budgets exist.
+   - Home page shows selected account balance.
+   - Home page uses selected account currency.
+   - Home page can show selected budget value if budget plan exists.
+   - Missing selected source falls back safely.
+   - Home income total excludes loans.
+   - Home expense total excludes loans.
+   - Loan/debt page calculations are not broken.
 3. Create or update:
 
 ```text
-docs/agents/03_LOAN_DEBT_TEST_REPORT.md
+docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
 ```
 
 4. Include:
 
 ```md
-# Agent 03 Test Report
+# Agent 04 Test Report
 
 ## Branch
 
@@ -909,10 +597,10 @@ docs/agents/03_LOAN_DEBT_TEST_REPORT.md
 
 ## Deferred Work
 
-## Safe Starting Point for Agent 04
+## Safe Starting Point for Agent 05
 ```
 
-5. Do not start Agent 04.
+5. Do not start Agent 05.
 
 ## Tests to Run
 
@@ -955,7 +643,7 @@ Only run commands that actually exist.
 
 ```bash
 git add .
-git commit -m "agent 03 phase 03.8: verify loan debt account integration"
+git commit -m "agent 04 phase 04.6: verify home settings balance rules"
 ```
 
 ## Stop Condition
@@ -975,35 +663,34 @@ Bugs fixed:
 - ...
 
 Permission:
-Agent 03 is complete. Can I continue with Agent 04 planning/generation?
+Agent 04 is complete. Can I continue with Agent 05 planning/generation?
 ```
 
 ---
 
-# Agent 03 Final Success Criteria
+# Agent 04 Final Success Criteria
 
-Agent 03 is complete only when:
+Agent 04 is complete only when:
 
-- Branch `feature/loan-debt-account-integration` exists.
-- Given loan form supports selected account.
-- Taken loan form supports selected account.
-- Default account auto-selects in loan forms.
-- User can change selected account from dropdown.
-- Given loan deducts from selected account.
-- Taken loan adds to selected account.
-- Loan repay date exists and is displayed.
-- Overdue unpaid loans show in red.
-- Loan page shows exactly two summary boxes:
-  - Given Loan Due
-  - Taken Loan Due
-- Removed third summary box.
-- Loan amounts display using selected account currency.
+- Branch `feature/home-settings-balance-display` exists.
+- Settings page has a Home Balance Source option.
+- Active accounts can be selected as home balance source.
+- Disabled accounts are excluded from new source selection.
+- Existing budget plans appear as source options if budget data exists.
+- Home page displays selected account available/current balance.
+- Home page displays selected source using the correct currency convention.
+- Home page has safe fallback if selected source is missing.
+- Home income total includes only income transactions.
+- Home expense total includes only expense transactions.
+- Home income total excludes taken loans.
+- Home expense total excludes given loans.
 - Tests/builds have been run.
-- Agent 03 docs are updated.
-- Agent 03 test report is created.
-- No sidebar/navigation work is implemented.
-- No account page/business-rule work is implemented except consuming Agent 02 account behavior.
+- Agent 04 docs are updated.
+- Agent 04 test report is created.
+- No account page/business-rule work is implemented.
+- No loan/debt business logic is implemented.
+- No transaction category/account behavior is implemented.
 - No recurring popup logic is implemented.
-- Agent stops and asks permission before Agent 04.
+- Agent stops and asks permission before Agent 05.
 
 ---

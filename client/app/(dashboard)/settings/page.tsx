@@ -97,7 +97,7 @@ export default function SettingsPage() {
   }, [user]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let isMounted = true;
 
     async function loadBalanceSources() {
       setIsSourceLoading(true);
@@ -106,11 +106,11 @@ export default function SettingsPage() {
       setBudgetSourcesLoaded(false);
 
       const [accountResult, budgetResult] = await Promise.allSettled([
-        listAccounts({ signal: controller.signal }),
-        listBudgets(currentMonthKey(), { signal: controller.signal }),
+        listAccounts(),
+        listBudgets(currentMonthKey()),
       ]);
 
-      if (controller.signal.aborted) {
+      if (!isMounted) {
         return;
       }
 
@@ -131,7 +131,9 @@ export default function SettingsPage() {
 
     void loadBalanceSources();
 
-    return () => controller.abort();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
