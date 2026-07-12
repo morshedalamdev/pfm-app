@@ -13,13 +13,16 @@ from sqlalchemy import (
     Numeric,
     String,
     UniqueConstraint,
+    case,
     func,
+    select,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, column_property, mapped_column
 
 from app.core.database import Base
+from app.modules.transactions.models import Transaction
 
 
 class Account(Base):
@@ -103,7 +106,32 @@ class Account(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    transaction_balance_adjustment: Mapped[Decimal] = column_property(
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Transaction.type == "income", Transaction.amount),
+                        else_=-Transaction.amount,
+                    )
+                ),
+                0,
+            )
+        )
+        .where(
+            Transaction.account_id == id,
+            Transaction.user_id == user_id,
+            Transaction.voided_at.is_(None),
+            Transaction.type.in_(("income", "expense")),
+        )
+        .correlate_except(Transaction)
+        .scalar_subquery()
+    )
 
     @property
     def current_balance(self) -> Decimal:
-        return self.opening_balance + self.loan_balance_adjustment
+        return (
+            self.opening_balance
+            + self.loan_balance_adjustment
+            + self.transaction_balance_adjustment
+        )

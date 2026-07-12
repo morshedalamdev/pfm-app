@@ -1,36 +1,44 @@
-# Agent 04 — Settings and Home Page Balance Rules
+# Agent 05 — Transaction Category and Account Rules
 
-## Agent Identity
+## Role
 
-You are **Agent 04 — Settings and Home Page Balance Rules** for the `pfm-app` project.
+You are Agent 05 for `pfm-app`.
 
-Your job is to update the Settings and Home/Dashboard behavior so the user can control which balance source appears on the home page, and so home income/expense totals include only real transactions, not loans.
+Your scope is only the Transaction area:
 
-Do not implement sidebar changes, account-page rules, loan/debt business logic, transaction-category updates, recurring popups, or backend architecture migration in this agent.
+- Add categories: `Hangout`, `Vacation`, `Party`.
+- Auto-select the primary/default account in transaction forms.
+- Allow the user to change account from a dropdown.
+- Exclude disabled accounts from new transaction selection.
+- Store selected account on each transaction.
+- Show transaction amounts using the selected account currency.
+- Apply income/expense balance effects only to the selected account.
+- Preserve Home totals so income/expense include transactions only and exclude loans.
 
----
+Do not implement recurring popup behavior. That belongs to Agent 06 and Agent 07.
 
-## Repository
+Repository:
 
 ```text
-Repository: https://github.com/morshedalamdev/pfm-app
-Live frontend: https://pfm.morshedalam.dev
+https://github.com/morshedalamdev/pfm-app
 ```
 
 ---
 
-## Required Git Branch
+## Branch
+
+Use this branch only:
 
 ```bash
 git checkout main
 git pull
-git checkout -b feature/home-settings-balance-display
+git checkout -b feature/transaction-category-account-rules
 ```
 
-If the branch already exists:
+If it already exists:
 
 ```bash
-git checkout feature/home-settings-balance-display
+git checkout feature/transaction-category-account-rules
 git pull
 ```
 
@@ -38,16 +46,17 @@ git pull
 
 ## Required Previous Agents
 
-Agent 04 should run after these agents are completed and merged into `main`:
+Run this only after these are merged into `main`:
 
 ```text
 Agent 00 — Current App Audit
 Agent 01 — Sidebar and Navigation Update
 Agent 02 — Account Page and Account Rules
 Agent 03 — Loan and Debt Account Integration
+Agent 04 — Settings and Home Page Balance Rules
 ```
 
-Read these files if they exist:
+Read these docs if present:
 
 ```text
 docs/audit/00_CURRENT_APP_AUDIT.md
@@ -55,11 +64,11 @@ docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md
 docs/audit/02_BASELINE_TEST_REPORT.md
 docs/agents/02_ACCOUNT_PAGE_AND_RULES.md
 docs/agents/02_ACCOUNT_TEST_REPORT.md
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-docs/agents/03_LOAN_DEBT_TEST_REPORT.md
+docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md
+docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
 ```
 
-If account/default-account behavior from Agent 02 is missing, stop and report that Agent 04 is blocked. Do not create a second account system.
+If account/default-account helpers from Agent 02 are missing, stop and report Agent 05 is blocked. Do not create a second account system.
 
 ---
 
@@ -81,165 +90,31 @@ Permission:
 Can I continue to the next phase?
 ```
 
-Do **not** explain the implementation. Do **not** provide long reasoning. Do **not** start the next phase without permission.
+Do not explain the implementation. Do not start the next phase without permission.
 
 ---
 
-## Required Phase Workflow
+## Required Workflow Per Phase
 
 ```text
 Think internally
-Execute only the current phase
+Execute only current phase
 Run tests
-Fix failed tests
+Fix failures
 Run tests again
 Update docs
 Commit
 Stop
-Ask permission for next phase
+Ask permission
 ```
 
 ---
 
-## Agent 04 Goal
+## Tests
 
-Implement:
+Run available commands only. Do not invent missing scripts.
 
-- User can set from Settings which account available balance should show on the Home page.
-- The same Settings list should also include budget if user already set a budget plan.
-- Home page income total should include only income transactions.
-- Home page expense total should include only expense transactions.
-- Home income/expense totals must not include loan/debt.
-
----
-
-## Agent 04 Scope
-
-Agent 04 may change:
-
-- Settings page/components.
-- Home/dashboard page/components.
-- Dashboard summary selectors/helpers.
-- Account balance display source selection.
-- Budget source selection if budget data already exists.
-- Home income/expense calculation logic.
-- State/store/API helpers required for home/settings behavior.
-- Tests related to home/settings calculations.
-- Agent documentation.
-
-Agent 04 must not implement:
-
-- Account creation/edit/disable/delete/default logic.
-- Loan creation/account-balance effects.
-- Transaction category additions.
-- Transaction account selection.
-- Recurring expense/income popup behavior.
-- New budget-planning business logic beyond reading existing budget plan data.
-- Currency conversion engine.
-
----
-
-## Domain Rules
-
-### Home Balance Source Rule
-
-From Settings, user can choose the source shown as the main available balance on the Home page.
-
-Allowed sources:
-
-```text
-active accounts
-budget plans, only if budget plan data already exists
-```
-
-### Account Balance Display Rule
-
-If selected source is an account:
-
-```text
-Home page shows that account's current/available balance
-Home page uses that account's currency
-```
-
-### Budget Balance Display Rule
-
-If selected source is a budget plan:
-
-```text
-Home page shows budget remaining/available value based on existing budget data
-Home page uses budget currency if available, otherwise existing app convention
-Do not invent currency conversion
-```
-
-### Income/Expense Total Rule
-
-```text
-Income total = income transactions only
-Expense total = expense transactions only
-Exclude taken loans from income
-Exclude given loans from expense
-```
-
-If loans and transactions share the same data list, add or use a discriminator/helper to filter loans out of home income/expense totals.
-
----
-
-# Phase 04.1 — Settings and Home Baseline Audit
-
-## Objective
-
-Audit current Settings and Home/Dashboard behavior before changing logic.
-
-## Tasks
-
-1. Read Agent 00, Agent 02, and Agent 03 docs if available.
-2. Inspect current Settings page/components.
-3. Inspect current Home/Dashboard page/components.
-4. Locate current home summary cards/calculations:
-   - available balance
-   - income total
-   - expense total
-   - savings/budget values if any
-5. Locate current data sources:
-   - account store/state/API
-   - budget store/state/API
-   - transaction store/state/API
-   - loan/debt store/state/API
-6. Confirm whether home currently includes loan/debt in income/expense totals.
-7. Confirm whether settings currently has dashboard/home display preferences.
-8. Create or update:
-
-```text
-docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md
-```
-
-9. Add this section:
-
-```md
-# Agent 04 — Settings and Home Page Balance Rules
-
-## Phase 04.1 — Settings and Home Baseline Audit
-
-## Files Inspected
-
-## Current Settings Behavior
-
-## Current Home Dashboard Behavior
-
-## Current Balance Source
-
-## Current Income/Expense Calculation
-
-## Current Budget Data Availability
-
-## Current Loan Inclusion Behavior
-
-## Planned Files to Change
-
-## Risks
-```
-
-## Tests to Run
+Primary frontend checks:
 
 ```bash
 cd client && npm run build
@@ -250,6 +125,7 @@ If available:
 ```bash
 cd client && npm run lint
 cd client && npm run typecheck
+cd client && npm test
 ```
 
 If backend tests exist and are relevant:
@@ -264,324 +140,355 @@ or:
 cd server && npm run test:ci
 ```
 
-Do not invent missing scripts.
-
-## Commit
-
-```bash
-git add .
-git commit -m "agent 04 phase 04.1: audit settings and home dashboard"
-```
-
-## Stop Condition
-
-Stop after the commit and ask permission before phase 04.2.
-
 ---
 
-# Phase 04.2 — Add Home Balance Source Setting
+# Phase 05.1 — Transaction Baseline and Account Dependency Audit
 
 ## Objective
 
-Add a Settings option that allows the user to choose what balance source appears on the Home page.
+Audit existing transaction behavior before implementation.
 
 ## Tasks
 
-1. Add or update Settings UI for `Home Balance Source`.
-2. Available source types should include:
-   - account
-   - budget, only if budget plan data exists
-3. Use existing UI controls and styling.
-4. Persist the selected source using the current project state persistence pattern.
-5. Store enough information to identify:
-   - source type
-   - source id
-6. Add safe fallback if selected source no longer exists.
-7. Do not implement budget creation.
-8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+1. Inspect transaction page, form, list, store/API, types/schemas, category constants, and mock data.
+2. Inspect account helpers/selectors from Agent 02.
+3. Inspect Home total helpers from Agent 04.
+4. Confirm whether transactions currently support:
+   - income
+   - expense
+   - category
+   - amount
+   - date
+   - note
+   - recurring flag
+   - selected account
+   - currency display
+5. Create/update:
+
+```text
+docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md
+```
+
+Add:
 
 ```md
-## Phase 04.2 — Home Balance Source Setting
+# Agent 05 — Transaction Category and Account Rules
 
-## Setting Name
+## Phase 05.1 — Baseline Audit
 
-## Source Types
+## Files Inspected
 
-## Persistence Behavior
+## Current Transaction Behavior
 
-## Missing Source Fallback
+## Current Category Source
 
-## UI Behavior
-```
+## Existing Account Integration
 
-## Tests to Run
+## Current Balance Effect Behavior
 
-```bash
-cd client && npm run build
-```
+## Current Currency Display
 
-If available:
+## Home Total Interaction
 
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
+## Planned Files to Change
 
-If backend tests exist:
-
-```bash
-cd server && pytest
+## Blockers
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.2: add home balance source setting"
+git commit -m "agent 05 phase 05.1: audit transaction account dependencies"
 ```
 
-## Stop Condition
-
-Stop after the commit and ask permission before phase 04.3.
+Stop and ask permission for phase 05.2.
 
 ---
 
-# Phase 04.3 — Include Accounts and Budget Plans in Settings Source List
+# Phase 05.2 — Add Requested Transaction Categories
 
 ## Objective
 
-Populate the Home Balance Source setting with active accounts and existing budget plans.
+Add transaction categories only.
 
 ## Tasks
 
-1. Load active accounts from Agent 02 account state/API.
-2. Exclude disabled accounts from new selection.
-3. If a disabled account was previously selected, apply fallback behavior.
-4. Load budget plans only if budget data already exists.
-5. Do not create new budget setup logic.
-6. Display source labels clearly:
-   - account name and currency
-   - budget name/period if available
-7. If no sources exist, show a clear empty state.
-8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+1. Add categories exactly:
+   - `Hangout`
+   - `Vacation`
+   - `Party`
+2. Add them to the correct existing category group. Usually these should be expense categories unless the app has a general category model.
+3. Use existing icon/color conventions if categories have icons/colors.
+4. Ensure category selection UI shows them.
+5. Do not change account, balance, loan, home, or recurring behavior.
+6. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
 
 ```md
-## Phase 04.3 — Account and Budget Source Options
+## Phase 05.2 — Transaction Categories Added
 
-## Account Source Rule
+## Added Categories
 
-## Disabled Account Handling
+## Category Group
 
-## Budget Source Rule
+## UI Display
 
-## Empty State
-
-## Labels
-```
-
-## Tests to Run
-
-```bash
-cd client && npm run build
-```
-
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If backend tests exist:
-
-```bash
-cd server && pytest
+## Notes
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.3: populate home balance source options"
+git commit -m "agent 05 phase 05.2: add transaction categories"
 ```
 
-## Stop Condition
-
-Stop after the commit and ask permission before phase 04.4.
+Stop and ask permission for phase 05.3.
 
 ---
 
-# Phase 04.4 — Connect Home Available Balance to Selected Source
+# Phase 05.3 — Default Account Auto-Selection
 
 ## Objective
 
-Update the Home page available balance card to show the selected account or budget source.
+Auto-select the primary/default account in the transaction form.
 
 ## Tasks
 
-1. Read selected home balance source from settings state.
-2. If selected source is account:
-   - show selected account available/current balance
-   - format with selected account currency
-3. If selected source is budget:
-   - show selected budget remaining/available value from existing budget data
-   - format with budget currency or existing app convention
-4. Add fallback behavior:
-   - if selected source missing, choose default account if available
-   - if no default account, choose first active account if available
-   - if no account/budget, show safe empty state
-5. Update Home page label/subtitle if needed so user understands which balance is shown.
-6. Do not modify income/expense totals in this phase.
-7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+1. Load default account from Agent 02 account helper/store/API.
+2. Auto-select it when creating income or expense.
+3. If no default exists, select first active account if available.
+4. If no active account exists, show safe validation/empty state.
+5. Disabled accounts must not be auto-selected.
+6. Do not add manual account dropdown yet.
+7. Do not implement balance effects yet.
+8. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
 
 ```md
-## Phase 04.4 — Home Balance Connected to Selected Source
+## Phase 05.3 — Default Account Auto-Selection
 
-## Account Display Rule
-
-## Budget Display Rule
-
-## Currency Display Rule
+## Default Source
 
 ## Fallback Rule
 
-## Empty State
-```
+## Disabled Account Handling
 
-## Tests to Run
-
-```bash
-cd client && npm run build
-```
-
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If backend tests exist:
-
-```bash
-cd server && pytest
+## Validation Behavior
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.4: connect home balance source"
+git commit -m "agent 05 phase 05.3: auto-select default transaction account"
 ```
 
-## Stop Condition
-
-Stop after the commit and ask permission before phase 04.5.
+Stop and ask permission for phase 05.4.
 
 ---
 
-# Phase 04.5 — Fix Home Income and Expense Totals to Exclude Loans
+# Phase 05.4 — Account Dropdown Override
 
 ## Objective
 
-Ensure Home page income/expense totals only include transaction income/expense, not loan/debt amounts.
+Allow user to change selected account in transaction form.
 
 ## Tasks
 
-1. Locate current income total calculation.
-2. Locate current expense total calculation.
-3. Add or update helpers/selectors so:
-   - income total includes income transactions only
-   - expense total includes expense transactions only
-   - taken loans are excluded from income total
-   - given loans are excluded from expense total
-4. If loans and transactions share a data structure:
-   - add/use a type discriminator
-   - filter loan/debt records out of income/expense calculations
-5. Do not change loan/debt page calculations.
-6. Do not change transaction creation behavior.
-7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+1. Add account dropdown using existing UI style.
+2. Show only active accounts.
+3. Preselect default account from phase 05.3.
+4. Allow user to choose another active account.
+5. Store selected account ID with transaction data/payload.
+6. Validate selected account exists and is active.
+7. Use shared account-select helper/component from Agent 02 if available.
+8. Do not implement balance effects yet.
+9. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
 
 ```md
-## Phase 04.5 — Home Income/Expense Totals Exclude Loans
+## Phase 05.4 — Account Dropdown Override
 
-## Income Calculation Rule
+## Dropdown Source
 
-## Expense Calculation Rule
+## Active Account Rule
 
-## Loan Exclusion Rule
+## Selected Account Persistence
 
-## Shared Data Structure Handling
+## Validation Behavior
+
+## Reused Components
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 05 phase 05.4: add transaction account dropdown"
+```
+
+Stop and ask permission for phase 05.5.
+
+---
+
+# Phase 05.5 — Transaction Balance Effects
+
+## Objective
+
+Apply income/expense transaction effects to selected account balance.
+
+## Tasks
+
+1. Income transaction increases selected account balance.
+2. Expense transaction decreases selected account balance.
+3. Balance effect must apply only to selected account.
+4. Prevent duplicate balance changes on rerender, reload, or repeated submit.
+5. If edit/delete transaction behavior exists, inspect whether balance reversal/adjustment is handled. If not, document deferred work.
+6. Do not modify loan/debt balance logic.
+7. Do not modify recurring popup behavior.
+8. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+
+```md
+## Phase 05.5 — Transaction Balance Effects
+
+## Income Balance Rule
+
+## Expense Balance Rule
+
+## Selected Account Rule
+
+## Double-Counting Protection
+
+## Edit/Delete Notes
 
 ## Edge Cases
 ```
 
-## Tests to Run
+## Commit
 
 ```bash
-cd client && npm run build
+git add .
+git commit -m "agent 05 phase 05.5: apply transaction balance effects"
 ```
 
-If available:
+Stop and ask permission for phase 05.6.
 
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
+---
 
-If project has relevant unit tests, add/run them.
+# Phase 05.6 — Transaction Currency Display
 
-If backend tests exist:
+## Objective
 
-```bash
-cd server && pytest
+Display transaction amounts using the selected account currency.
+
+## Tasks
+
+1. Resolve account currency for each transaction row/card.
+2. Display income and expense amounts with selected account currency.
+3. Apply same rule to transaction detail dialog/view if one exists.
+4. Add fallback for legacy transactions without account reference using current app convention.
+5. Do not add currency conversion.
+6. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+
+```md
+## Phase 05.6 — Account Currency Applied to Transaction Lists
+
+## Currency Source
+
+## Legacy Transaction Fallback
+
+## List Display
+
+## Detail Display
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.5: exclude loans from home totals"
+git commit -m "agent 05 phase 05.6: show transactions in account currency"
 ```
 
-## Stop Condition
-
-Stop after the commit and ask permission before phase 04.6.
+Stop and ask permission for phase 05.7.
 
 ---
 
-# Phase 04.6 — Home and Settings Regression Verification
+# Phase 05.7 — Preserve Home Totals and Loan Exclusion
 
 ## Objective
 
-Run full verification for Agent 04 and document final behavior.
+Verify transaction changes do not break Home income/expense rules from Agent 04.
+
+## Tasks
+
+1. Ensure Home income total includes only income transactions.
+2. Ensure Home expense total includes only expense transactions.
+3. Ensure taken loans are excluded from income.
+4. Ensure given loans are excluded from expense.
+5. Ensure account-linked transactions are still included.
+6. Do not auto-count future recurring items.
+7. Do not implement recurring popup behavior.
+8. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+
+```md
+## Phase 05.7 — Home Totals Preserved
+
+## Income Total Rule
+
+## Expense Total Rule
+
+## Loan Exclusion
+
+## Account-Linked Transaction Handling
+
+## Recurring Placeholder Handling
+```
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 05 phase 05.7: preserve home transaction totals"
+```
+
+Stop and ask permission for phase 05.8.
+
+---
+
+# Phase 05.8 — Regression Verification
+
+## Objective
+
+Run full verification and document final behavior.
 
 ## Tasks
 
 1. Run all available relevant tests/builds.
 2. Verify:
-   - Settings page has Home Balance Source option.
-   - Active accounts appear in the source list.
-   - Disabled accounts do not appear for new selection.
-   - Existing budget plans appear if budget data exists.
-   - Empty state is safe if no accounts/budgets exist.
-   - Home page shows selected account balance.
-   - Home page uses selected account currency.
-   - Home page can show selected budget value if budget plan exists.
-   - Missing selected source falls back safely.
-   - Home income total excludes loans.
-   - Home expense total excludes loans.
-   - Loan/debt page calculations are not broken.
-3. Create or update:
+   - Hangout category appears.
+   - Vacation category appears.
+   - Party category appears.
+   - Transaction form auto-selects default account.
+   - User can change account from dropdown.
+   - Disabled accounts do not appear for new transaction selection.
+   - Transaction stores selected account reference.
+   - Income increases selected account balance.
+   - Expense decreases selected account balance.
+   - Transaction list displays selected account currency.
+   - Legacy transactions without account display safely.
+   - Home income total includes only income transactions.
+   - Home expense total includes only expense transactions.
+   - Home totals exclude loan/debt.
+   - Recurring popup behavior has not been implemented.
+3. Create/update:
 
 ```text
-docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
+docs/agents/05_TRANSACTION_TEST_REPORT.md
 ```
 
-4. Include:
+Include:
 
 ```md
-# Agent 04 Test Report
+# Agent 05 Test Report
 
 ## Branch
 
@@ -597,58 +504,15 @@ docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
 
 ## Deferred Work
 
-## Safe Starting Point for Agent 05
+## Safe Starting Point for Agent 06
 ```
-
-5. Do not start Agent 05.
-
-## Tests to Run
-
-Run every available relevant command.
-
-Expected frontend checks:
-
-```bash
-cd client && npm run build
-```
-
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-Optional only if the project has the script:
-
-```bash
-cd client && npm test
-```
-
-Expected backend checks, depending on current backend implementation:
-
-```bash
-cd server && pytest
-```
-
-or:
-
-```bash
-cd server && npm run test:ci
-```
-
-Only run commands that actually exist.
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.6: verify home settings balance rules"
+git commit -m "agent 05 phase 05.8: verify transaction account rules"
 ```
-
-## Stop Condition
-
-Stop after the commit.
 
 Final response must show only:
 
@@ -663,34 +527,34 @@ Bugs fixed:
 - ...
 
 Permission:
-Agent 04 is complete. Can I continue with Agent 05 planning/generation?
+Agent 05 is complete. Can I continue with Agent 06 planning/generation?
 ```
 
 ---
 
-# Agent 04 Final Success Criteria
+# Agent 05 Final Success Criteria
 
-Agent 04 is complete only when:
+Agent 05 is complete only when:
 
-- Branch `feature/home-settings-balance-display` exists.
-- Settings page has a Home Balance Source option.
-- Active accounts can be selected as home balance source.
-- Disabled accounts are excluded from new source selection.
-- Existing budget plans appear as source options if budget data exists.
-- Home page displays selected account available/current balance.
-- Home page displays selected source using the correct currency convention.
-- Home page has safe fallback if selected source is missing.
+- Branch `feature/transaction-category-account-rules` exists.
+- Categories exist: `Hangout`, `Vacation`, `Party`.
+- Transaction form auto-selects default account.
+- User can change selected account from dropdown.
+- Disabled accounts are excluded from new transaction selection.
+- Transaction records store selected account reference.
+- Income transaction increases selected account balance.
+- Expense transaction decreases selected account balance.
+- Transaction list displays amount using selected account currency.
+- Legacy transactions without account display safely.
 - Home income total includes only income transactions.
 - Home expense total includes only expense transactions.
-- Home income total excludes taken loans.
-- Home expense total excludes given loans.
+- Home totals exclude loan/debt.
 - Tests/builds have been run.
-- Agent 04 docs are updated.
-- Agent 04 test report is created.
-- No account page/business-rule work is implemented.
+- Agent 05 docs are updated.
+- Agent 05 test report is created.
+- No recurring popup behavior is implemented.
 - No loan/debt business logic is implemented.
-- No transaction category/account behavior is implemented.
-- No recurring popup logic is implemented.
-- Agent stops and asks permission before Agent 05.
+- No account page/business-rule work is implemented.
+- Agent stops and asks permission before Agent 06.
 
 ---

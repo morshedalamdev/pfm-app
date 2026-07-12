@@ -282,3 +282,56 @@ No repository-owned production transaction mock-data module was found. Transacti
 
 - Disabled accounts no longer appear as selectable transaction accounts.
 - Direct API transaction create/update, transfer, and savings-transfer requests can no longer use a disabled account.
+
+## Phase 05.5 — Transaction Balance Effects
+
+## Income Balance Rule
+
+- Each account response derives its transaction balance adjustment from non-voided income and expense ledger rows linked to that account.
+- An income row adds its amount to the selected account's `current_balance`.
+- No imperative account balance mutation is performed during transaction creation.
+
+## Expense Balance Rule
+
+- An expense row subtracts its amount from the selected account's `current_balance`.
+- Expense effects are read from the same persisted transaction ledger as income effects.
+
+## Selected Account Rule
+
+- The correlated balance calculation matches both `Transaction.account_id` and `Transaction.user_id` to the account being returned.
+- A transaction therefore affects only its stored selected account; other accounts keep their own opening, loan-adjustment, and transaction values.
+
+## Double-Counting Protection
+
+- Account balance reads aggregate persisted transaction rows and do not write a second balance delta on render, reload, or account fetch.
+- Existing transaction-create idempotency prevents a replay with the same key and payload from inserting another ledger row.
+- Regression coverage confirms an idempotent replay contributes its amount once.
+
+## Edit/Delete Notes
+
+- Updating a transaction amount changes the ledger value used on the next account read.
+- Moving a transaction to another active account removes its effect from the old account and applies it to the new selected account.
+- Delete remains a void operation. Voided transactions are excluded, so their balance effect is reversed on the next account read.
+
+## Edge Cases
+
+- Negative current balances remain possible when valid expenses exceed the account's available value; no insufficient-funds rule was added.
+- Transfer debit/credit rows are excluded from this phase's adjustment because phase 05.5 is limited to income and expense effects.
+- Existing `loan_balance_adjustment` remains part of `current_balance` and was not modified.
+- Recurring rules do not affect account balance until existing recurring processing creates a transaction row; recurring behavior was not modified.
+
+## Phase 05.5 Check Results
+
+- `cd client && npm run build`: passed after an approved rerun allowed the configured Google-hosted Urbanist font fetch.
+- `cd client && npm run api:check`: passed; generated API artifacts are up to date.
+- Focused transaction/account/loan/dashboard regression set: passed with `35 passed, 1 warning`.
+- Full backend suite: passed with `174 passed, 1 warning`.
+- Ruff lint and format checks passed for the changed backend and test files.
+- `cd server && PATH="$PWD/.venv/bin:$PATH" mypy app`: passed with no issues in 110 source files.
+- `cd client && npm run lint`, `npm run typecheck`, and `npm test` were unavailable because those scripts do not exist.
+
+## Phase 05.5 Bugs Fixed
+
+- Account `current_balance` now includes income and expense transaction effects for that account.
+- Transaction edits that change amount or selected account now adjust both affected account balances through ledger recomputation.
+- Voiding a transaction now removes its effect from the selected account balance.
