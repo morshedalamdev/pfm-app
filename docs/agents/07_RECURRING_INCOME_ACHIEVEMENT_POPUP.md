@@ -459,3 +459,74 @@
 - Added permanent recurring-income deactivation and queue advancement without a transaction, balance, completion, or Home-income change.
 - Added temporary income-popup dismissal that preserves the active rule and returns after a fresh app load.
 - Added destructive confirmation, pending-state exclusion, duplicate-submit protection, and retryable Delete errors.
+
+## Phase 07.7 — Persistence and Mixed Reminder Verification
+
+## Received Persistence
+
+- A successful Received action persists the current rule-local `last_received_period` and keeps the recurring income rule active.
+- Repeated app reloads in the same month continue to exclude the received income reminder.
+- Reloading does not create another transaction or apply another account balance increase.
+
+## Next-Month Reactivation
+
+- Controlled-date queue tests keep a March-received income hidden through March month-end and before its April due time.
+- The same active rule returns with an April reminder key exactly at the configured April due time.
+- Monthly reactivation is based on the original due day and time rather than the date Received was clicked.
+
+## Deleted Rule Persistence
+
+- Soft-archived income rules remain excluded in the deletion month and in controlled later-year checks.
+- App reload and active-rule queries do not restore a deleted income reminder.
+
+## Close and Reload Behavior
+
+- Close hides only the currently mounted income dialog and does not alter active or completion state.
+- A fresh app load detects and shows the same closed-only reminder again during its due window.
+
+## Prior-Month Expiry
+
+- An unreceived March income remains eligible through March month-end.
+- It is not carried into early April before the new April due time.
+- At the April due time, the rule produces only the April reminder key.
+
+## Mixed Queue Ordering
+
+- Income and expense backend queues retain deterministic due-time then rule-ID ordering and type isolation.
+- The shared client queue continues to present the earlier expense reminders before the later income reminder and advances one item at a time.
+- Focused browser coverage confirms only one popup renders at once and the expense-to-income transition follows queue order.
+
+## Reminder Isolation
+
+- Completing an income reminder suppresses only that income occurrence; a due expense remains visible after reload.
+- Paid expense state suppresses only its expense rule, and received income state suppresses only its income rule.
+- Completing, deleting, or closing one reminder does not mutate another rule's completion state.
+
+## Expense Regression Safety
+
+- The expense due helper retains same-month suppression, next-month reactivation, and prior-month expiry behavior.
+- The expense component and styles were not modified.
+- Browser verification confirms the mixed-queue expense popup remains amber with its existing actions and content.
+
+## Phase 07.7 Check Results
+
+- Controlled recurring due-date and queue suite: `29 passed`.
+- Focused recurring, transaction, and dashboard backend suite: `58 passed, 1 warning`.
+- Full backend suite: `211 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 144 files.
+- Mypy passed with no issues in 110 source files.
+- Generated API contract check passed.
+- TypeScript no-emit check passed.
+- E2E JavaScript syntax check passed.
+- Frontend production build passed.
+- Received persistence/reload and expense-isolation browser scenario: `1 passed`.
+- Delete/Close persistence browser scenario: `1 passed`.
+- Mixed expense/income queue and expense-regression browser scenario: `1 passed`.
+- The backend warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint`, `typecheck`, and unit `test` scripts remain unavailable.
+
+## Phase 07.7 Bugs Fixed
+
+- Corrected the persistence browser assertion to compare equivalent timestamp instants instead of requiring identical ISO fractional-second formatting.
+- No production persistence, monthly-repeat, mixed-queue, or expense-regression defect was found.

@@ -477,6 +477,118 @@ test("recurring income Delete is permanent and Close is temporary", async ({
   await api.dispose();
 });
 
+test("received income stays hidden after reload without suppressing expense", async ({
+  page,
+}) => {
+  const email = `pfm-income-persistence-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Name").fill("Income Persistence User");
+  await page.getByPlaceholder("Phone Number").fill("5550177");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const account = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Persistence Account",
+    opening_balance: "400.00",
+    type: "bank",
+  });
+  const salary = await getCategoryByName(api, "income", "Salary");
+  const groceries = await getCategoryByName(api, "expense", "Groceries");
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const expenseDueAt = new Date(monthStart);
+  expenseDueAt.setUTCMinutes(expenseDueAt.getUTCMinutes() + 1);
+
+  const incomeRule = await postJson(api, "/api/v1/recurring-rules", {
+    account_id: account.id,
+    amount: "800.00",
+    category_id: salary.id,
+    description: "Persistent salary",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: monthStart.toISOString(),
+    timezone: "UTC",
+    transaction_type: "income",
+  });
+  await postJson(api, "/api/v1/recurring-rules", {
+    account_id: account.id,
+    amount: "25.00",
+    category_id: groceries.id,
+    description: "Persistence expense",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: expenseDueAt.toISOString(),
+    timezone: "UTC",
+    transaction_type: "expense",
+  });
+  const receivedAt = new Date().toISOString();
+  const received = await postJson(
+    api,
+    `/api/v1/recurring-rules/${incomeRule.id}/received`,
+    { received_at: receivedAt },
+  );
+  expect(received.rule.status).toBe("active");
+  expect(received.rule.last_received_period).toBe(
+    monthStart.toISOString().slice(0, 7),
+  );
+
+  await page.reload();
+  const expenseWarning = page.getByRole("dialog");
+  await expect(
+    expenseWarning.getByRole("heading", { name: "Recurring expense due" }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    expenseWarning.getByText("Persistence expense", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    expenseWarning.getByText("Persistent salary", { exact: true }),
+  ).toHaveCount(0);
+  await expect(expenseWarning).toHaveClass(/border-amber-400/);
+  expect(
+    (await getJson(api, "/api/v1/recurring-rules/due-incomes")).items,
+  ).toHaveLength(0);
+
+  await page.reload();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("Persistence expense", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  const transactions = await getJson(api, "/api/v1/transactions?limit=100");
+  expect(transactions.items).toHaveLength(1);
+  expect(transactions.items[0].id).toBe(received.transaction.id);
+  expect(Date.parse(transactions.items[0].transaction_at)).toBe(
+    Date.parse(receivedAt),
+  );
+  expect(
+    Number(
+      (await getJson(api, `/api/v1/accounts/${account.id}`)).current_balance,
+    ),
+  ).toBe(1200);
+  await api.dispose();
+});
+
 test("integrated finance journeys render across breakpoints", async ({ page }) => {
   const email = `pfm-e2e-${Date.now()}@example.test`;
   const password = "StrongPass123!";
