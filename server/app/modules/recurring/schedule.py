@@ -154,18 +154,28 @@ def is_recurring_period_paid(
     return last_paid_period == period_key
 
 
-def is_monthly_expense_due(
+def is_recurring_period_received(
     *,
-    transaction_type: str,
+    last_received_period: str | None,
+    period_key: str,
+) -> bool:
+    return last_received_period == period_key
+
+
+def is_recurring_income_reminder_type(*, transaction_type: str) -> bool:
+    return transaction_type == "income"
+
+
+def is_monthly_recurring_due(
+    *,
     frequency: str,
     status: str,
     first_due_at: datetime,
     current_at: datetime,
     timezone: str,
-    last_paid_period: str | None,
     interval_count: int = 1,
 ) -> bool:
-    if transaction_type != "expense" or frequency != "monthly" or status != "active":
+    if frequency != "monthly" or status != "active":
         return False
     if interval_count <= 0:
         raise InvalidRecurringScheduleError("Interval count must be positive")
@@ -179,13 +189,65 @@ def is_monthly_expense_due(
     )
     if elapsed_months < 0 or elapsed_months % interval_count != 0:
         return False
-    current_period = recurring_period_key(current_at, timezone=timezone)
     return is_monthly_due_window(
         first_due_at=first_due_at,
         current_at=current_at,
         timezone=timezone,
-    ) and not is_recurring_period_paid(
+    )
+
+
+def is_monthly_expense_due(
+    *,
+    transaction_type: str,
+    frequency: str,
+    status: str,
+    first_due_at: datetime,
+    current_at: datetime,
+    timezone: str,
+    last_paid_period: str | None,
+    interval_count: int = 1,
+) -> bool:
+    if transaction_type != "expense" or not is_monthly_recurring_due(
+        frequency=frequency,
+        status=status,
+        first_due_at=first_due_at,
+        current_at=current_at,
+        timezone=timezone,
+        interval_count=interval_count,
+    ):
+        return False
+    current_period = recurring_period_key(current_at, timezone=timezone)
+    return not is_recurring_period_paid(
         last_paid_period=last_paid_period,
+        period_key=current_period,
+    )
+
+
+def is_monthly_income_due(
+    *,
+    transaction_type: str,
+    frequency: str,
+    status: str,
+    first_due_at: datetime,
+    current_at: datetime,
+    timezone: str,
+    last_received_period: str | None,
+    interval_count: int = 1,
+) -> bool:
+    if not is_recurring_income_reminder_type(
+        transaction_type=transaction_type
+    ) or not is_monthly_recurring_due(
+        frequency=frequency,
+        status=status,
+        first_due_at=first_due_at,
+        current_at=current_at,
+        timezone=timezone,
+        interval_count=interval_count,
+    ):
+        return False
+    current_period = recurring_period_key(current_at, timezone=timezone)
+    return not is_recurring_period_received(
+        last_received_period=last_received_period,
         period_key=current_period,
     )
 

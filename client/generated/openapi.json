@@ -2472,6 +2472,17 @@
             ],
             "title": "Last Paid Period"
           },
+          "last_received_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Received Period"
+          },
           "last_run_at": {
             "anyOf": [
               {
@@ -2561,6 +2572,7 @@
           "last_run_at",
           "last_run_key",
           "last_paid_period",
+          "last_received_period",
           "run_count",
           "status",
           "paused_at",

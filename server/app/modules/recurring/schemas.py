@@ -138,6 +138,7 @@ class RecurringRuleResponse(BaseModel):
     last_run_at: datetime | None
     last_run_key: str | None
     last_paid_period: str | None
+    last_received_period: str | None
     run_count: int
     status: RecurringRuleStatus
     paused_at: datetime | None

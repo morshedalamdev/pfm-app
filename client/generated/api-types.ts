@@ -1743,6 +1743,8 @@ export interface components {
             interval_count: number;
             /** Last Paid Period */
             last_paid_period: string | null;
+            /** Last Received Period */
+            last_received_period: string | null;
             /** Last Run At */
             last_run_at: string | null;
             /** Last Run Key */

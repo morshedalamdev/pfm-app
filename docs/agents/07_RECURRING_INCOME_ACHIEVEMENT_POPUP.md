@@ -134,3 +134,84 @@
 ## Phase 07.1 Bugs Fixed
 
 - None. No baseline issue required repair during the audit.
+
+## Phase 07.2 — Data Model and Due-Date Integration
+
+## Recurring Income Fields
+
+- Existing shared recurring fields remain the income template: `id`, `account_id`, `category_id`, `transaction_type`, `amount`, `currency`, `description`, `frequency`, `interval_count`, `timezone`, `start_at`, `end_at`, `next_run_at`, `status`, and timestamps.
+- `transaction_type = income` identifies an income rule, `description` stores its note, `start_at` is its first due date, and `status = active` is its active-state source.
+- Added nullable `last_received_period` as the persistent monthly completion marker for recurring income. It stores a validated `YYYY-MM` rule-local period key.
+- Existing rules migrate with `last_received_period = null` and remain eligible for later income reminder evaluation.
+- The shared recurring-rule response and generated frontend API type now expose `last_received_period`.
+- No Received action writes the field yet, and no transaction, queue entry, provider, or popup was added in this phase.
+
+## Reused Shared Helpers
+
+- `recurring_period_key()` remains the shared timezone-aware `YYYY-MM` key generator.
+- `calculate_monthly_due_at()` remains the shared monthly due timestamp calculator with shorter-month clamping.
+- `is_monthly_due_window()` remains the shared due-window check from the computed due timestamp through the end of the same rule-local month.
+- Timezone validation and aware-UTC normalization remain unchanged and shared.
+
+## Refactored Helpers
+
+- Added `is_monthly_recurring_due()` for the generic active-monthly, interval, and due-window checks that were previously embedded in the expense helper.
+- `is_monthly_expense_due()` now delegates only those generic schedule checks while retaining its expense type gate and `last_paid_period` completion semantics.
+- Added `is_recurring_income_reminder_type()` to identify income rules without accepting expense rules.
+- Added `is_recurring_period_received()` to compare an income completion period without reusing expense-paid terminology.
+- Added `is_monthly_income_due()` to compose the income type gate, generic monthly schedule checks, and received-period exclusion.
+
+## Monthly Due Calculation
+
+- Monthly income uses the original `start_at` local day and wall-clock time as its anchor.
+- A normal monthly anchor retains its day and time in later months.
+- January 31 clamps to February 28 or 29, and March 31 clamps to April 30 through the existing shared helper.
+- The due predicate returns false before the due timestamp and true from the due timestamp through the remainder of that rule-local month.
+- `interval_count` is honored, so months outside the configured cadence are not due.
+
+## Completion Period Key
+
+- `last_received_period` and the current key both use `YYYY-MM` in the recurring rule's timezone.
+- A matching received period suppresses the recurring income for that month only.
+- A prior received period does not suppress a later scheduled month once its due timestamp is reached.
+- The database constraint accepts only valid month-shaped keys from `01` through `12`.
+
+## Expense Regression Safety
+
+- Existing `last_paid_period` storage, constraint, response value, and Paid behavior are unchanged.
+- Existing due-expense repository filtering, response types, endpoint, queue, provider, actions, and amber popup were not modified.
+- The expense helper retains its expense-only type gate, active monthly/interval rules, due-window behavior, and current-period paid exclusion.
+- Recurring worker behavior is unchanged in this data-only phase.
+
+## Test Cases
+
+- Normal monthly due date: passed.
+- January 31 to February month-end: passed.
+- March 31 to April month-end: passed.
+- Before income due date: excluded.
+- On income due date: included.
+- After income due date through month end: included.
+- Already received current month: excluded.
+- Inactive income rule: excluded.
+- Income reminder type excludes expenses: passed.
+- Expense due-helper behavior unchanged: passed.
+- Income completion migration upgrade/downgrade/upgrade: passed.
+
+## Phase 07.2 Check Results
+
+- Pure recurring date suite: `18 passed`.
+- Focused recurring, migration, worker, and transaction regression suite: `58 passed, 1 warning`.
+- Full backend suite: `201 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 167 files.
+- Mypy passed with no issues in 110 source files.
+- Generated API contract check passed.
+- TypeScript no-emit check passed.
+- Frontend production build passed.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint`, `typecheck`, and unit `test` scripts remain unavailable.
+
+## Phase 07.2 Bugs Fixed
+
+- Added the missing persistent monthly received marker for recurring income.
+- Added explicit income type, due-window, inactive, and already-received protection while preserving expense due behavior.

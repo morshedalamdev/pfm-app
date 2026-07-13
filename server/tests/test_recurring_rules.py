@@ -107,6 +107,7 @@ def test_recurring_rule_crud_pause_resume_archive(
     assert expense_rule["next_run_at"] == "2030-01-31T14:00:00Z"
     assert expense_rule["status"] == "active"
     assert expense_rule["last_paid_period"] is None
+    assert expense_rule["last_received_period"] is None
 
     income_rule = create_recurring_rule(
         context,
@@ -120,6 +121,7 @@ def test_recurring_rule_crud_pause_resume_archive(
         timezone="UTC",
         start_at="2030-02-01T00:00:00+00:00",
     )
+    assert income_rule["last_received_period"] is None
 
     detail_response = context.client.get(
         f"/api/v1/recurring-rules/{expense_rule['id']}",
