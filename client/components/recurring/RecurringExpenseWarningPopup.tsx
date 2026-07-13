@@ -6,6 +6,17 @@ import { CalendarDays, CircleAlert, Landmark, Tags } from "lucide-react";
 import { useRecurringExpenseReminders } from "@/components/recurring/RecurringExpenseReminderProvider";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  deleteRecurringRule,
   listAccounts,
   listCategories,
   markRecurringExpensePaid,
@@ -31,7 +43,10 @@ export function RecurringExpenseWarningPopup() {
   >(null);
   const [isPaying, setIsPaying] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const paymentInFlight = useRef(false);
+  const deleteInFlight = useRef(false);
   const currentReminder = reminderQueue[0] ?? null;
 
   useEffect(() => {
@@ -95,9 +110,29 @@ export function RecurringExpenseWarningPopup() {
       setIsPaying(false);
     }
   };
+  const handleDelete = async () => {
+    if (deleteInFlight.current) return;
+    deleteInFlight.current = true;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteRecurringRule(currentReminder.rule.id);
+      removeReminder(currentReminder.reminder_key);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "The recurring expense could not be deleted.",
+      );
+    } finally {
+      deleteInFlight.current = false;
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Dialog
+      key={currentReminder.reminder_key}
       open={isOpen}
       onOpenChange={(open) => {
         if (!open) {
@@ -170,17 +205,53 @@ export function RecurringExpenseWarningPopup() {
         </div>
 
         <DialogFooter className="border-t border-amber-400/20 bg-amber-500/5 px-5 py-4 sm:justify-stretch">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isPaying || isDeleting}
+                aria-label="Delete recurring expense"
+              >
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete recurring expense?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently stops future reminders. It will not create a
+                  transaction or change your account balance.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {deleteError && (
+                <p
+                  role="alert"
+                  className="text-sm font-semibold text-destructive"
+                >
+                  {deleteError}
+                </p>
+              )}
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={isDeleting}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void handleDelete();
+                  }}
+                  className="border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? "Deleting…" : "Delete permanently"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button
             type="button"
-            variant="destructive"
-            disabled
-            aria-label="Delete recurring expense (available in a later phase)"
-          >
-            Delete
-          </Button>
-          <Button
-            type="button"
-            disabled={isPaying}
+            disabled={isPaying || isDeleting}
             onClick={() => void handlePaid()}
             className="bg-amber-300 text-black hover:bg-amber-200"
             aria-label="Mark recurring expense paid"

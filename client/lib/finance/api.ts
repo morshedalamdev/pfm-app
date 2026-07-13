@@ -323,6 +323,12 @@ export function markRecurringExpensePaid(
   );
 }
 
+export function deleteRecurringRule(ruleId: string) {
+  return apiDelete<RecurringRule>(
+    apiPath(`/api/v1/recurring-rules/${ruleId}`),
+  );
+}
+
 export async function listLoanPeople(
   includeArchived = false,
 ): Promise<LoanPerson[]> {

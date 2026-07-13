@@ -13,6 +13,130 @@ const viewports = [
   { height: 800, label: "desktop", width: 1280 },
 ];
 
+test("recurring expense delete and close actions are safe", async ({ page }) => {
+  const email = `pfm-recurring-actions-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Name").fill("Recurring Actions User");
+  await page.getByPlaceholder("Phone Number").fill("5550199");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const account = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Reminder Account",
+    opening_balance: "200.00",
+    type: "bank",
+  });
+  const category = await getCategoryByName(api, "expense", "Groceries");
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const closeDueAt = new Date(monthStart);
+  closeDueAt.setUTCMinutes(closeDueAt.getUTCMinutes() + 1);
+
+  const deletedExpense = await postJson(api, "/api/v1/recurring-rules", {
+    account_id: account.id,
+    amount: "17.00",
+    category_id: category.id,
+    description: "E2E delete bill",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: monthStart.toISOString(),
+    timezone: "UTC",
+    transaction_type: "expense",
+  });
+  const closeOnlyExpense = await postJson(api, "/api/v1/recurring-rules", {
+    account_id: account.id,
+    amount: "11.00",
+    category_id: category.id,
+    description: "E2E close only bill",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: closeDueAt.toISOString(),
+    timezone: "UTC",
+    transaction_type: "expense",
+  });
+
+  await page.reload();
+  const recurringWarning = page.getByRole("dialog");
+  await expect(recurringWarning.getByText("E2E delete bill")).toBeVisible();
+  await recurringWarning
+    .getByRole("button", { name: "Delete recurring expense" })
+    .click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(
+    confirmation.getByRole("heading", { name: "Delete recurring expense?" }),
+  ).toBeVisible();
+  await confirmation
+    .getByRole("button", { name: "Delete permanently" })
+    .click();
+  await expect(recurringWarning.getByText("E2E close only bill")).toBeVisible();
+
+  const archivedRule = await getJson(
+    api,
+    `/api/v1/recurring-rules/${deletedExpense.id}`,
+  );
+  expect(archivedRule.status).toBe("archived");
+  expect(archivedRule.last_paid_period).toBeNull();
+  const closeRuleBeforeDismiss = await getJson(
+    api,
+    `/api/v1/recurring-rules/${closeOnlyExpense.id}`,
+  );
+  expect(closeRuleBeforeDismiss.status).toBe("active");
+  expect(closeRuleBeforeDismiss.last_paid_period).toBeNull();
+  expect(
+    (await getJson(api, "/api/v1/transactions?limit=100")).items,
+  ).toHaveLength(0);
+  expect(
+    Number(
+      (await getJson(api, "/api/v1/accounts?limit=100")).items.find(
+        (item) => item.id === account.id,
+      ).current_balance,
+    ),
+  ).toBe(200);
+
+  await recurringWarning.getByRole("button", { name: "Close" }).click();
+  await expect(recurringWarning).toBeHidden();
+  const closeRuleAfterDismiss = await getJson(
+    api,
+    `/api/v1/recurring-rules/${closeOnlyExpense.id}`,
+  );
+  expect(closeRuleAfterDismiss.status).toBe("active");
+  expect(closeRuleAfterDismiss.last_paid_period).toBeNull();
+  const dueAfterClose = await getJson(
+    api,
+    "/api/v1/recurring-rules/due-expenses",
+  );
+  expect(dueAfterClose.items.map((item) => item.rule.id)).toEqual([
+    closeOnlyExpense.id,
+  ]);
+
+  await page.reload();
+  await expect(
+    page.getByRole("dialog").getByText("E2E close only bill"),
+  ).toBeVisible({ timeout: 15_000 });
+  await api.dispose();
+});
+
 test("integrated finance journeys render across breakpoints", async ({ page }) => {
   const email = `pfm-e2e-${Date.now()}@example.test`;
   const password = "StrongPass123!";
@@ -149,7 +273,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   ).toBeVisible();
   await expect(
     recurringWarning.getByRole("button", { name: /Delete recurring expense/ }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(
     recurringWarning.getByRole("button", { name: "Mark recurring expense paid" }),
   ).toBeEnabled();

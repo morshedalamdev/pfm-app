@@ -360,3 +360,61 @@
 - Paid now creates exactly one selected-account expense at the click timestamp and marks only the current month complete.
 - Stable occurrence idempotency and a row lock prevent duplicate transactions and double balance deductions.
 - Successful payment now removes the completed reminder so the queue can advance while preserving future recurrence.
+
+## Phase 06.6 — Delete and Close Actions
+
+## Delete Behavior
+
+- `Delete` opens a confirmation alert before changing the recurring rule.
+- Confirmation calls the existing owned recurring-rule delete endpoint and removes the successful occurrence from the local reminder queue.
+- The next queued reminder is displayed immediately after a successful deletion.
+- A failed deletion leaves the reminder and confirmation open and reports the API error.
+
+## Deactivation Strategy
+
+- Delete uses the existing soft-deactivation behavior: the rule status becomes `archived` and `archived_at` is retained.
+- The archived rule remains available as historical metadata but is excluded from future due-reminder queries.
+- Repeated deletion remains idempotent and preserves the original archive timestamp.
+
+## Close Behavior
+
+- The dialog close control dismisses only the current reminder key in component-local state.
+- Close does not remove the reminder from provider queue state or call any mutation endpoint.
+- Close does not mark the occurrence paid or archive the recurring rule.
+
+## Next App-Load Behavior
+
+- A closed reminder remains active, unpaid, and eligible in the server due queue.
+- A fresh authenticated app load rebuilds local reminder state from the due endpoint, so the closed popup returns.
+- A deleted rule remains excluded on future app loads because its archived state is persistent.
+
+## Balance Safety
+
+- Delete and Close do not create ledger entries or invoke the Paid endpoint.
+- The selected account's ledger-derived balance remains unchanged for both actions.
+
+## Transaction Safety
+
+- Backend coverage verifies that Delete leaves the transaction list empty and the selected account balance unchanged.
+- Browser coverage verifies the same invariants after Delete and verifies that Close leaves its rule active and unpaid.
+
+## Phase 06.6 Check Results
+
+- Focused Delete and Paid regression tests: `2 passed, 3 deselected, 1 warning`.
+- Full backend suite: `188 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 166 files.
+- Mypy passed with no issues in 110 source files.
+- TypeScript no-emit check passed.
+- E2E test syntax check passed.
+- Generated API contract check passed.
+- Frontend production build passed.
+- The focused Playwright Delete/Close flow passed, including persistent Delete, temporary Close, queue advancement, reload redisplay, and transaction/balance safety. The separate monolithic journey continued to reproduce its documented disposable-stack timeout at unrelated baseline setup requests.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint` and unit `test` scripts are not available.
+
+## Phase 06.6 Bugs Fixed
+
+- Delete now soft-archives a recurring expense and removes its current reminder without creating a transaction or changing a balance.
+- Close now remains temporary and allows the same due reminder to return on the next app load.
+- Keying the dialog by reminder occurrence prevents the previous dialog's close lifecycle from dismissing the next reminder during queue advancement.

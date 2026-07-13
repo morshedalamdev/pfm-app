@@ -382,6 +382,102 @@ def test_paid_recurring_expense_creates_one_selected_account_transaction(
     )
 
 
+def test_delete_recurring_expense_archives_without_transaction_or_balance_change(
+    recurring_context: RecurringApiContext,
+) -> None:
+    context = recurring_context
+    headers = auth_headers(context, "recurring-delete@example.com")
+    account = create_account(
+        context,
+        headers,
+        "Delete Safety Account",
+        "bank",
+        "125.0000",
+    )
+    category = create_category(
+        context,
+        headers,
+        "Delete Safety Bill",
+        "expense",
+        "bill",
+    )
+    current_at = datetime.now(UTC)
+    month_start = current_at.replace(
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    rule = create_recurring_rule(
+        context,
+        headers,
+        account_id=account["id"],
+        category_id=category["id"],
+        transaction_type="expense",
+        amount="20.0000",
+        frequency="monthly",
+        interval_count=1,
+        timezone="UTC",
+        start_at=month_start.isoformat(),
+        description="Delete without charge",
+    )
+
+    due_before_delete = context.client.get(
+        "/api/v1/recurring-rules/due-expenses",
+        headers=headers,
+    )
+    assert due_before_delete.status_code == 200
+    assert [item["rule"]["id"] for item in due_before_delete.json()["items"]] == [
+        rule["id"]
+    ]
+
+    delete_response = context.client.delete(
+        f"/api/v1/recurring-rules/{rule['id']}",
+        headers=headers,
+    )
+    assert delete_response.status_code == 200
+    archived_rule = delete_response.json()
+    assert archived_rule["status"] == "archived"
+    assert archived_rule["archived_at"] is not None
+    assert archived_rule["last_paid_period"] is None
+
+    due_after_delete = context.client.get(
+        "/api/v1/recurring-rules/due-expenses",
+        headers=headers,
+    )
+    assert due_after_delete.status_code == 200
+    assert due_after_delete.json()["items"] == []
+
+    transactions_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert transactions_response.status_code == 200
+    assert transactions_response.json()["items"] == []
+
+    accounts_response = context.client.get(
+        "/api/v1/accounts",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert accounts_response.status_code == 200
+    stored_account = next(
+        item
+        for item in accounts_response.json()["items"]
+        if item["id"] == account["id"]
+    )
+    assert Decimal(stored_account["current_balance"]) == Decimal("125.0000")
+
+    repeat_delete_response = context.client.delete(
+        f"/api/v1/recurring-rules/{rule['id']}",
+        headers=headers,
+    )
+    assert repeat_delete_response.status_code == 200
+    assert repeat_delete_response.json()["archived_at"] == archived_rule["archived_at"]
+
+
 def test_recurring_schedule_boundaries_month_end_and_timezone() -> None:
     start_at = datetime.fromisoformat("2026-01-31T09:00:00-05:00")
     february_run = calculate_next_run_after(
