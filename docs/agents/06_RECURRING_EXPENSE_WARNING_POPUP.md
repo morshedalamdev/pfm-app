@@ -473,3 +473,22 @@
 ## Phase 06.7 Bugs Fixed
 
 - None. Existing persistence and monthly-repeat behavior satisfied the phase rules; this phase added controlled regression coverage for the previously unverified date transitions.
+
+## Phase 06.8 — Recurring Expense Regression Verification
+
+## Final Verification Result
+
+- The Agent 06 recurring-expense regression suite passed `49` tests.
+- The full backend suite passed `192` tests.
+- Ruff lint, Ruff formatting, Mypy, TypeScript, generated API contract, E2E syntax, and the production build passed.
+- The focused Playwright recurring-expense test passed all Delete, Close, reload, queue, transaction, and balance assertions.
+- The separate monolithic Playwright journey retained its documented unrelated Accounts-page loading timeout.
+- No recurring income popup or Paid behavior was added.
+
+## Final Test Report
+
+- Complete commands, results, date cases, checklist, deferred work, and the safe Agent 07 starting point are documented in `docs/agents/06_RECURRING_EXPENSE_TEST_REPORT.md`.
+
+## Phase 06.8 Bugs Fixed
+
+- None. No Agent 06 regression failed during final verification.
