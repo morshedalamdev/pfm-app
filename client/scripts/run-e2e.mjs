@@ -69,6 +69,7 @@ async function main() {
     "test",
     "--config",
     "e2e/playwright.config.mjs",
+    ...process.argv.slice(2),
   ], {
     cwd: clientDir,
     env: {

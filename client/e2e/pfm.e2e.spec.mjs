@@ -622,18 +622,43 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
 
   await page.goto("/accounts");
   await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Create Account" }),
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "Create account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/accounts/create`);
   await page.getByLabel("Account name").fill("Pocket Pay");
+  const accountType = page.getByRole("combobox", { name: "Account Type" });
+  await expect(accountType.locator("option")).toHaveText([
+    "Debit Card",
+    "Credit Card",
+    "Bank Account",
+    "Mobile Banking",
+    "Cash",
+  ]);
+  await accountType.selectOption("mobile_banking");
   await page.getByLabel("Account currency").selectOption("BDT");
   await page.getByLabel("Initial budget / balance").fill("125.50");
   await page.getByRole("button", { name: "Add Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/accounts`);
   const pocketPay = page.getByRole("button", { name: /Pocket Pay/ });
   await expect(pocketPay).toContainText("BDT");
+  await expect(pocketPay).toContainText("Mobile Banking");
+  await expect(
+    pocketPay.locator('[data-account-type-icon="mobile_banking"]'),
+  ).toBeVisible();
   await pocketPay.click();
   const accountDialog = page.getByRole("dialog");
   await expect(
     accountDialog.getByRole("heading", { name: "Pocket Pay" }),
   ).toBeVisible();
   await expect(accountDialog.getByText("BDT", { exact: true })).toBeVisible();
+  await expect(
+    accountDialog.getByText("Mobile Banking", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    accountDialog.locator('[data-account-type-icon="mobile_banking"]'),
+  ).toBeVisible();
   await expect(accountDialog.getByText(/BDT.*125\.50/).first()).toBeVisible();
   await expect(accountDialog.getByText("Active", { exact: true })).toBeVisible();
   await accountDialog.getByRole("button", { name: "Delete Account" }).click();
@@ -1029,6 +1054,64 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   });
   await expect(page.getByText("--", { exact: true })).toBeVisible();
   await api.dispose();
+});
+
+test("dedicated account creation page stores the selected type", async ({
+  page,
+}) => {
+  const email = `pfm-account-create-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Name").fill("Account Route User");
+  await page.getByPlaceholder("Phone Number").fill("5550123");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  await page.goto("/accounts");
+  await expect(
+    page.getByRole("heading", { name: "Create Account" }),
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "Create account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/accounts/create`);
+
+  const accountType = page.getByRole("combobox", { name: "Account Type" });
+  await expect(accountType.locator("option")).toHaveText([
+    "Debit Card",
+    "Credit Card",
+    "Bank Account",
+    "Mobile Banking",
+    "Cash",
+  ]);
+  await page.getByPlaceholder("Account name").fill("Travel Credit");
+  await accountType.selectOption("credit_card");
+  await page
+    .getByRole("combobox", { name: "Account currency" })
+    .selectOption("EUR");
+  await page.getByPlaceholder("0.00").fill("120.50");
+  await page.getByRole("button", { name: "Add Account" }).click();
+
+  await expect(page).toHaveURL(`${appBaseUrl}/accounts`);
+  const accountItem = page.getByRole("button", {
+    name: /Travel Credit.*Credit Card.*EUR/,
+  });
+  await expect(accountItem).toBeVisible();
+  await expect(
+    accountItem.locator('[data-account-type-icon="credit_card"]'),
+  ).toBeVisible();
+  await accountItem.click();
+  await expect(
+    page.getByRole("dialog").getByText("Credit Card", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog")
+      .locator('[data-account-type-icon="credit_card"]'),
+  ).toBeVisible();
 });
 
 async function postJson(api, path, body, headers = {}) {
