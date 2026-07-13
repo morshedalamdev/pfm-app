@@ -2,7 +2,10 @@ import uuid
 from datetime import UTC, datetime
 
 from app.modules.recurring.models import RecurringRule
-from app.modules.recurring.services import build_due_recurring_expense_queue
+from app.modules.recurring.services import (
+    build_due_recurring_expense_queue,
+    build_due_recurring_income_queue,
+)
 
 CURRENT_AT = datetime(2026, 3, 20, 12, tzinfo=UTC)
 
@@ -15,6 +18,7 @@ def recurring_rule(
     frequency: str = "monthly",
     status: str = "active",
     last_paid_period: str | None = None,
+    last_received_period: str | None = None,
     interval_count: int = 1,
     end_at: datetime | None = None,
 ) -> RecurringRule:
@@ -26,6 +30,7 @@ def recurring_rule(
         start_at=start_at,
         timezone="UTC",
         last_paid_period=last_paid_period,
+        last_received_period=last_received_period,
         interval_count=interval_count,
         end_at=end_at,
     )
@@ -140,3 +145,103 @@ def test_prior_month_reminder_is_not_carried_into_the_next_month() -> None:
     assert [reminder.period_key for reminder in march_queue] == ["2026-03"]
     assert before_april_due == []
     assert [reminder.period_key for reminder in april_queue] == ["2026-04"]
+
+
+def test_income_reminder_queue_is_deterministic_and_deduplicated() -> None:
+    later_due = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000032",
+        start_at=datetime(2026, 1, 15, 9, tzinfo=UTC),
+        transaction_type="income",
+    )
+    earlier_due = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000031",
+        start_at=datetime(2026, 1, 10, 9, tzinfo=UTC),
+        transaction_type="income",
+    )
+
+    queue = build_due_recurring_income_queue(
+        [later_due, earlier_due, earlier_due],
+        current_at=CURRENT_AT,
+    )
+
+    assert [reminder.rule.id for reminder in queue] == [
+        earlier_due.id,
+        later_due.id,
+    ]
+    assert [reminder.reminder_key for reminder in queue] == [
+        f"{earlier_due.id}:2026-03",
+        f"{later_due.id}:2026-03",
+    ]
+
+
+def test_income_reminder_queue_excludes_ineligible_rules() -> None:
+    expense = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000040",
+        start_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    inactive = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000041",
+        start_at=datetime(2026, 1, 1, tzinfo=UTC),
+        transaction_type="income",
+        status="paused",
+    )
+    future = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000042",
+        start_at=datetime(2026, 3, 21, tzinfo=UTC),
+        transaction_type="income",
+    )
+    received = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000043",
+        start_at=datetime(2026, 1, 1, tzinfo=UTC),
+        transaction_type="income",
+        last_received_period="2026-03",
+    )
+    off_interval = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000044",
+        start_at=datetime(2026, 2, 1, tzinfo=UTC),
+        transaction_type="income",
+        interval_count=2,
+    )
+    ended = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000045",
+        start_at=datetime(2026, 1, 1, tzinfo=UTC),
+        transaction_type="income",
+        end_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    non_monthly = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000046",
+        start_at=datetime(2026, 1, 1, tzinfo=UTC),
+        transaction_type="income",
+        frequency="weekly",
+    )
+
+    queue = build_due_recurring_income_queue(
+        [expense, inactive, future, received, off_interval, ended, non_monthly],
+        current_at=CURRENT_AT,
+    )
+
+    assert queue == []
+
+
+def test_income_and_expense_reminder_queues_coexist_without_cross_matching() -> None:
+    expense = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000051",
+        start_at=datetime(2026, 1, 10, 9, tzinfo=UTC),
+    )
+    income = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000052",
+        start_at=datetime(2026, 1, 11, 9, tzinfo=UTC),
+        transaction_type="income",
+    )
+
+    expense_queue = build_due_recurring_expense_queue(
+        [income, expense],
+        current_at=CURRENT_AT,
+    )
+    income_queue = build_due_recurring_income_queue(
+        [expense, income],
+        current_at=CURRENT_AT,
+    )
+
+    assert [reminder.rule.id for reminder in expense_queue] == [expense.id]
+    assert [reminder.rule.id for reminder in income_queue] == [income.id]

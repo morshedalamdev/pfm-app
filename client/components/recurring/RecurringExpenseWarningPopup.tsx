@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CircleAlert, Landmark, Tags } from "lucide-react";
 
-import { useRecurringExpenseReminders } from "@/components/recurring/RecurringExpenseReminderProvider";
+import {
+  type RecurringExpenseQueueItem,
+  useRecurringReminders,
+} from "@/components/recurring/RecurringReminderProvider";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -35,7 +38,15 @@ import {
 import { formatMoney } from "@/lib/finance/format";
 
 export function RecurringExpenseWarningPopup() {
-  const { reminderQueue, removeReminder } = useRecurringExpenseReminders();
+  const { reminderQueue, removeReminder } = useRecurringReminders();
+  const expenseReminderQueue = useMemo(
+    () =>
+      reminderQueue.filter(
+        (reminder): reminder is RecurringExpenseQueueItem =>
+          reminder.reminder_type === "expense",
+      ),
+    [reminderQueue],
+  );
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [dismissedReminderKey, setDismissedReminderKey] = useState<
@@ -47,7 +58,7 @@ export function RecurringExpenseWarningPopup() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const paymentInFlight = useRef(false);
   const deleteInFlight = useRef(false);
-  const currentReminder = reminderQueue[0] ?? null;
+  const currentReminder = expenseReminderQueue[0] ?? null;
 
   useEffect(() => {
     if (!currentReminder) return;
@@ -157,9 +168,9 @@ export function RecurringExpenseWarningPopup() {
         </div>
 
         <div className="space-y-4 px-5 py-5">
-          {reminderQueue.length > 1 && (
+          {expenseReminderQueue.length > 1 && (
             <p className="text-xs font-bold tracking-wide text-amber-300 uppercase">
-              Reminder 1 of {reminderQueue.length}
+              Reminder 1 of {expenseReminderQueue.length}
             </p>
           )}
 

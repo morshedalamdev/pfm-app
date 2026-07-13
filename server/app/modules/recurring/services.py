@@ -24,6 +24,7 @@ from app.modules.recurring.schedule import (
     calculate_next_run_on_or_after,
     initial_next_run_at,
     is_monthly_expense_due,
+    is_monthly_income_due,
     recurring_period_key,
     validate_schedule_bounds,
 )
@@ -32,6 +33,8 @@ from app.modules.recurring.schemas import (
     RecurringExpensePaidResponse,
     RecurringExpenseReminderListResponse,
     RecurringExpenseReminderResponse,
+    RecurringIncomeReminderListResponse,
+    RecurringIncomeReminderResponse,
     RecurringRuleCreateRequest,
     RecurringRuleListResponse,
     RecurringRuleResponse,
@@ -64,6 +67,14 @@ class InvalidRecurringRuleStateError(Exception):
 
 @dataclass(frozen=True)
 class DueRecurringExpense:
+    rule: RecurringRule
+    reminder_key: str
+    period_key: str
+    due_at: datetime
+
+
+@dataclass(frozen=True)
+class DueRecurringIncome:
     rule: RecurringRule
     reminder_key: str
     period_key: str
@@ -178,6 +189,30 @@ class RecurringRuleService:
         return RecurringExpenseReminderListResponse(
             items=[
                 RecurringExpenseReminderResponse(
+                    reminder_key=reminder.reminder_key,
+                    period_key=reminder.period_key,
+                    due_at=reminder.due_at,
+                    rule=self.build_rule_response(reminder.rule),
+                )
+                for reminder in reminders
+            ]
+        )
+
+    async def list_due_income_reminders(
+        self,
+        current_user: User,
+        *,
+        current_at: datetime | None = None,
+    ) -> RecurringIncomeReminderListResponse:
+        effective_current_at = current_at or datetime.now(UTC)
+        rules = await self.rules.list_active_monthly_incomes(current_user.id)
+        reminders = build_due_recurring_income_queue(
+            rules,
+            current_at=effective_current_at,
+        )
+        return RecurringIncomeReminderListResponse(
+            items=[
+                RecurringIncomeReminderResponse(
                     reminder_key=reminder.reminder_key,
                     period_key=reminder.period_key,
                     due_at=reminder.due_at,
@@ -464,6 +499,50 @@ def build_due_recurring_expense_queue(
         reminders.setdefault(
             reminder_key,
             DueRecurringExpense(
+                rule=rule,
+                reminder_key=reminder_key,
+                period_key=period_key,
+                due_at=due_at,
+            ),
+        )
+    return sorted(
+        reminders.values(),
+        key=lambda reminder: (reminder.due_at, reminder.rule.id),
+    )
+
+
+def build_due_recurring_income_queue(
+    rules: Sequence[RecurringRule],
+    *,
+    current_at: datetime,
+) -> list[DueRecurringIncome]:
+    reminders: dict[str, DueRecurringIncome] = {}
+    for rule in rules:
+        if rule.end_at is not None and current_at >= rule.end_at:
+            continue
+        if not is_monthly_income_due(
+            transaction_type=rule.transaction_type,
+            frequency=rule.frequency,
+            status=rule.status,
+            first_due_at=rule.start_at,
+            current_at=current_at,
+            timezone=rule.timezone,
+            last_received_period=rule.last_received_period,
+            interval_count=rule.interval_count,
+        ):
+            continue
+        period_key = recurring_period_key(current_at, timezone=rule.timezone)
+        period_year, period_month = (int(part) for part in period_key.split("-"))
+        due_at = calculate_monthly_due_at(
+            first_due_at=rule.start_at,
+            period_year=period_year,
+            period_month=period_month,
+            timezone=rule.timezone,
+        )
+        reminder_key = f"{rule.id}:{period_key}"
+        reminders.setdefault(
+            reminder_key,
+            DueRecurringIncome(
                 rule=rule,
                 reminder_key=reminder_key,
                 period_key=period_key,

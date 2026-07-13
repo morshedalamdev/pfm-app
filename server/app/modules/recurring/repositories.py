@@ -88,6 +88,23 @@ class RecurringRuleRepository:
         )
         return list(result.scalars().all())
 
+    async def list_active_monthly_incomes(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[RecurringRule]:
+        result = await self._session.execute(
+            select(RecurringRule)
+            .where(
+                RecurringRule.user_id == user_id,
+                RecurringRule.status == "active",
+                RecurringRule.archived_at.is_(None),
+                RecurringRule.transaction_type == "income",
+                RecurringRule.frequency == "monthly",
+            )
+            .order_by(RecurringRule.start_at, RecurringRule.id)
+        )
+        return list(result.scalars().all())
+
     async def commit(self) -> None:
         await self._session.commit()
 

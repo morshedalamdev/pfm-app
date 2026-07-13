@@ -215,3 +215,59 @@
 
 - Added the missing persistent monthly received marker for recurring income.
 - Added explicit income type, due-window, inactive, and already-received protection while preserving expense due behavior.
+
+## Phase 07.3 — App-Load Detection and Shared Reminder Queue
+
+## Detection Entry Point
+
+- Added `GET /api/v1/recurring-rules/due-incomes` as a read-only, authenticated detection endpoint.
+- The dashboard-level recurring reminder provider calls the income and expense detection endpoints once on app load.
+- Income detection does not create transactions, publish outbox events, update rule run metadata, or change account balances.
+- The recurring worker no longer claims income rules for automatic materialization; income completion remains an explicit future confirmation action.
+
+## Income Eligibility Filters
+
+- Detection considers only owned, active, unarchived, monthly income rules.
+- The shared monthly income due helper enforces the start date, local due time, interval cadence, current due window, and `last_received_period` exclusion.
+- Rules at or beyond `end_at` are excluded from the reminder queue.
+
+## Expense/Income Coexistence
+
+- Replaced the expense-only app provider with one shared discriminated reminder queue containing `expense` and `income` items.
+- Expense and income requests settle independently, so one endpoint failure does not discard reminders returned by the other.
+- The existing expense popup filters the shared queue to expense items only; its Paid/Delete actions, labels, ordering count, and amber presentation are unchanged.
+- Phase 07.3 does not render an income popup or add Received/Delete income actions.
+
+## Queue Ordering
+
+- Backend income reminders sort deterministically by due timestamp and recurring rule ID.
+- The shared client queue sorts by due timestamp, rule ID, and reminder type for a stable combined order.
+
+## Duplicate Prevention
+
+- Backend income detection emits at most one reminder per `rule ID + local period` key.
+- The shared client queue deduplicates by `reminder type + reminder key`, preventing duplicate app-load entries without allowing an expense item to suppress an income item.
+
+## Excluded Rules
+
+- Expense, inactive, archived, non-monthly, future, off-interval, ended, and already-received income rules are excluded from income detection.
+- App-load detection never advances `next_run_at`, sets worker locks, creates a transaction, or changes a balance.
+
+## Phase 07.3 Check Results
+
+- Pure recurring due-date and queue suite: `25 passed`.
+- Focused recurring, schema, worker, and transaction regression suite: `62 passed, 1 warning`.
+- Full backend suite: `205 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 116 focused files.
+- Mypy passed with no issues in 110 source files.
+- Generated API contract check passed.
+- TypeScript no-emit check passed.
+- Frontend production build passed.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint`, `typecheck`, and unit `test` scripts remain unavailable.
+
+## Phase 07.3 Bugs Fixed
+
+- Removed automatic worker claiming of recurring income, preventing app-load-era income rules from creating transactions or increasing balances before explicit user confirmation.
+- Added independent shared-queue loading so a failed income or expense reminder request no longer suppresses the other reminder type.

@@ -532,6 +532,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recurring-rules/due-incomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Due Recurring Incomes */
+        get: operations["list_due_recurring_incomes_api_v1_recurring_rules_due_incomes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recurring-rules/{rule_id}": {
         parameters: {
             query?: never;
@@ -1637,6 +1654,24 @@ export interface components {
         };
         /** RecurringExpenseReminderResponse */
         RecurringExpenseReminderResponse: {
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Period Key */
+            period_key: string;
+            /** Reminder Key */
+            reminder_key: string;
+            rule: components["schemas"]["RecurringRuleResponse"];
+        };
+        /** RecurringIncomeReminderListResponse */
+        RecurringIncomeReminderListResponse: {
+            /** Items */
+            items: components["schemas"]["RecurringIncomeReminderResponse"][];
+        };
+        /** RecurringIncomeReminderResponse */
+        RecurringIncomeReminderResponse: {
             /**
              * Due At
              * Format: date-time
@@ -3858,6 +3893,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringExpenseReminderListResponse"];
+                };
+            };
+        };
+    };
+    list_due_recurring_incomes_api_v1_recurring_rules_due_incomes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringIncomeReminderListResponse"];
                 };
             };
         };

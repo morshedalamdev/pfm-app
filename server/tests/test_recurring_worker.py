@@ -96,7 +96,7 @@ def worker_context(disposable_postgres_url: str) -> Iterator[WorkerTestContext]:
         asyncio.run(engine.dispose())
 
 
-def test_recurring_worker_claim_uses_skip_locked(
+def test_recurring_worker_does_not_claim_income_rules(
     worker_context: WorkerTestContext,
 ) -> None:
     context = worker_context
@@ -112,42 +112,31 @@ def test_recurring_worker_claim_uses_skip_locked(
         start_at="2026-01-01T00:00:00+00:00",
     )
 
-    async def exercise_claim_lock() -> None:
+    async def exercise_income_claim() -> tuple[list[RecurringRule], RecurringRule]:
         now = datetime(2026, 1, 2, tzinfo=UTC)
         worker_engine = build_async_engine(context.database_url)
         worker_session_factory = build_session_factory(worker_engine)
         try:
-            async with worker_session_factory() as first_session:
-                first_claim = await claim_due_recurring_rules(
-                    first_session,
-                    worker_id="first-worker",
+            async with worker_session_factory() as session:
+                claimed_rules = await claim_due_recurring_rules(
+                    session,
+                    worker_id="income-safety-worker",
                     now=now,
                     batch_size=10,
                     lock_seconds=60,
                 )
-                assert len(first_claim) == 1
-
-                async with worker_session_factory() as second_session:
-                    second_claim = await claim_due_recurring_rules(
-                        second_session,
-                        worker_id="second-worker",
-                        now=now,
-                        batch_size=10,
-                        lock_seconds=60,
-                    )
-                    assert second_claim == []
-                    await second_session.rollback()
-
-                await first_session.rollback()
+                rule_result = await session.execute(
+                    select(RecurringRule).where(RecurringRule.id == rule["id"])
+                )
+                return list(claimed_rules), rule_result.scalar_one()
         finally:
             await worker_engine.dispose()
 
-    asyncio.run(exercise_claim_lock())
-    archive_response = context.client.delete(
-        f"/api/v1/recurring-rules/{rule['id']}",
-        headers=headers,
-    )
-    assert archive_response.status_code == 200
+    claimed_rules, stored_rule = asyncio.run(exercise_income_claim())
+    assert claimed_rules == []
+    assert stored_rule.locked_by is None
+    assert stored_rule.locked_at is None
+    assert stored_rule.locked_until is None
 
 
 def test_recurring_worker_does_not_claim_or_create_expenses(
@@ -199,7 +188,7 @@ def test_recurring_worker_does_not_claim_or_create_expenses(
     assert Decimal(account_response.json()["current_balance"]) == Decimal("0")
 
 
-def test_recurring_worker_concurrent_runs_create_one_transaction(
+def test_recurring_worker_does_not_create_income_or_change_balance(
     worker_context: WorkerTestContext,
 ) -> None:
     context = worker_context
@@ -218,38 +207,22 @@ def test_recurring_worker_concurrent_runs_create_one_transaction(
         timezone="America/New_York",
     )
 
-    async def run_two_workers() -> tuple[int, int]:
+    async def run_worker_and_load_effects() -> tuple[
+        RecurringWorkerResult,
+        int,
+        RecurringRule,
+        int,
+    ]:
         now = datetime(2026, 2, 1, 15, tzinfo=UTC)
         worker_engine = build_async_engine(context.database_url)
         worker_session_factory = build_session_factory(worker_engine)
-        first_worker = RecurringWorker(
+        worker = RecurringWorker(
             worker_session_factory,
-            worker_id="worker-one",
-            batch_size=10,
-        )
-        second_worker = RecurringWorker(
-            worker_session_factory,
-            worker_id="worker-two",
+            worker_id="income-safety-worker",
             batch_size=10,
         )
         try:
-            first_result, second_result = await asyncio.gather(
-                first_worker.run_once(now=now),
-                second_worker.run_once(now=now),
-            )
-            return first_result.created, second_result.created
-        finally:
-            await worker_engine.dispose()
-
-    created_counts = asyncio.run(run_two_workers())
-    assert sum(created_counts) == 1
-
-    async def load_worker_effects() -> tuple[
-        int, Transaction, RecurringRule, OutboxEvent
-    ]:
-        worker_engine = build_async_engine(context.database_url)
-        worker_session_factory = build_session_factory(worker_engine)
-        try:
+            result = await worker.run_once(now=now)
             async with worker_session_factory() as session:
                 count_result = await session.execute(
                     select(func.count(Transaction.id)).where(
@@ -257,53 +230,44 @@ def test_recurring_worker_concurrent_runs_create_one_transaction(
                         Transaction.category_id == category["id"],
                     )
                 )
-                transaction_result = await session.execute(
-                    select(Transaction).where(Transaction.account_id == account["id"])
-                )
                 rule_result = await session.execute(
                     select(RecurringRule).where(RecurringRule.id == rule["id"])
                 )
-                outbox_result = await session.execute(select(OutboxEvent))
+                outbox_count_result = await session.execute(
+                    select(func.count(OutboxEvent.id)).where(
+                        OutboxEvent.event_type == "recurring.transaction.created",
+                        OutboxEvent.payload["recurring_rule_id"].astext
+                        == str(rule["id"]),
+                    )
+                )
                 return (
+                    result,
                     int(count_result.scalar_one()),
-                    transaction_result.scalar_one(),
                     rule_result.scalar_one(),
-                    outbox_result.scalar_one(),
+                    int(outbox_count_result.scalar_one()),
                 )
         finally:
             await worker_engine.dispose()
 
-    transaction_count, transaction, updated_rule, outbox = asyncio.run(
-        load_worker_effects()
+    result, transaction_count, stored_rule, outbox_count = asyncio.run(
+        run_worker_and_load_effects()
     )
-    assert transaction_count == 1
-    assert transaction.type == "income"
-    assert transaction.amount == Decimal("250.0000")
-    assert transaction.transaction_at == datetime(2026, 1, 31, 14, tzinfo=UTC)
-    assert updated_rule.run_count == 1
-    assert updated_rule.last_run_key is not None
-    assert updated_rule.next_run_at == datetime(2026, 2, 28, 14, tzinfo=UTC)
-    assert updated_rule.locked_by is None
-    assert updated_rule.locked_at is None
-    assert updated_rule.locked_until is None
-    assert outbox.event_type == "recurring.transaction.created"
-    assert outbox.idempotency_key == updated_rule.last_run_key
-    assert outbox.aggregate_id == transaction.id
-    assert outbox.payload["recurring_rule_id"] == rule["id"]
-    assert outbox.payload["transaction_id"] == str(transaction.id)
+    assert result.claimed == 0
+    assert result.created == 0
+    assert result.skipped == 0
+    assert transaction_count == 0
+    assert outbox_count == 0
+    assert stored_rule.run_count == 0
+    assert stored_rule.last_run_at is None
+    assert stored_rule.last_run_key is None
+    assert stored_rule.next_run_at == datetime(2026, 1, 31, 14, tzinfo=UTC)
 
-    duplicate_result = asyncio.run(reset_rule_and_rerun_worker(context, rule["id"]))
-    assert duplicate_result.claimed == 1
-    assert duplicate_result.created == 0
-    assert duplicate_result.skipped == 1
-
-    duplicate_count, duplicate_rule, duplicate_outbox_count = asyncio.run(
-        load_duplicate_effects(context, account["id"], rule["id"])
+    account_response = context.client.get(
+        f"/api/v1/accounts/{account['id']}",
+        headers=headers,
     )
-    assert duplicate_count == 1
-    assert duplicate_rule.run_count == 1
-    assert duplicate_rule.next_run_at == datetime(2026, 2, 28, 14, tzinfo=UTC)
-    assert duplicate_outbox_count == 1
+    assert account_response.status_code == 200
+    assert Decimal(account_response.json()["current_balance"]) == Decimal("0")
 
 
 def test_outbox_worker_retries_with_rollback_then_processes(
@@ -543,65 +507,6 @@ def create_account(
     )
     assert response.status_code == 201
     return dict(response.json())
-
-
-async def reset_rule_and_rerun_worker(
-    context: WorkerTestContext,
-    rule_id: object,
-) -> RecurringWorkerResult:
-    worker_engine = build_async_engine(context.database_url)
-    worker_session_factory = build_session_factory(worker_engine)
-    try:
-        async with worker_session_factory() as session:
-            rule_result = await session.execute(
-                select(RecurringRule).where(RecurringRule.id == rule_id)
-            )
-            rule = rule_result.scalar_one()
-            rule.next_run_at = rule.last_run_at
-            rule.status = "active"
-            rule.archived_at = None
-            await session.commit()
-
-        worker = RecurringWorker(
-            worker_session_factory,
-            worker_id="duplicate-worker",
-            batch_size=10,
-        )
-        return await worker.run_once(now=datetime(2026, 2, 1, 15, tzinfo=UTC))
-    finally:
-        await worker_engine.dispose()
-
-
-async def load_duplicate_effects(
-    context: WorkerTestContext,
-    account_id: object,
-    rule_id: object,
-) -> tuple[int, RecurringRule, int]:
-    worker_engine = build_async_engine(context.database_url)
-    worker_session_factory = build_session_factory(worker_engine)
-    try:
-        async with worker_session_factory() as session:
-            transaction_count_result = await session.execute(
-                select(func.count(Transaction.id)).where(
-                    Transaction.account_id == account_id
-                )
-            )
-            rule_result = await session.execute(
-                select(RecurringRule).where(RecurringRule.id == rule_id)
-            )
-            outbox_count_result = await session.execute(
-                select(func.count(OutboxEvent.id)).where(
-                    OutboxEvent.event_type == "recurring.transaction.created",
-                    OutboxEvent.payload["recurring_rule_id"].astext == str(rule_id),
-                )
-            )
-            return (
-                int(transaction_count_result.scalar_one()),
-                rule_result.scalar_one(),
-                int(outbox_count_result.scalar_one()),
-            )
-    finally:
-        await worker_engine.dispose()
 
 
 async def create_outbox_event(

@@ -181,3 +181,14 @@ class RecurringExpenseReminderResponse(BaseModel):
 
 class RecurringExpenseReminderListResponse(BaseModel):
     items: list[RecurringExpenseReminderResponse]
+
+
+class RecurringIncomeReminderResponse(BaseModel):
+    reminder_key: str
+    period_key: str
+    due_at: datetime
+    rule: RecurringRuleResponse
+
+
+class RecurringIncomeReminderListResponse(BaseModel):
+    items: list[RecurringIncomeReminderResponse]

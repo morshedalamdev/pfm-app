@@ -15,6 +15,7 @@ from app.modules.recurring.schemas import (
     RecurringExpensePaidRequest,
     RecurringExpensePaidResponse,
     RecurringExpenseReminderListResponse,
+    RecurringIncomeReminderListResponse,
     RecurringRuleCreateRequest,
     RecurringRuleListResponse,
     RecurringRuleListStatus,
@@ -104,6 +105,19 @@ async def list_due_recurring_expenses(
     session: SessionDependency,
 ) -> RecurringExpenseReminderListResponse:
     return await build_recurring_rule_service(session).list_due_expense_reminders(
+        current_user
+    )
+
+
+@router.get(
+    "/due-incomes",
+    response_model=RecurringIncomeReminderListResponse,
+)
+async def list_due_recurring_incomes(
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> RecurringIncomeReminderListResponse:
+    return await build_recurring_rule_service(session).list_due_income_reminders(
         current_user
     )
 

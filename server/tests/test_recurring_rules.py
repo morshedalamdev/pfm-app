@@ -237,6 +237,99 @@ def test_recurring_rule_crud_pause_resume_archive(
     )
 
 
+def test_due_income_detection_is_read_only_and_coexists_with_expenses(
+    recurring_context: RecurringApiContext,
+) -> None:
+    context = recurring_context
+    headers = auth_headers(context, "recurring-income-detection@example.com")
+    account = create_account(
+        context,
+        headers,
+        "Reminder Account",
+        "bank",
+        "125.0000",
+    )
+    income_category = create_category(
+        context,
+        headers,
+        "Salary Reminder",
+        "income",
+        "briefcase",
+    )
+    expense_category = create_category(
+        context,
+        headers,
+        "Rent Reminder",
+        "expense",
+        "home",
+    )
+    current_at = datetime.now(UTC)
+    month_start = current_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    income_rule = create_recurring_rule(
+        context,
+        headers,
+        account_id=account["id"],
+        category_id=income_category["id"],
+        transaction_type="income",
+        amount="500.0000",
+        frequency="monthly",
+        interval_count=1,
+        timezone="UTC",
+        start_at=month_start.isoformat(),
+        description="Monthly salary",
+    )
+    expense_rule = create_recurring_rule(
+        context,
+        headers,
+        account_id=account["id"],
+        category_id=expense_category["id"],
+        transaction_type="expense",
+        amount="25.0000",
+        frequency="monthly",
+        interval_count=1,
+        timezone="UTC",
+        start_at=month_start.isoformat(),
+        description="Monthly rent",
+    )
+
+    first_income_response = context.client.get(
+        "/api/v1/recurring-rules/due-incomes",
+        headers=headers,
+    )
+    second_income_response = context.client.get(
+        "/api/v1/recurring-rules/due-incomes",
+        headers=headers,
+    )
+    expense_response = context.client.get(
+        "/api/v1/recurring-rules/due-expenses",
+        headers=headers,
+    )
+
+    assert first_income_response.status_code == 200
+    assert second_income_response.status_code == 200
+    assert expense_response.status_code == 200
+    income_items = first_income_response.json()["items"]
+    assert second_income_response.json()["items"] == income_items
+    assert [item["rule"]["id"] for item in income_items] == [income_rule["id"]]
+    assert [item["rule"]["id"] for item in expense_response.json()["items"]] == [
+        expense_rule["id"]
+    ]
+
+    transactions_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"limit": 100},
+    )
+    account_response = context.client.get(
+        f"/api/v1/accounts/{account['id']}",
+        headers=headers,
+    )
+    assert transactions_response.status_code == 200
+    assert transactions_response.json()["items"] == []
+    assert account_response.status_code == 200
+    assert Decimal(account_response.json()["current_balance"]) == Decimal("125.0000")
+
+
 def test_paid_recurring_expense_creates_one_selected_account_transaction(
     recurring_context: RecurringApiContext,
 ) -> None:
@@ -661,6 +754,7 @@ def test_recurring_rule_validation_ownership_and_openapi(
     openapi = context.client.get("/openapi.json").json()
     assert "/api/v1/recurring-rules" in openapi["paths"]
     assert "/api/v1/recurring-rules/due-expenses" in openapi["paths"]
+    assert "/api/v1/recurring-rules/due-incomes" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}/paid" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}/pause" in openapi["paths"]

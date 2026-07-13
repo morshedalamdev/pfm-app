@@ -2260,6 +2260,50 @@
         "title": "RecurringExpenseReminderResponse",
         "type": "object"
       },
+      "RecurringIncomeReminderListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RecurringIncomeReminderResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RecurringIncomeReminderListResponse",
+        "type": "object"
+      },
+      "RecurringIncomeReminderResponse": {
+        "properties": {
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "period_key": {
+            "title": "Period Key",
+            "type": "string"
+          },
+          "reminder_key": {
+            "title": "Reminder Key",
+            "type": "string"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          }
+        },
+        "required": [
+          "reminder_key",
+          "period_key",
+          "due_at",
+          "rule"
+        ],
+        "title": "RecurringIncomeReminderResponse",
+        "type": "object"
+      },
       "RecurringRuleCreateRequest": {
         "properties": {
           "account_id": {
@@ -6795,6 +6839,32 @@
           }
         ],
         "summary": "List Due Recurring Expenses",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
+    "/api/v1/recurring-rules/due-incomes": {
+      "get": {
+        "operationId": "list_due_recurring_incomes_api_v1_recurring_rules_due_incomes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringIncomeReminderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Due Recurring Incomes",
         "tags": [
           "recurring"
         ]

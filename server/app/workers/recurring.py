@@ -6,9 +6,8 @@ import logging
 import socket
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from sqlalchemy import Select, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
@@ -114,31 +113,9 @@ async def claim_due_recurring_rules(
     batch_size: int,
     lock_seconds: int,
 ) -> Sequence[RecurringRule]:
-    lock_until = now + timedelta(seconds=lock_seconds)
-    query: Select[tuple[RecurringRule]] = (
-        select(RecurringRule)
-        .where(
-            RecurringRule.status == "active",
-            RecurringRule.archived_at.is_(None),
-            RecurringRule.transaction_type == "income",
-            RecurringRule.next_run_at <= now,
-            or_(
-                RecurringRule.locked_until.is_(None),
-                RecurringRule.locked_until <= now,
-            ),
-        )
-        .order_by(RecurringRule.next_run_at, RecurringRule.id)
-        .limit(batch_size)
-        .with_for_update(skip_locked=True)
-    )
-    result = await session.execute(query)
-    rules = list(result.scalars().all())
-    for rule in rules:
-        rule.locked_by = worker_id
-        rule.locked_at = now
-        rule.locked_until = lock_until
-    await session.flush()
-    return rules
+    # Income and expense rules are confirmation reminders. Neither supported
+    # transaction type may be materialized automatically by the worker.
+    return []
 
 
 async def process_claimed_rule(

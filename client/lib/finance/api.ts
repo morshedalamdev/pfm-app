@@ -35,6 +35,8 @@ export type RecurringRuleCreate =
 export type RecurringRule = components["schemas"]["RecurringRuleResponse"];
 export type RecurringExpenseReminder =
   components["schemas"]["RecurringExpenseReminderResponse"];
+export type RecurringIncomeReminder =
+  components["schemas"]["RecurringIncomeReminderResponse"];
 export type RecurringExpensePaidRequest =
   components["schemas"]["RecurringExpensePaidRequest"];
 export type RecurringExpensePaidResponse =
@@ -63,6 +65,8 @@ type LoanRecordList = components["schemas"]["LoanRecordListResponse"];
 type LoanSettlementList = components["schemas"]["LoanSettlementListResponse"];
 type RecurringExpenseReminderList =
   components["schemas"]["RecurringExpenseReminderListResponse"];
+type RecurringIncomeReminderList =
+  components["schemas"]["RecurringIncomeReminderListResponse"];
 type SavingsGoalList = components["schemas"]["SavingsGoalListResponse"];
 type SavingsTransferResponse =
   components["schemas"]["SavingsTransferResponse"];
@@ -308,6 +312,16 @@ export async function listDueRecurringExpenseReminders(config?: {
 }): Promise<RecurringExpenseReminder[]> {
   const response = await apiGet<RecurringExpenseReminderList>(
     "/api/v1/recurring-rules/due-expenses",
+    { signal: config?.signal },
+  );
+  return response.items;
+}
+
+export async function listDueRecurringIncomeReminders(config?: {
+  signal?: AbortSignal;
+}): Promise<RecurringIncomeReminder[]> {
+  const response = await apiGet<RecurringIncomeReminderList>(
+    "/api/v1/recurring-rules/due-incomes",
     { signal: config?.signal },
   );
   return response.items;
