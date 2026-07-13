@@ -321,6 +321,10 @@ def test_used_accounts_cannot_be_removed(
     headers = auth_headers(context, "account-use-guard@example.com")
     transaction_account = create_account(context, headers, "Spending Cash", "cash", "0")
     recurring_account = create_account(context, headers, "Recurring Bank", "bank", "0")
+    loan_account = create_account(context, headers, "Loan Bank", "bank", "100")
+    settlement_account = create_account(
+        context, headers, "Settlement Cash", "cash", "100"
+    )
     unused_account = create_account(context, headers, "Unused Wallet", "wallet", "0")
     expense_category = create_category(context, headers, "Food", "expense", "utensils")
     income_category = create_category(context, headers, "Salary", "income", "briefcase")
@@ -354,7 +358,58 @@ def test_used_accounts_cannot_be_removed(
     )
     assert recurring_response.status_code == 201
 
-    for account in (transaction_account, recurring_account):
+    person_response = context.client.post(
+        "/api/v1/loans/people",
+        headers=headers,
+        json={"name": "Loan Person", "phone_number": "+8801700000001"},
+    )
+    assert person_response.status_code == 201
+    loan_response = context.client.post(
+        "/api/v1/loans/records",
+        headers=headers,
+        json={
+            "account_id": loan_account["id"],
+            "currency": "USD",
+            "direction": "given",
+            "issued_at": now,
+            "person_id": person_response.json()["id"],
+            "principal_amount": "10.00",
+            "repay_date": "2026-08-01",
+        },
+    )
+    assert loan_response.status_code == 201
+    settlement_response = context.client.post(
+        f"/api/v1/loans/records/{loan_response.json()['id']}/settlements",
+        headers=headers,
+        json={
+            "account_id": settlement_account["id"],
+            "amount": "1.00",
+            "settled_at": now,
+        },
+    )
+    assert settlement_response.status_code == 201
+
+    expected_reasons = {
+        transaction_account["id"]: "transaction",
+        recurring_account["id"]: "recurring_rule",
+        loan_account["id"]: "loan_record",
+        settlement_account["id"]: "loan_settlement",
+    }
+    for account in (
+        transaction_account,
+        recurring_account,
+        loan_account,
+        settlement_account,
+    ):
+        eligibility_response = context.client.get(
+            f"/api/v1/accounts/{account['id']}/delete-eligibility",
+            headers=headers,
+        )
+        assert eligibility_response.status_code == 200
+        assert eligibility_response.json()["can_delete"] is False
+        assert expected_reasons[account["id"]] in eligibility_response.json()[
+            "reasons"
+        ]
         delete_response = context.client.delete(
             f"/api/v1/accounts/{account['id']}",
             headers=headers,

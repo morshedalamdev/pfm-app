@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.accounts.models import Account
 from app.modules.accounts.pagination import PageCursor
+from app.modules.loans.models import LoanRecord, LoanSettlement
 from app.modules.recurring.models import RecurringRule
 from app.modules.transactions.models import Transaction
 
@@ -129,6 +130,28 @@ class AccountRepository:
         )
         if bool(recurring_result.scalar()):
             reasons.append("recurring_rule")
+
+        loan_record_result = await self._session.execute(
+            select(
+                exists().where(
+                    LoanRecord.account_id == account_id,
+                    LoanRecord.user_id == user_id,
+                )
+            )
+        )
+        if bool(loan_record_result.scalar()):
+            reasons.append("loan_record")
+
+        loan_settlement_result = await self._session.execute(
+            select(
+                exists().where(
+                    LoanSettlement.account_id == account_id,
+                    LoanSettlement.user_id == user_id,
+                )
+            )
+        )
+        if bool(loan_settlement_result.scalar()):
+            reasons.append("loan_settlement")
 
         return reasons
 

@@ -140,7 +140,8 @@ class AccountListResponse(BaseModel):
 AccountDeleteBlockReason = Literal[
     "transaction",
     "recurring_rule",
-    "loan_not_connected",
+    "loan_record",
+    "loan_settlement",
 ]
 
 

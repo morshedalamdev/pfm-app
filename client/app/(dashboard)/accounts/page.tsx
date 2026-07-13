@@ -53,12 +53,15 @@ import {
   listAccounts,
   setDefaultAccount,
   type Account,
+  type AccountDeleteEligibility,
 } from "@/lib/finance/api";
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteEligibility, setDeleteEligibility] =
+    useState<AccountDeleteEligibility | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [defaultError, setDefaultError] = useState<string | null>(null);
   const [disableError, setDisableError] = useState<string | null>(null);
@@ -118,6 +121,41 @@ export default function AccountsPage() {
     return () => controller.abort();
   }, [loadAccounts]);
 
+  useEffect(() => {
+    if (!detailAccountId) {
+      setDeleteEligibility(null);
+      setIsCheckingDelete(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setDeleteEligibility(null);
+    setDeleteError(null);
+    setIsCheckingDelete(true);
+    void canDeleteAccount(detailAccountId, { signal: controller.signal })
+      .then((eligibility) => {
+        if (!controller.signal.aborted) {
+          setDeleteEligibility(eligibility);
+        }
+      })
+      .catch((eligibilityError) => {
+        if (!controller.signal.aborted) {
+          setDeleteError(
+            eligibilityError instanceof ApiError
+              ? eligibilityError.message
+              : "Account delete eligibility could not be checked.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsCheckingDelete(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [detailAccountId]);
+
   const accountSummary = useMemo(() => {
     const activeCount = accounts.filter(isAccountActive).length;
     return {
@@ -165,8 +203,8 @@ export default function AccountsPage() {
     setIsCheckingDelete(true);
     try {
       const eligibility = await canDeleteAccount(account.id);
+      setDeleteEligibility(eligibility);
       if (!canDeleteAccountFromEligibility(eligibility)) {
-        setDeleteError(deleteRestrictionMessage(eligibility.reasons));
         return;
       }
       setDeleteDialogOpen(true);
@@ -312,6 +350,7 @@ export default function AccountsPage() {
         {detailAccount ? (
           <AccountDetailsDialog
             account={detailAccount}
+            canDelete={deleteEligibility?.can_delete === true}
             deleteDialogOpen={deleteDialogOpen}
             deleteError={deleteError}
             defaultError={defaultError}
@@ -401,6 +440,7 @@ function StatusPill({ isActive }: { isActive: boolean }) {
 
 function AccountDetailsDialog({
   account,
+  canDelete,
   deleteDialogOpen,
   deleteError,
   defaultError,
@@ -416,6 +456,7 @@ function AccountDetailsDialog({
   onSetDefault,
 }: {
   account: Account;
+  canDelete: boolean;
   deleteDialogOpen: boolean;
   deleteError: string | null;
   defaultError: string | null;
@@ -507,37 +548,35 @@ function AccountDetailsDialog({
           {deleteError}
         </p>
       ) : null}
-      <AlertDialog
-        open={deleteDialogOpen}
-        onOpenChange={onDeleteDialogOpenChange}
-      >
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isCheckingDelete || isDeleting}
-          onClick={onPrepareDelete}
+      {canDelete ? (
+        <AlertDialog
+          open={deleteDialogOpen}
+          onOpenChange={onDeleteDialogOpenChange}
         >
-          <Trash2Icon className="size-4" />
-          {isCheckingDelete
-            ? "Checking..."
-            : isDeleting
-              ? "Deleting..."
-              : "Delete Account"}
-        </Button>
-        <AlertDialogContent>
-          <AlertDialogTitle>Delete this account?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This removes the account from the active list only when no linked
-            records use it.
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isCheckingDelete || isDeleting}
+            onClick={onPrepareDelete}
+          >
+            <Trash2Icon className="size-4" />
+            {isDeleting ? "Deleting..." : "Delete Account"}
+          </Button>
+          <AlertDialogContent>
+            <AlertDialogTitle>Delete this account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the account from the active list only when no linked
+              records use it.
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
+                {isDeleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </DialogContent>
   );
 }
@@ -566,19 +605,6 @@ function formatAccountDate(value: string): string {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
-}
-
-function deleteRestrictionMessage(reasons: string[]): string {
-  if (reasons.includes("transaction")) {
-    return "Account cannot be deleted because it is used in transactions.";
-  }
-  if (reasons.includes("recurring_rule")) {
-    return "Account cannot be deleted because it is used in recurring rules.";
-  }
-  if (reasons.includes("loan_not_connected")) {
-    return "Loan account usage is not connected yet, so this account cannot be safely deleted.";
-  }
-  return "Account cannot be deleted because it is already used.";
 }
 
 function AccountListSkeleton() {
