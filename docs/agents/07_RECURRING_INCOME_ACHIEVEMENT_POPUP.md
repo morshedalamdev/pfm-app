@@ -395,3 +395,67 @@
 - Added the missing atomic Received path for one income transaction and current-month completion.
 - Prevented duplicate income, balance, and Home-total effects across exact replays, conflicting replays, and rapid client clicks.
 - Added immediate Home report, recent transaction, and selected balance-source refresh after successful confirmation.
+
+## Phase 07.6 — Delete and Close Actions
+
+## Delete Behavior
+
+- Delete opens a destructive confirmation dialog that states future reminders will stop without creating a transaction or changing the account balance.
+- Successful confirmation removes the income reminder from the shared queue so the next queued reminder can render.
+- Delete and Received disable one another while either action is pending, and a ref guard prevents repeated Delete submissions.
+- A failed Delete keeps the reminder and confirmation visible with a retryable error message.
+
+## Deactivation Strategy
+
+- Income Delete reuses the existing recurring-rule delete endpoint and persistence style.
+- The rule is soft-archived with `status = archived` and an `archived_at` timestamp, preserving historical recurring metadata.
+- Active-rule reminder queries exclude the archived rule, permanently stopping its future income reminders.
+
+## Close Behavior
+
+- The dialog close icon records only the current reminder key in component-local state and hides the popup for the current mounted view.
+- Close does not remove the reminder from the shared queue, set `last_received_period`, archive the rule, or call a mutation endpoint.
+
+## Next App-Load Behavior
+
+- A fresh app load remounts the popup with no dismissed reminder key.
+- An active, due, unreceived rule closed in the previous view is detected again and shown during the same due window.
+- A deleted income rule remains archived and is not returned on later app loads.
+
+## Balance Safety
+
+- Delete and Close perform no account mutation and create no ledger entry, leaving the selected account balance unchanged.
+- Backend and browser coverage verify the original balance before and after both actions.
+
+## Transaction Safety
+
+- Delete and Close do not call the Received endpoint or normal transaction creation service.
+- Backend and browser coverage verify that the transaction list and Home income total remain unchanged after Delete and Close.
+
+## Expense Regression Safety
+
+- The recurring expense component, Delete confirmation, Close state, queue removal, persistence calls, and amber styling were not modified.
+- Existing expense backend coverage and the focused expense browser scenario remain passing.
+
+## Phase 07.6 Check Results
+
+- Focused recurring, transaction, and dashboard backend regression suite: `54 passed, 1 warning`.
+- Full backend suite: `207 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 144 files.
+- Mypy passed with no issues in 110 source files.
+- Generated API contract check passed.
+- TypeScript no-emit check passed.
+- E2E JavaScript syntax check passed.
+- Frontend production build passed.
+- Focused income Delete/Close browser scenario passed: `1 passed`.
+- Focused expense/Received browser scenario passed: `1 passed`.
+- When both browser scenarios ran sequentially in one local harness, the expense scenario passed and the next scenario hit the pre-existing late-request timeout during login; each scenario passes in isolation.
+- The backend warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint`, `typecheck`, and unit `test` scripts remain unavailable.
+
+## Phase 07.6 Bugs Fixed
+
+- Added permanent recurring-income deactivation and queue advancement without a transaction, balance, completion, or Home-income change.
+- Added temporary income-popup dismissal that preserves the active rule and returns after a fresh app load.
+- Added destructive confirmation, pending-state exclusion, duplicate-submit protection, and retryable Delete errors.

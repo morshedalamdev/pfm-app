@@ -13,6 +13,17 @@ import {
 import { useRecurringReminders } from "@/components/recurring/RecurringReminderProvider";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  deleteRecurringRule,
   listAccounts,
   listCategories,
   markRecurringIncomeReceived,
@@ -39,7 +51,13 @@ export function RecurringIncomeAchievementPopup() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isReceiving, setIsReceiving] = useState(false);
   const [receiveError, setReceiveError] = useState<string | null>(null);
+  const [dismissedReminderKey, setDismissedReminderKey] = useState<
+    string | null
+  >(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const receiveInFlight = useRef(false);
+  const deleteInFlight = useRef(false);
 
   useEffect(() => {
     if (!currentReminder) return;
@@ -84,8 +102,9 @@ export function RecurringIncomeAchievementPopup() {
     currentReminder.due_at,
     currentReminder.rule.timezone,
   );
+  const isOpen = dismissedReminderKey !== currentReminder.reminder_key;
   const handleReceived = async () => {
-    if (receiveInFlight.current) return;
+    if (receiveInFlight.current || deleteInFlight.current) return;
     receiveInFlight.current = true;
     setIsReceiving(true);
     setReceiveError(null);
@@ -106,9 +125,36 @@ export function RecurringIncomeAchievementPopup() {
       setIsReceiving(false);
     }
   };
+  const handleDelete = async () => {
+    if (deleteInFlight.current || receiveInFlight.current) return;
+    deleteInFlight.current = true;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteRecurringRule(currentReminder.rule.id);
+      removeReminder(currentReminder.reminder_key);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "The recurring income could not be deleted.",
+      );
+    } finally {
+      deleteInFlight.current = false;
+      setIsDeleting(false);
+    }
+  };
 
   return (
-    <Dialog open onOpenChange={() => undefined}>
+    <Dialog
+      key={currentReminder.reminder_key}
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          setDismissedReminderKey(currentReminder.reminder_key);
+        }
+      }}
+    >
       <DialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto border-emerald-400/50 bg-background p-0 shadow-[0_20px_80px_rgba(16,185,129,0.24)] sm:max-w-md [&_[data-slot=dialog-close]]:text-emerald-200">
         <div className="relative overflow-hidden border-b border-emerald-400/25 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent px-5 py-5 pr-12">
           <Trophy
@@ -185,17 +231,53 @@ export function RecurringIncomeAchievementPopup() {
               {receiveError}
             </p>
           ) : null}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isReceiving || isDeleting}
+                aria-label="Delete recurring income"
+              >
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete recurring income?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently stops future reminders. It will not create a
+                  transaction or change your account balance.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {deleteError ? (
+                <p
+                  role="alert"
+                  className="text-sm font-semibold text-destructive"
+                >
+                  {deleteError}
+                </p>
+              ) : null}
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={isDeleting}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void handleDelete();
+                  }}
+                  className="border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? "Deleting…" : "Delete permanently"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button
             type="button"
-            variant="destructive"
-            disabled
-            aria-label="Delete recurring income"
-          >
-            Delete
-          </Button>
-          <Button
-            type="button"
-            disabled={isReceiving}
+            disabled={isReceiving || isDeleting}
             onClick={() => void handleReceived()}
             className="bg-emerald-300 text-emerald-950 hover:bg-emerald-200"
             aria-label="Mark recurring income received"

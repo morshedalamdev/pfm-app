@@ -201,7 +201,7 @@ test("recurring expense actions and income achievement popup are safe", async ({
   ).toBeEnabled();
   await expect(
     achievement.getByRole("button", { name: "Delete recurring income" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(
     achievement.getByRole("button", { name: "Close" }),
   ).toBeVisible();
@@ -334,6 +334,146 @@ test("recurring expense actions and income achievement popup are safe", async ({
   );
   await expect(page.getByText("$2,700.00", { exact: true })).toBeVisible();
   await expect(page.getByText("$2,500.00", { exact: true })).toBeVisible();
+  await api.dispose();
+});
+
+test("recurring income Delete is permanent and Close is temporary", async ({
+  page,
+}) => {
+  const email = `pfm-income-delete-close-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Name").fill("Income Actions User");
+  await page.getByPlaceholder("Phone Number").fill("5550188");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const account = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Income Action Account",
+    opening_balance: "300.00",
+    type: "bank",
+  });
+  const salary = await getCategoryByName(api, "income", "Salary");
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const closeDueAt = new Date(monthStart);
+  closeDueAt.setUTCMinutes(closeDueAt.getUTCMinutes() + 1);
+
+  const deleteRule = await postJson(api, "/api/v1/recurring-rules", {
+    account_id: account.id,
+    amount: "700.00",
+    category_id: salary.id,
+    description: "E2E delete income",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: monthStart.toISOString(),
+    timezone: "UTC",
+    transaction_type: "income",
+  });
+  const closeRule = await postJson(api, "/api/v1/recurring-rules", {
+    account_id: account.id,
+    amount: "800.00",
+    category_id: salary.id,
+    description: "E2E close income",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: closeDueAt.toISOString(),
+    timezone: "UTC",
+    transaction_type: "income",
+  });
+
+  await page.reload();
+  const achievement = page.getByRole("dialog");
+  await expect(
+    achievement.getByText("E2E delete income", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await achievement
+    .getByRole("button", { name: "Delete recurring income" })
+    .click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(
+    confirmation.getByRole("heading", { name: "Delete recurring income?" }),
+  ).toBeVisible();
+  await expect(
+    confirmation.getByText(
+      /will not create a transaction or change your account balance/i,
+    ),
+  ).toBeVisible();
+  await confirmation
+    .getByRole("button", { name: "Delete permanently" })
+    .click();
+  await expect(
+    achievement.getByText("E2E close income", { exact: true }),
+  ).toBeVisible();
+
+  const archivedRule = await getJson(
+    api,
+    `/api/v1/recurring-rules/${deleteRule.id}`,
+  );
+  expect(archivedRule.status).toBe("archived");
+  expect(archivedRule.last_received_period).toBeNull();
+  expect(
+    (await getJson(api, "/api/v1/recurring-rules/due-incomes")).items.map(
+      (item) => item.rule.id,
+    ),
+  ).toEqual([closeRule.id]);
+  expect(
+    (await getJson(api, "/api/v1/transactions?limit=100")).items,
+  ).toHaveLength(0);
+  expect(
+    Number(
+      (await getJson(api, `/api/v1/accounts/${account.id}`)).current_balance,
+    ),
+  ).toBe(300);
+
+  await achievement.getByRole("button", { name: "Close" }).click();
+  await expect(achievement).toBeHidden();
+  const closedRule = await getJson(
+    api,
+    `/api/v1/recurring-rules/${closeRule.id}`,
+  );
+  expect(closedRule.status).toBe("active");
+  expect(closedRule.last_received_period).toBeNull();
+  expect(
+    (await getJson(api, "/api/v1/recurring-rules/due-incomes")).items.map(
+      (item) => item.rule.id,
+    ),
+  ).toEqual([closeRule.id]);
+
+  await page.reload();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("E2E close income", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  expect(
+    (await getJson(api, "/api/v1/transactions?limit=100")).items,
+  ).toHaveLength(0);
+  expect(
+    Number(
+      (await getJson(api, `/api/v1/accounts/${account.id}`)).current_balance,
+    ),
+  ).toBe(300);
   await api.dispose();
 });
 
