@@ -291,12 +291,13 @@ def test_dashboard_report_year_income_buckets_and_auth_contract(
     assert unauthorized_response.status_code == 401
 
 
-def test_dashboard_report_income_expense_totals_exclude_loans(
+def test_dashboard_report_totals_include_transactions_and_exclude_loans_and_recurring(
     report_context: ReportApiContext,
 ) -> None:
     context = report_context
     headers = auth_headers(context, "dashboard-loan-exclusion@example.com")
-    account = create_account(context, headers, "Checking", "bank", "0.0000")
+    income_account = create_account(context, headers, "Checking", "bank", "0.0000")
+    expense_account = create_account(context, headers, "Wallet", "wallet", "0.0000")
     income_category = create_category(context, headers, "Salary", "income", "briefcase")
     expense_category = create_category(
         context,
@@ -310,7 +311,7 @@ def test_dashboard_report_income_expense_totals_exclude_loans(
     create_transaction(
         context,
         headers,
-        account["id"],
+        income_account["id"],
         income_category["id"],
         "income",
         "125.0000",
@@ -319,7 +320,7 @@ def test_dashboard_report_income_expense_totals_exclude_loans(
     create_transaction(
         context,
         headers,
-        account["id"],
+        expense_account["id"],
         expense_category["id"],
         "expense",
         "45.0000",
@@ -328,7 +329,7 @@ def test_dashboard_report_income_expense_totals_exclude_loans(
     create_loan_record(
         context,
         headers,
-        account["id"],
+        expense_account["id"],
         person["id"],
         "given",
         "700.0000",
@@ -337,11 +338,29 @@ def test_dashboard_report_income_expense_totals_exclude_loans(
     create_loan_record(
         context,
         headers,
-        account["id"],
+        income_account["id"],
         person["id"],
         "taken",
         "900.0000",
         "2026-01-13T10:00:00+00:00",
+    )
+    create_recurring_rule(
+        context,
+        headers,
+        account_id=income_account["id"],
+        category_id=income_category["id"],
+        transaction_type="income",
+        amount="5000.0000",
+        start_at="2026-02-01T10:00:00+00:00",
+    )
+    create_recurring_rule(
+        context,
+        headers,
+        account_id=expense_account["id"],
+        category_id=expense_category["id"],
+        transaction_type="expense",
+        amount="4000.0000",
+        start_at="2026-02-01T10:00:00+00:00",
     )
 
     response = context.client.get(
@@ -488,6 +507,34 @@ def create_loan_record(
             "principal_amount": principal_amount,
             "issued_at": issued_at,
             "repay_date": "2026-02-15",
+        },
+    )
+    assert response.status_code == 201
+    return dict(response.json())
+
+
+def create_recurring_rule(
+    context: ReportApiContext,
+    headers: dict[str, str],
+    *,
+    account_id: object,
+    category_id: object,
+    transaction_type: str,
+    amount: str,
+    start_at: str,
+) -> dict[str, object]:
+    response = context.client.post(
+        "/api/v1/recurring-rules",
+        headers=headers,
+        json={
+            "account_id": account_id,
+            "category_id": category_id,
+            "transaction_type": transaction_type,
+            "amount": amount,
+            "frequency": "monthly",
+            "interval_count": 1,
+            "timezone": "UTC",
+            "start_at": start_at,
         },
     )
     assert response.status_code == 201

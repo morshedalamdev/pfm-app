@@ -375,3 +375,45 @@ No repository-owned production transaction mock-data module was found. Transacti
 - Transaction list and detail amounts no longer use a hard-coded dollar sign.
 - Home recent transactions now display the selected account currency.
 - Mixed-currency transaction activity is no longer presented as one USD total.
+
+## Phase 05.7 — Home Totals Preserved
+
+## Income Total Rule
+
+- Home income continues to use the dashboard report `income_amount`.
+- The report sums only non-voided transaction rows whose type is `income` and whose timestamp is inside the requested period.
+
+## Expense Total Rule
+
+- Home expense continues to use the dashboard report `expense_amount`.
+- The report sums only non-voided transaction rows whose type is `expense` and whose timestamp is inside the requested period.
+- Transfer debit/credit rows remain excluded from both totals.
+
+## Loan Exclusion
+
+- Given and taken loans remain separate loan records and are not selected by the dashboard transaction-total query.
+- Regression coverage creates both loan directions with amounts larger than the real transactions and confirms they do not affect Home income, expense, or net flow.
+
+## Account-Linked Transaction Handling
+
+- Income and expense transactions on different selected accounts remain included in the user-level Home totals.
+- The dashboard total query does not exclude a valid transaction because of its selected `account_id`.
+
+## Recurring Placeholder Handling
+
+- Future recurring income and expense rules do not contribute to Home totals before they materialize as transaction rows.
+- Regression coverage creates future recurring rules with large placeholder amounts and confirms Home continues to report only real transactions.
+- No recurring popup, scheduling, or worker behavior was changed.
+
+## Phase 05.7 Check Results
+
+- `cd client && npm run build`: passed after an approved rerun allowed the configured Google-hosted Urbanist font fetch.
+- `cd client && npm run api:check`: passed; generated API artifacts are up to date.
+- Focused Home dashboard regression suite: passed with `4 passed, 1 warning`.
+- Full backend suite: passed with `174 passed, 1 warning`.
+- Ruff lint and format checks passed for the changed dashboard regression test.
+- `cd client && npm run lint`, `npm run typecheck`, and `npm test` were unavailable because those scripts do not exist.
+
+## Phase 05.7 Bugs Fixed
+
+- None. Existing production Home total selection already preserved transaction-only income/expense totals and loan exclusion; regression coverage was expanded.
