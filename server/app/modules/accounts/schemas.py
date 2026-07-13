@@ -11,13 +11,26 @@ from app.core.money import NonNegativeMoney
 
 AccountType = Literal[
     "cash",
-    "bank",
-    "card",
-    "mobile_pay",
-    "wallet",
-    "savings",
-    "other",
+    "debit_card",
+    "credit_card",
+    "bank_account",
+    "mobile_banking",
 ]
+
+LEGACY_ACCOUNT_TYPE_ALIASES: dict[str, AccountType] = {
+    "bank": "bank_account",
+    "card": "debit_card",
+    "mobile_pay": "mobile_banking",
+    "savings": "bank_account",
+    "wallet": "mobile_banking",
+}
+
+
+def normalize_account_type(account_type: object) -> object:
+    if not isinstance(account_type, str):
+        return account_type
+    normalized_type = account_type.strip().lower()
+    return LEGACY_ACCOUNT_TYPE_ALIASES.get(normalized_type, normalized_type)
 
 
 class AccountCreateRequest(BaseModel):
@@ -25,6 +38,11 @@ class AccountCreateRequest(BaseModel):
     type: AccountType
     currency: str = Field(default="USD", min_length=3, max_length=3)
     opening_balance: NonNegativeMoney = Decimal("0")
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_type(cls, account_type: object) -> object:
+        return normalize_account_type(account_type)
 
     @field_validator("name")
     @classmethod
@@ -57,6 +75,13 @@ class AccountUpdateRequest(BaseModel):
     type: AccountType | None = None
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     opening_balance: NonNegativeMoney | None = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_type(cls, account_type: object) -> object:
+        if account_type is None:
+            return None
+        return normalize_account_type(account_type)
 
     @field_validator("name")
     @classmethod

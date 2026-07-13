@@ -1,44 +1,40 @@
-# Agent 05 — Transaction Category and Account Rules
+# Agent 07 — Recurring Income Achievement Popup
 
-## Role
+## Agent Identity
 
-You are Agent 05 for `pfm-app`.
+You are **Agent 07 — Recurring Income Achievement Popup** for the `pfm-app` project.
 
-Your scope is only the Transaction area:
+Your job is to implement recurring **income** reminders as achievement-style popups. Recurring income must not be automatically added to an account. Instead, when an income item becomes due, the application must repeatedly show a green achievement popup until the user confirms that the income was received or deletes the recurring rule.
 
-- Add categories: `Hangout`, `Vacation`, `Party`.
-- Auto-select the primary/default account in transaction forms.
-- Allow the user to change account from a dropdown.
-- Exclude disabled accounts from new transaction selection.
-- Store selected account on each transaction.
-- Show transaction amounts using the selected account currency.
-- Apply income/expense balance effects only to the selected account.
-- Preserve Home totals so income/expense include transactions only and exclude loans.
+Do not modify recurring expense behavior in this agent. Recurring expense behavior belongs to Agent 06 and must remain unchanged.
 
-Do not implement recurring popup behavior. That belongs to Agent 06 and Agent 07.
+---
 
-Repository:
+## Repository
 
 ```text
-https://github.com/morshedalamdev/pfm-app
+Repository: https://github.com/morshedalamdev/pfm-app
+Live frontend: https://pfm.morshedalam.dev
 ```
 
 ---
 
-## Branch
+## Required Git Branch
 
-Use this branch only:
+Every agent must have its own GitHub branch.
+
+Before starting this agent, create and work only on this branch:
 
 ```bash
 git checkout main
 git pull
-git checkout -b feature/transaction-category-account-rules
+git checkout -b feature/recurring-income-achievement-popup
 ```
 
-If it already exists:
+If the branch already exists:
 
 ```bash
-git checkout feature/transaction-category-account-rules
+git checkout feature/recurring-income-achievement-popup
 git pull
 ```
 
@@ -46,7 +42,7 @@ git pull
 
 ## Required Previous Agents
 
-Run this only after these are merged into `main`:
+Agent 07 should run only after these agents are completed and merged into `main`:
 
 ```text
 Agent 00 — Current App Audit
@@ -54,9 +50,15 @@ Agent 01 — Sidebar and Navigation Update
 Agent 02 — Account Page and Account Rules
 Agent 03 — Loan and Debt Account Integration
 Agent 04 — Settings and Home Page Balance Rules
+Agent 05 — Transaction Category and Account Rules
+Agent 06 — Recurring Expense Warning Popup
 ```
 
-Read these docs if present:
+Agent 07 depends on Agent 05 because confirming recurring income must create a normal income transaction using the selected account and account currency.
+
+Agent 07 should reuse shared recurring helpers from Agent 06 where appropriate, but it must not break or merge expense-specific behavior incorrectly.
+
+Before making changes, read these files if they exist:
 
 ```text
 docs/audit/00_CURRENT_APP_AUDIT.md
@@ -64,11 +66,13 @@ docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md
 docs/audit/02_BASELINE_TEST_REPORT.md
 docs/agents/02_ACCOUNT_PAGE_AND_RULES.md
 docs/agents/02_ACCOUNT_TEST_REPORT.md
-docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md
-docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
+docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md
+docs/agents/05_TRANSACTION_TEST_REPORT.md
+docs/agents/06_RECURRING_EXPENSE_WARNING_POPUP.md
+docs/agents/06_RECURRING_EXPENSE_TEST_REPORT.md
 ```
 
-If account/default-account helpers from Agent 02 are missing, stop and report Agent 05 is blocked. Do not create a second account system.
+If transaction account selection, selected-account persistence, transaction balance effects, or recurring scheduling helpers are missing, stop and report that Agent 07 is blocked. Do not create duplicate transaction or recurrence systems.
 
 ---
 
@@ -90,31 +94,292 @@ Permission:
 Can I continue to the next phase?
 ```
 
-Do not explain the implementation. Do not start the next phase without permission.
+Do **not** explain implementation details.  
+Do **not** provide long reasoning.  
+Do **not** start the next phase without permission.  
+Do **not** include architecture explanation in the final output.
 
 ---
 
-## Required Workflow Per Phase
+## Required Phase Workflow
+
+Every phase must follow:
 
 ```text
 Think internally
-Execute only current phase
+Execute only the current phase
 Run tests
-Fix failures
+Fix failed tests
 Run tests again
 Update docs
 Commit
 Stop
-Ask permission
+Ask permission for next phase
 ```
 
 ---
 
-## Tests
+## Agent 07 Goal
 
-Run available commands only. Do not invent missing scripts.
+Implement the requested recurring income behavior.
 
-Primary frontend checks:
+Example requirement:
+
+```text
+Category: Salary
+Note: Job Salary
+Recurring: Monthly
+First income date: selected by user
+```
+
+Expected behavior:
+
+- The recurring income must not automatically add money to the selected account.
+- On the same due date in each following month, a green achievement popup appears.
+- Popup message should ask whether the user received the income, for example:
+  - `Have you received your "Job Salary"?`
+- The popup continues appearing on every app load from the due date until the end of that month.
+- The popup stops for that month only after the user clicks `Received`.
+- The recurring rule stops permanently if the user clicks `Delete`.
+- The popup can be temporarily dismissed using a close icon.
+- Closing does not mark it received and does not delete it.
+- If closed, it must appear again the next time the app is loaded during the same due window.
+- Popup must use achievement/success styling and green colors.
+- Clicking `Received` creates a normal income transaction using the date the user clicked `Received`.
+- The created income transaction must use the recurring rule's account, category, note, amount, and account currency.
+- The selected account balance must increase only when the user clicks `Received`.
+
+---
+
+## Agent 07 Scope
+
+Agent 07 may change:
+
+- Recurring income data types/schemas/models.
+- Shared recurring helpers only when safely reusable.
+- Recurring income state/store/API behavior.
+- App-load recurring income detection.
+- Recurring-income achievement popup UI.
+- Received, Delete, and Close behavior.
+- Income transaction creation triggered by Received.
+- Account balance update through existing transaction behavior.
+- Persistence for monthly completion state.
+- Tests for recurring income behavior.
+- Agent documentation.
+
+Agent 07 must not implement:
+
+- Recurring expense behavior changes.
+- Warning popup styling for expenses.
+- General transaction category/account behavior already handled by Agent 05.
+- Loan/debt behavior.
+- Account creation/edit/disable/default logic.
+- Home/settings balance-source behavior.
+- Automatic addition of recurring income.
+- Currency conversion engine.
+
+---
+
+## Domain Rules
+
+### Recurring Income Rule
+
+A recurring income rule should store enough information to reproduce the income later:
+
+```text
+id
+type = income
+category
+note
+amount
+accountId
+frequency
+firstDueDate
+active
+lastReceivedPeriod or completion history
+createdAt
+```
+
+Use project naming conventions.
+
+### Monthly Due Rule
+
+For monthly recurrence:
+
+```text
+due day = day from firstDueDate
+due period = each calendar month while rule is active
+```
+
+If the original day does not exist in a shorter month, use the last valid day of that month.
+
+Examples:
+
+```text
+January 31 → February 28 or 29
+March 31 → April 30
+```
+
+Reuse tested date helpers from Agent 06 if they are generic and safe.
+
+### Due Window Rule
+
+Popup should be eligible to display:
+
+```text
+from computed due date
+through the final day of that same month
+```
+
+Before due date:
+
+```text
+do not show popup
+```
+
+After the user marks it received for that month:
+
+```text
+do not show again during that month
+```
+
+If not received or deleted:
+
+```text
+show again on every app load during the due window
+```
+
+### Received Rule
+
+When user clicks `Received`:
+
+```text
+create a normal income transaction
+transaction date = date/time user clicked Received
+use recurring rule category
+use recurring rule note
+use recurring rule amount
+use recurring rule selected account
+increase only that account balance
+mark recurring rule completed for current month
+do not show popup again for current month
+keep recurring rule active for future months
+```
+
+### Delete Rule
+
+When user clicks `Delete`:
+
+```text
+deactivate or delete recurring rule according to existing persistence style
+do not create an income transaction
+do not change account balance
+do not show future reminders for this rule
+```
+
+Prefer soft deactivation if historical recurring metadata must be preserved.
+
+### Close Rule
+
+When user clicks close icon:
+
+```text
+close popup for current browser session/view only
+do not mark received
+do not deactivate rule
+do not update account balance
+show again on next app load during due window
+```
+
+### Styling Rule
+
+Recurring income popup must use:
+
+```text
+achievement/success visual mode
+green success color
+positive/achievement icon
+clear Received and Delete actions
+close icon
+```
+
+Use existing design-system components and colors.
+
+---
+
+# Phase 07.1 — Recurring Income Baseline and Dependency Audit
+
+## Objective
+
+Audit existing recurring income behavior and confirm Agent 05/06 dependencies exist.
+
+## Tasks
+
+1. Read Agent 05 and Agent 06 docs if available.
+2. Inspect:
+   - recurring transaction fields
+   - income category handling
+   - recurring frequency options
+   - recurring date fields
+   - shared recurring state/store/API
+   - transaction creation service/helper
+   - account balance update behavior
+   - app shell/root layout where reminders are detected
+   - reminder queue from Agent 06
+   - existing success/achievement UI components
+3. Confirm whether recurring income currently:
+   - auto-creates transactions
+   - auto-adds balances
+   - only stores a flag
+   - has next due date
+   - has completion history
+4. Confirm Agent 05 provides:
+   - selected account on transaction
+   - account currency
+   - transaction creation helper
+   - income balance effect
+5. Confirm Agent 06 provides reusable:
+   - due-date helper
+   - due-window helper
+   - period key
+   - reminder queue or provider
+6. Identify which Agent 06 helpers can be reused without changing expense behavior.
+7. If dependencies are missing, stop and mark Agent 07 as blocked.
+8. Create or update:
+
+```text
+docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md
+```
+
+9. Add:
+
+```md
+# Agent 07 — Recurring Income Achievement Popup
+
+## Phase 07.1 — Baseline and Dependency Audit
+
+## Files Inspected
+
+## Current Recurring Income Behavior
+
+## Existing Transaction Creation Flow
+
+## Existing Account Balance Flow
+
+## Shared Helpers from Agent 06
+
+## Existing Reminder Queue
+
+## Existing Success UI Components
+
+## Planned Files to Change
+
+## Blockers
+```
+
+## Tests to Run
+
+Run available commands only:
 
 ```bash
 cd client && npm run build
@@ -140,355 +405,483 @@ or:
 cd server && npm run test:ci
 ```
 
+Do not invent missing scripts.
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 07 phase 07.1: audit recurring income behavior"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.2.
+
 ---
 
-# Phase 05.1 — Transaction Baseline and Account Dependency Audit
+# Phase 07.2 — Recurring Income Data Model and Due-Date Integration
 
 ## Objective
 
-Audit existing transaction behavior before implementation.
+Add recurring-income state and reuse due-date helpers without showing the popup yet.
 
 ## Tasks
 
-1. Inspect transaction page, form, list, store/API, types/schemas, category constants, and mock data.
-2. Inspect account helpers/selectors from Agent 02.
-3. Inspect Home total helpers from Agent 04.
-4. Confirm whether transactions currently support:
-   - income
-   - expense
+1. Extend recurring income type/schema/model with required fields.
+2. Ensure recurring income stores:
    - category
-   - amount
-   - date
    - note
-   - recurring flag
-   - selected account
-   - currency display
-5. Create/update:
+   - amount
+   - account ID
+   - frequency
+   - first due date
+   - active status
+   - monthly completion history or equivalent
+3. Reuse generic recurring date helpers from Agent 06 where safe.
+4. If Agent 06 helpers are expense-specific, refactor only the minimum needed into shared generic helpers.
+5. Do not change expense outputs or behavior.
+6. Add pure/testable helpers for:
+   - checking whether recurring income is due
+   - checking whether current period is already received
+   - identifying income reminder type
+7. Do not create transactions.
+8. Do not render popup.
+9. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
+
+```md
+## Phase 07.2 — Data Model and Due-Date Integration
+
+## Recurring Income Fields
+
+## Reused Shared Helpers
+
+## Refactored Helpers
+
+## Monthly Due Calculation
+
+## Completion Period Key
+
+## Expense Regression Safety
+
+## Test Cases
+```
+
+## Tests to Run
+
+Required date test cases where supported:
 
 ```text
-docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md
-```
-
-Add:
-
-```md
-# Agent 05 — Transaction Category and Account Rules
-
-## Phase 05.1 — Baseline Audit
-
-## Files Inspected
-
-## Current Transaction Behavior
-
-## Current Category Source
-
-## Existing Account Integration
-
-## Current Balance Effect Behavior
-
-## Current Currency Display
-
-## Home Total Interaction
-
-## Planned Files to Change
-
-## Blockers
+normal monthly date
+January 31 to February
+March 31 to April
+before due date
+on due date
+after due date within same month
+already received current month
+inactive rule
+expense helper behavior unchanged
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 05 phase 05.1: audit transaction account dependencies"
+git commit -m "agent 07 phase 07.2: add recurring income due logic"
 ```
 
-Stop and ask permission for phase 05.2.
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.3.
 
 ---
 
-# Phase 05.2 — Add Requested Transaction Categories
+# Phase 07.3 — App-Load Detection and Shared Reminder Queue
 
 ## Objective
 
-Add transaction categories only.
+Detect due recurring income whenever the web app loads.
 
 ## Tasks
 
-1. Add categories exactly:
-   - `Hangout`
-   - `Vacation`
-   - `Party`
-2. Add them to the correct existing category group. Usually these should be expense categories unless the app has a general category model.
-3. Use existing icon/color conventions if categories have icons/colors.
-4. Ensure category selection UI shows them.
-5. Do not change account, balance, loan, home, or recurring behavior.
-6. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+1. Integrate recurring income detection into the existing reminder provider/queue.
+2. Load only active recurring income rules.
+3. Filter to rules:
+   - due now
+   - inside current due window
+   - not already received for current month
+4. Exclude:
+   - recurring expense rules from income detection
+   - deleted/inactive rules
+   - future rules
+   - already completed rules for current month
+5. Ensure both income and expense reminders can coexist.
+6. Define deterministic queue ordering.
+7. Prevent duplicate popup entries for the same rule/period.
+8. Do not auto-create transactions.
+9. Do not auto-change account balances.
+10. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 05.2 — Transaction Categories Added
+## Phase 07.3 — App-Load Detection and Shared Reminder Queue
 
-## Added Categories
+## Detection Entry Point
 
-## Category Group
+## Income Eligibility Filters
 
-## UI Display
+## Expense/Income Coexistence
 
-## Notes
+## Queue Ordering
+
+## Duplicate Prevention
+
+## Excluded Rules
+```
+
+## Tests to Run
+
+Verify:
+
+```text
+income reminder detected
+expense reminder still detected
+income and expense reminders can coexist
+duplicate income reminders are prevented
+future income reminder is excluded
+received income reminder is excluded
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 05 phase 05.2: add transaction categories"
+git commit -m "agent 07 phase 07.3: detect due recurring income"
 ```
 
-Stop and ask permission for phase 05.3.
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.4.
 
 ---
 
-# Phase 05.3 — Default Account Auto-Selection
+# Phase 07.4 — Achievement Popup UI
 
 ## Objective
 
-Auto-select the primary/default account in the transaction form.
+Build the recurring income achievement popup UI without implementing final actions yet.
 
 ## Tasks
 
-1. Load default account from Agent 02 account helper/store/API.
-2. Auto-select it when creating income or expense.
-3. If no default exists, select first active account if available.
-4. If no active account exists, show safe validation/empty state.
-5. Disabled accounts must not be auto-selected.
-6. Do not add manual account dropdown yet.
-7. Do not implement balance effects yet.
-8. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+1. Build popup using existing dialog/alert-dialog components.
+2. Use green achievement/success visual style.
+3. Show a positive confirmation message, such as:
+
+```text
+Have you received your "Job Salary"?
+```
+
+4. Show:
+   - success/achievement icon
+   - category
+   - note
+   - amount
+   - selected account name
+   - selected account currency
+   - due date
+5. Add visible controls:
+   - `Received`
+   - `Delete`
+   - close icon
+6. Reuse reminder queue so multiple income/expense reminders show one at a time.
+7. Ensure mobile responsiveness.
+8. Ensure keyboard and accessibility behavior follow existing dialog patterns.
+9. Do not implement final Received/Delete behavior yet.
+10. Do not modify expense popup styling.
+11. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 05.3 — Default Account Auto-Selection
+## Phase 07.4 — Achievement Popup UI
 
-## Default Source
+## Confirmation Message
 
-## Fallback Rule
+## Displayed Fields
 
-## Disabled Account Handling
+## Green Achievement Styling
 
-## Validation Behavior
+## Actions
+
+## Queue Behavior
+
+## Mobile Behavior
+
+## Accessibility
+
+## Expense Popup Safety
 ```
+
+## Tests to Run
+
+Run build/lint/typecheck and UI tests if available.
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 05 phase 05.3: auto-select default transaction account"
+git commit -m "agent 07 phase 07.4: add recurring income achievement popup"
 ```
 
-Stop and ask permission for phase 05.4.
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.5.
 
 ---
 
-# Phase 05.4 — Account Dropdown Override
+# Phase 07.5 — Received Action
 
 ## Objective
 
-Allow user to change selected account in transaction form.
+Create a normal income transaction when user clicks `Received`.
 
 ## Tasks
 
-1. Add account dropdown using existing UI style.
-2. Show only active accounts.
-3. Preselect default account from phase 05.3.
-4. Allow user to choose another active account.
-5. Store selected account ID with transaction data/payload.
-6. Validate selected account exists and is active.
-7. Use shared account-select helper/component from Agent 02 if available.
-8. Do not implement balance effects yet.
-9. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+1. Connect `Received` to existing transaction creation behavior from Agent 05.
+2. Created transaction must use:
+   - type: income
+   - recurring rule category
+   - recurring rule note
+   - recurring rule amount
+   - recurring rule account ID
+   - transaction date = actual date/time user clicked Received
+3. Apply income balance effect only once to selected account.
+4. Mark current recurring period as received/completed.
+5. Keep recurring rule active for future periods.
+6. Remove current reminder from queue.
+7. If another reminder exists, show next one.
+8. Prevent double-submit and duplicate transaction creation.
+9. Ensure Home income total includes the created income transaction exactly once.
+10. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 05.4 — Account Dropdown Override
+## Phase 07.5 — Received Action
 
-## Dropdown Source
+## Created Transaction Fields
 
-## Active Account Rule
+## Transaction Date Rule
 
-## Selected Account Persistence
+## Account Balance Effect
 
-## Validation Behavior
+## Home Income Total Effect
 
-## Reused Components
+## Current-Period Completion
+
+## Duplicate Protection
+
+## Queue Advancement
+```
+
+## Tests to Run
+
+Required tests where supported:
+
+```text
+Received creates exactly one income transaction
+Received uses click date
+Received uses recurring rule account
+Received increases selected account once
+Received updates Home income total once
+Received hides popup for current month
+Received keeps rule active for future month
+double click does not duplicate transaction
+expense behavior remains unchanged
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 05 phase 05.4: add transaction account dropdown"
+git commit -m "agent 07 phase 07.5: implement recurring income received action"
 ```
 
-Stop and ask permission for phase 05.5.
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.6.
 
 ---
 
-# Phase 05.5 — Transaction Balance Effects
+# Phase 07.6 — Delete and Close Actions
 
 ## Objective
 
-Apply income/expense transaction effects to selected account balance.
+Implement permanent delete/deactivation and temporary dismissal behavior.
 
 ## Tasks
 
-1. Income transaction increases selected account balance.
-2. Expense transaction decreases selected account balance.
-3. Balance effect must apply only to selected account.
-4. Prevent duplicate balance changes on rerender, reload, or repeated submit.
-5. If edit/delete transaction behavior exists, inspect whether balance reversal/adjustment is handled. If not, document deferred work.
-6. Do not modify loan/debt balance logic.
-7. Do not modify recurring popup behavior.
-8. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+### Delete
+
+1. Delete or deactivate recurring income rule using existing persistence style.
+2. Prefer deactivation if historical metadata should remain.
+3. Do not create an income transaction.
+4. Do not change account balance.
+5. Remove reminder from queue.
+6. Prevent future reminders for this rule.
+
+### Close
+
+1. Close popup without changing recurring rule.
+2. Do not mark current month received.
+3. Do not create a transaction.
+4. Do not change account balance.
+5. Dismiss only current view/session.
+6. Ensure reminder appears again on next app load during due window.
+
+7. Do not modify recurring expense Delete/Close behavior.
+8. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 05.5 — Transaction Balance Effects
+## Phase 07.6 — Delete and Close Actions
 
-## Income Balance Rule
+## Delete Behavior
 
-## Expense Balance Rule
+## Deactivation Strategy
 
-## Selected Account Rule
+## Close Behavior
 
-## Double-Counting Protection
+## Next App-Load Behavior
 
-## Edit/Delete Notes
+## Balance Safety
 
-## Edge Cases
+## Transaction Safety
+
+## Expense Regression Safety
+```
+
+## Tests to Run
+
+Required tests where supported:
+
+```text
+Delete disables future income reminders
+Delete does not create income transaction
+Delete does not change balance
+Close hides current income popup
+Close does not mark received
+Close does not deactivate rule
+Close income reminder appears on next app load
+expense Delete/Close behavior remains unchanged
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 05 phase 05.5: apply transaction balance effects"
+git commit -m "agent 07 phase 07.6: implement recurring income delete close actions"
 ```
 
-Stop and ask permission for phase 05.6.
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.7.
 
 ---
 
-# Phase 05.6 — Transaction Currency Display
+# Phase 07.7 — Persistence, Monthly Repeat, and Mixed Reminder Verification
 
 ## Objective
 
-Display transaction amounts using the selected account currency.
+Verify recurring income state persists correctly and coexists with recurring expenses.
 
 ## Tasks
 
-1. Resolve account currency for each transaction row/card.
-2. Display income and expense amounts with selected account currency.
-3. Apply same rule to transaction detail dialog/view if one exists.
-4. Add fallback for legacy transactions without account reference using current app convention.
-5. Do not add currency conversion.
-6. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
+1. Confirm current-month received state persists.
+2. Confirm received reminder does not reappear after reload in same month.
+3. Confirm recurring income rule becomes eligible again next month.
+4. Confirm deleted/deactivated rule never reappears.
+5. Confirm closed-only reminder reappears after reload in same due window.
+6. Confirm future recurring income does not appear early.
+7. Confirm prior-month unpaid reminder is not shown outside its due month unless product already defines carryover.
+8. Confirm mixed income and expense reminders process deterministically.
+9. Confirm one reminder's completion does not affect another.
+10. Confirm expense warning styling and behavior remain unchanged.
+11. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 05.6 — Account Currency Applied to Transaction Lists
+## Phase 07.7 — Persistence and Mixed Reminder Verification
 
-## Currency Source
+## Received Persistence
 
-## Legacy Transaction Fallback
+## Next-Month Reactivation
 
-## List Display
+## Deleted Rule Persistence
 
-## Detail Display
+## Close and Reload Behavior
+
+## Prior-Month Expiry
+
+## Mixed Queue Ordering
+
+## Reminder Isolation
+
+## Expense Regression Safety
 ```
+
+## Tests to Run
+
+Use controlled dates/fake timers if supported.
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 05 phase 05.6: show transactions in account currency"
+git commit -m "agent 07 phase 07.7: verify recurring income persistence"
 ```
 
-Stop and ask permission for phase 05.7.
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.8.
 
 ---
 
-# Phase 05.7 — Preserve Home Totals and Loan Exclusion
+# Phase 07.8 — Recurring Income Regression Verification
 
 ## Objective
 
-Verify transaction changes do not break Home income/expense rules from Agent 04.
-
-## Tasks
-
-1. Ensure Home income total includes only income transactions.
-2. Ensure Home expense total includes only expense transactions.
-3. Ensure taken loans are excluded from income.
-4. Ensure given loans are excluded from expense.
-5. Ensure account-linked transactions are still included.
-6. Do not auto-count future recurring items.
-7. Do not implement recurring popup behavior.
-8. Update `docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md` with:
-
-```md
-## Phase 05.7 — Home Totals Preserved
-
-## Income Total Rule
-
-## Expense Total Rule
-
-## Loan Exclusion
-
-## Account-Linked Transaction Handling
-
-## Recurring Placeholder Handling
-```
-
-## Commit
-
-```bash
-git add .
-git commit -m "agent 05 phase 05.7: preserve home transaction totals"
-```
-
-Stop and ask permission for phase 05.8.
-
----
-
-# Phase 05.8 — Regression Verification
-
-## Objective
-
-Run full verification and document final behavior.
+Run full verification for Agent 07 and document final behavior.
 
 ## Tasks
 
 1. Run all available relevant tests/builds.
 2. Verify:
-   - Hangout category appears.
-   - Vacation category appears.
-   - Party category appears.
-   - Transaction form auto-selects default account.
-   - User can change account from dropdown.
-   - Disabled accounts do not appear for new transaction selection.
-   - Transaction stores selected account reference.
-   - Income increases selected account balance.
-   - Expense decreases selected account balance.
-   - Transaction list displays selected account currency.
-   - Legacy transactions without account display safely.
-   - Home income total includes only income transactions.
-   - Home expense total includes only expense transactions.
-   - Home totals exclude loan/debt.
-   - Recurring popup behavior has not been implemented.
-3. Create/update:
+   - recurring income does not auto-add balance
+   - recurring income does not auto-create transaction
+   - reminder appears on due date
+   - reminder appears after due date through end of month
+   - reminder does not appear before due date
+   - achievement/success style is green
+   - popup asks whether income was received
+   - popup shows category, note, amount, account, currency, and due date
+   - Received creates one normal income transaction
+   - Received uses actual click date
+   - Received increases selected account once
+   - Received updates Home income total once
+   - Received hides reminder for current month
+   - Received keeps recurring rule active for future months
+   - Delete disables future income reminders
+   - Delete does not create transaction or change balance
+   - Close dismisses only current view
+   - Close reminder appears again on next app load
+   - current-month completion stays hidden after reload
+   - next-month reminder appears again
+   - multiple and mixed reminders work correctly
+   - recurring expense warning behavior remains unchanged
+3. Create or update:
 
 ```text
-docs/agents/05_TRANSACTION_TEST_REPORT.md
+docs/agents/07_RECURRING_INCOME_TEST_REPORT.md
 ```
 
-Include:
+4. Include:
 
 ```md
-# Agent 05 Test Report
+# Agent 07 Test Report
 
 ## Branch
 
@@ -500,19 +893,61 @@ Include:
 
 ## Bugs Fixed
 
+## Date-Based Test Cases
+
+## Mixed Reminder Test Cases
+
 ## Manual Verification Checklist
 
 ## Deferred Work
 
-## Safe Starting Point for Agent 06
+## Safe Starting Point for Agent 08
 ```
+
+5. Do not start Agent 08.
+
+## Tests to Run
+
+Run every available relevant command.
+
+Expected frontend checks:
+
+```bash
+cd client && npm run build
+```
+
+If available:
+
+```bash
+cd client && npm run lint
+cd client && npm run typecheck
+cd client && npm test
+```
+
+Expected backend checks, depending on current backend implementation:
+
+```bash
+cd server && pytest
+```
+
+or:
+
+```bash
+cd server && npm run test:ci
+```
+
+Only run commands that actually exist.
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 05 phase 05.8: verify transaction account rules"
+git commit -m "agent 07 phase 07.8: verify recurring income achievement popup"
 ```
+
+## Stop Condition
+
+Stop after the commit.
 
 Final response must show only:
 
@@ -527,34 +962,39 @@ Bugs fixed:
 - ...
 
 Permission:
-Agent 05 is complete. Can I continue with Agent 06 planning/generation?
+Agent 07 is complete. Can I continue with Agent 08 planning/generation?
 ```
 
 ---
 
-# Agent 05 Final Success Criteria
+# Agent 07 Final Success Criteria
 
-Agent 05 is complete only when:
+Agent 07 is complete only when:
 
-- Branch `feature/transaction-category-account-rules` exists.
-- Categories exist: `Hangout`, `Vacation`, `Party`.
-- Transaction form auto-selects default account.
-- User can change selected account from dropdown.
-- Disabled accounts are excluded from new transaction selection.
-- Transaction records store selected account reference.
-- Income transaction increases selected account balance.
-- Expense transaction decreases selected account balance.
-- Transaction list displays amount using selected account currency.
-- Legacy transactions without account display safely.
-- Home income total includes only income transactions.
-- Home expense total includes only expense transactions.
-- Home totals exclude loan/debt.
+- Branch `feature/recurring-income-achievement-popup` exists.
+- Recurring income does not auto-create a transaction.
+- Recurring income does not auto-add account balance.
+- Monthly due date calculation works.
+- Shorter-month fallback works.
+- Popup appears from due date through end of month.
+- Popup appears on every app load until Received or Delete.
+- Popup uses green achievement/success styling.
+- Popup asks whether the named income was received.
+- Received creates one normal income transaction using click date.
+- Received uses recurring rule account/category/note/amount.
+- Received increases selected account once.
+- Received updates Home income total once.
+- Received marks current month completed.
+- Received keeps recurring rule active for future months.
+- Delete disables future income reminders without creating transaction.
+- Close dismisses temporarily and reminder returns on next app load.
+- Current-month completion persists across reload.
+- Next-month recurrence works.
+- Mixed income/expense reminders work deterministically.
+- Recurring expense behavior remains unchanged.
 - Tests/builds have been run.
-- Agent 05 docs are updated.
-- Agent 05 test report is created.
-- No recurring popup behavior is implemented.
-- No loan/debt business logic is implemented.
-- No account page/business-rule work is implemented.
-- Agent stops and asks permission before Agent 06.
+- Agent 07 docs are updated.
+- Agent 07 test report is created.
+- Agent stops and asks permission before Agent 08.
 
 ---

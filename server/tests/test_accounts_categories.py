@@ -141,8 +141,10 @@ def test_account_crud_pagination_and_archive(
     context = finance_context
     headers = auth_headers(context, "accounts-owner@example.com")
 
-    first = create_account(context, headers, "Main Wallet", "wallet", "100.25")
-    second = create_account(context, headers, "Savings Vault", "savings", "5.50")
+    first = create_account(
+        context, headers, "Main Mobile Account", "mobile_banking", "100.25"
+    )
+    second = create_account(context, headers, "Savings Vault", "bank_account", "5.50")
     third = create_account(context, headers, "Cash Pocket", "cash", "0")
 
     list_response = context.client.get(
@@ -208,7 +210,7 @@ def test_account_validation_and_ownership(
     context = finance_context
     owner_headers = auth_headers(context, "account-owner-scope@example.com")
     other_headers = auth_headers(context, "account-other-scope@example.com")
-    account = create_account(context, owner_headers, "Owned Bank", "bank", "20")
+    account = create_account(context, owner_headers, "Owned Bank", "bank_account", "20")
 
     invalid_money_response = context.client.post(
         "/api/v1/accounts",
@@ -225,21 +227,36 @@ def test_account_validation_and_ownership(
     )
     assert invalid_currency_response.status_code == 422
 
-    mobile_pay_response = context.client.post(
+    supported_types = (
+        "debit_card",
+        "credit_card",
+        "bank_account",
+        "mobile_banking",
+        "cash",
+    )
+    for account_type in supported_types:
+        type_response = context.client.post(
+            "/api/v1/accounts",
+            headers=owner_headers,
+            json={"name": f"Supported {account_type}", "type": account_type},
+        )
+        assert type_response.status_code == 201
+        assert type_response.json()["type"] == account_type
+
+    legacy_alias_response = context.client.post(
         "/api/v1/accounts",
         headers=owner_headers,
-        json={"name": "Mobile Wallet", "type": "mobile_pay"},
+        json={"name": "Legacy Mobile Wallet", "type": "mobile_pay"},
     )
-    assert mobile_pay_response.status_code == 201
-    assert mobile_pay_response.json()["type"] == "mobile_pay"
+    assert legacy_alias_response.status_code == 201
+    assert legacy_alias_response.json()["type"] == "mobile_banking"
 
-    other_type_response = context.client.post(
+    unsupported_type_response = context.client.post(
         "/api/v1/accounts",
         headers=owner_headers,
         json={"name": "Other Account", "type": "other"},
     )
-    assert other_type_response.status_code == 201
-    assert other_type_response.json()["type"] == "other"
+    assert unsupported_type_response.status_code == 422
 
     missing_auth_response = context.client.get("/api/v1/accounts")
     assert missing_auth_response.status_code == 401
@@ -548,6 +565,15 @@ def test_category_validation_ownership_and_openapi(
     assert "/api/v1/categories/{category_id}" in openapi["paths"]
     assert openapi["paths"]["/api/v1/accounts"]["post"]["security"] == [
         {"HTTPBearer": []}
+    ]
+    assert openapi["components"]["schemas"]["AccountCreateRequest"]["properties"][
+        "type"
+    ]["enum"] == [
+        "cash",
+        "debit_card",
+        "credit_card",
+        "bank_account",
+        "mobile_banking",
     ]
     assert (
         openapi["paths"]["/api/v1/accounts"]["get"]["responses"]["200"]["content"][

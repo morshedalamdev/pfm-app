@@ -904,7 +904,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "cash" | "bank" | "card" | "mobile_pay" | "wallet" | "savings" | "other";
+            type: "cash" | "debit_card" | "credit_card" | "bank_account" | "mobile_banking";
         };
         /** AccountDeleteEligibilityResponse */
         AccountDeleteEligibilityResponse: {
@@ -974,7 +974,7 @@ export interface components {
             /** Opening Balance */
             opening_balance?: string | null;
             /** Type */
-            type?: ("cash" | "bank" | "card" | "mobile_pay" | "wallet" | "savings" | "other") | null;
+            type?: ("cash" | "debit_card" | "credit_card" | "bank_account" | "mobile_banking") | null;
         };
         /** BudgetCreateRequest */
         BudgetCreateRequest: {

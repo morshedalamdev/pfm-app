@@ -25,12 +25,10 @@ type AccountType = AccountCreate["type"];
 
 const ACCOUNT_TYPE_OPTIONS: Array<{ label: string; value: AccountType }> = [
   { label: "Cash", value: "cash" },
-  { label: "Card", value: "card" },
-  { label: "Mobile Pay", value: "mobile_pay" },
-  { label: "Bank", value: "bank" },
-  { label: "Wallet", value: "wallet" },
-  { label: "Savings", value: "savings" },
-  { label: "Other", value: "other" },
+  { label: "Debit Card", value: "debit_card" },
+  { label: "Credit Card", value: "credit_card" },
+  { label: "Bank Account", value: "bank_account" },
+  { label: "Mobile Banking", value: "mobile_banking" },
 ];
 
 const ACCOUNT_TYPE_LABELS = Object.fromEntries(

@@ -58,12 +58,10 @@
           "type": {
             "enum": [
               "cash",
-              "bank",
-              "card",
-              "mobile_pay",
-              "wallet",
-              "savings",
-              "other"
+              "debit_card",
+              "credit_card",
+              "bank_account",
+              "mobile_banking"
             ],
             "title": "Type",
             "type": "string"
@@ -284,12 +282,10 @@
               {
                 "enum": [
                   "cash",
-                  "bank",
-                  "card",
-                  "mobile_pay",
-                  "wallet",
-                  "savings",
-                  "other"
+                  "debit_card",
+                  "credit_card",
+                  "bank_account",
+                  "mobile_banking"
                 ],
                 "type": "string"
               },
