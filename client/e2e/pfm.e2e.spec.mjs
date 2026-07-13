@@ -913,17 +913,15 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.locator("form")).toBeVisible({ timeout: 60_000 });
   await page
     .locator("form")
-    .getByText("Account / Source", { exact: true })
+    .getByText("Account", { exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Account: Checking" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Budget: Monthly Budget" }),
+    page.getByRole("button", { name: "Account: Emergency Savings" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Saving Account: Emergency Savings" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: "Income" }).click();
   await page.locator("form").getByText("Account", { exact: true }).click();
@@ -947,9 +945,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: "Transfer" }).click();
   await page.locator("form").getByText("To", { exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Budget: Monthly Budget" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Account: Checking" }),
   ).toBeVisible();
@@ -1127,6 +1123,92 @@ test("Home uses the default account and Settings is unavailable", async ({
 
   const settingsResponse = await page.goto("/settings");
   expect(settingsResponse?.status()).toBe(404);
+  await api.dispose();
+});
+
+test("transaction selectors contain only active accounts", async ({ page }) => {
+  const email = `pfm-account-only-transactions-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Everyday Account",
+    opening_balance: "500.00",
+    type: "bank_account",
+  });
+  await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Cash Reserve",
+    opening_balance: "100.00",
+    type: "cash",
+  });
+  const disabledAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Disabled Account",
+    opening_balance: "50.00",
+    type: "debit_card",
+  });
+  await patchJson(api, `/api/v1/accounts/${disabledAccount.id}/disable`);
+
+  await page.goto("/transaction/create");
+  const form = page.locator("form");
+  await expect(form).toBeVisible({ timeout: 60_000 });
+
+  await form.getByText("Account", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Account: Everyday Account" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Account: Cash Reserve" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
+  await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("tab", { name: "Income" }).click();
+  await form.getByText("Account", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Everyday Account", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cash Reserve", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
+  await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("tab", { name: "Transfer" }).click();
+  await form.getByText("To", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Account: Everyday Account" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Account: Cash Reserve" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
+  await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
+
   await api.dispose();
 });
 
