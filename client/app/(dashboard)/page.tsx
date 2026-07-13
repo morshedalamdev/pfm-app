@@ -42,9 +42,7 @@ export default function HomePage() {
     <Fragment>
       <section className="text-center mt-9 mb-3">
         <h2 className="text-input font-bold uppercase tracking-wide">
-          {balance?.sourceType === "budget"
-            ? "budget remaining"
-            : "available balance"}
+          available balance
         </h2>
         {balanceLoading ? (
           <Skeleton className="mx-auto mt-2 h-12 w-56" />

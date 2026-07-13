@@ -830,7 +830,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     to_account_id: wallet.id,
     transaction_at: today,
   }, { "Idempotency-Key": `e2e-transfer-${Date.now()}` });
-  const groceriesBudget = await postJson(api, "/api/v1/budgets", {
+  await postJson(api, "/api/v1/budgets", {
     category_id: groceries.id,
     currency: "USD",
     limit_amount: "500.00",
@@ -883,6 +883,10 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   });
   await patchJson(api, `/api/v1/accounts/${wallet.id}/disable`);
   await patchJson(api, `/api/v1/accounts/${checking.id}/default`);
+  await patchJson(api, "/api/v1/users/me", {
+    home_balance_source_id: loanWallet.id,
+    home_balance_source_type: "account",
+  });
 
   await Promise.all([
     page.waitForResponse((response) =>
@@ -896,57 +900,6 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     page.reload(),
   ]);
   await expect(page.getByText("Available Balance")).toBeVisible();
-
-  await openSettingsFromFooter(page);
-  const balanceSourceSelect = getBalanceSourceCombobox(page);
-  await expect(balanceSourceSelect).toBeEnabled();
-  await balanceSourceSelect.click();
-  await expect(
-    page.getByRole("option", { name: "Checking (USD)" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("option", { name: "Loan Wallet (BDT)" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("option", { name: "Wallet (USD)" }),
-  ).toHaveCount(0);
-  const budgetSourceOption = page.getByRole("option", {
-    name: /Groceries.*USD/,
-  });
-  await expect(budgetSourceOption).toBeVisible();
-  await page.getByRole("option", { name: "Loan Wallet (BDT)" }).click();
-  await page.getByRole("button", { name: "Save Settings" }).click();
-  await expect(page.getByText("Settings updated.")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Save Settings" }),
-  ).toBeEnabled();
-
-  await navigateAndWaitForHomeData(page, () => navigateHomeFromHeader(page));
-  await expect(page.getByText("Available Balance")).toBeVisible();
-  await expect(page.getByText("Loan Wallet", { exact: true })).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(page.getByText(/BDT.*175\.00/)).toBeVisible();
-  await expect(page.getByText("Income", { exact: true })).toBeVisible();
-  await expect(page.getByText("Expense", { exact: true })).toBeVisible();
-  await expect(page.getByText("$1,200.00", { exact: true })).toBeVisible();
-  await expect(page.getByText("$125.50", { exact: true })).toBeVisible();
-
-  await openSettingsFromFooter(page);
-  const budgetBalanceSourceSelect = getBalanceSourceCombobox(page);
-  await expect(budgetBalanceSourceSelect).toBeEnabled();
-  await budgetBalanceSourceSelect.click();
-  await page.getByRole("option", { name: /Groceries.*USD/ }).click();
-  await page.getByRole("button", { name: "Save Settings" }).click();
-  await expect(page.getByText("Settings updated.")).toBeVisible();
-  await navigateAndWaitForHomeData(page, () => navigateHomeFromHeader(page));
-  await expect(page.getByText("Budget Remaining")).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(page.getByText(/Groceries - /)).toBeVisible();
-  await expect(page.getByText("$374.50", { exact: true })).toBeVisible();
-
-  await deleteJson(api, `/api/v1/budgets/${groceriesBudget.id}`);
   await navigateAndWaitForHomeData(page, () => page.reload());
   await expect(page.getByText("Available Balance")).toBeVisible({
     timeout: 15_000,
@@ -1114,6 +1067,69 @@ test("dedicated account creation page stores the selected type", async ({
   ).toBeVisible();
 });
 
+test("Home uses the default account and Settings is unavailable", async ({
+  page,
+}) => {
+  const email = `pfm-default-home-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const oldSource = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Old Home Source",
+    opening_balance: "999.00",
+    type: "bank_account",
+  });
+  const defaultAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "EUR",
+    name: "Euro Main",
+    opening_balance: "250.00",
+    type: "bank_account",
+  });
+  await patchJson(api, `/api/v1/accounts/${defaultAccount.id}/default`);
+  await patchJson(api, "/api/v1/users/me", {
+    home_balance_source_id: oldSource.id,
+    home_balance_source_type: "account",
+  });
+
+  await page.goto("/");
+  await expect(page.getByText("Available Balance")).toBeVisible();
+  await expect(page.getByText("Euro Main", { exact: true })).toBeVisible();
+  await expect(page.getByText("€250.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("Old Home Source", { exact: true })).toHaveCount(0);
+
+  const footer = page.locator("footer");
+  await footer.locator("button").last().click();
+  await expect(
+    page.getByRole("button", { name: "Settings", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  const settingsResponse = await page.goto("/settings");
+  expect(settingsResponse?.status()).toBe(404);
+  await api.dispose();
+});
+
 async function postJson(api, path, body, headers = {}) {
   const response = await api.post(path, {
     data: body,
@@ -1159,22 +1175,6 @@ async function navigateAndWaitForHomeData(page, navigate) {
   await navigate();
 }
 
-async function navigateHomeFromHeader(page) {
-  await page.locator('header a[href="/"]').click();
-  await expect(page).toHaveURL(/\/$/);
-}
-
-function getBalanceSourceCombobox(page) {
-  return page.locator('button[role="combobox"]').nth(1);
-}
-
-async function openSettingsFromFooter(page) {
-  const footer = page.locator("footer");
-  await footer.locator("button").last().click();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-}
-
 async function assertDateSelectionStyle(page) {
   const labels = await page.evaluate(() => {
     const today = new Date();
@@ -1204,7 +1204,6 @@ const routeHeading = {
   "/analytics": "Analytics",
   "/budget": "Budget Planning",
   "/loan": "Loan & Debt",
-  "/settings": "Settings",
   "/savings": "Savings Goals",
   "/transaction": "Transaction",
 };
