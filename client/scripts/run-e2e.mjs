@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,14 @@ const processes = [];
 let postgresDataDir;
 
 async function main() {
+  if (
+    process.argv.length === 2 &&
+    process.env.PFM_E2E_ISOLATED_CHILD !== "1"
+  ) {
+    runFullSuiteIsolated();
+    return;
+  }
+
   const apiPort = await freePort();
   const appPort = await freePort();
   const postgresPort = await freePort();
@@ -44,6 +52,8 @@ async function main() {
       APP_ENV: "test",
       CORS_ORIGINS: JSON.stringify([appBaseUrl]),
       DATABASE_URL: databaseUrl,
+      DATABASE_MAX_OVERFLOW: "20",
+      DATABASE_POOL_SIZE: "20",
       EMAIL_BACKEND: "local",
       REFRESH_TOKEN_SECRET_KEY: "local-e2e-refresh-token-secret-32-bytes",
     },
@@ -80,6 +90,38 @@ async function main() {
 
   await stopProcess(next);
   await stopProcess(api);
+}
+
+function runFullSuiteIsolated() {
+  const testFile = resolve(clientDir, "e2e/pfm.e2e.spec.mjs");
+  const source = readFileSync(testFile, "utf8");
+  const testTitles = [...source.matchAll(/\btest\(\s*"([^"]+)"/g)].map(
+    (match) => match[1],
+  );
+
+  if (testTitles.length === 0) {
+    throw new Error(`No Playwright tests found in ${testFile}`);
+  }
+
+  for (const title of testTitles) {
+    run(
+      `playwright test: ${title}`,
+      process.execPath,
+      [
+        fileURLToPath(import.meta.url),
+        "--grep",
+        escapeRegularExpression(title),
+      ],
+      {
+        cwd: clientDir,
+        env: { PFM_E2E_ISOLATED_CHILD: "1" },
+      },
+    );
+  }
+}
+
+function escapeRegularExpression(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function startPostgres(dataDir, port) {

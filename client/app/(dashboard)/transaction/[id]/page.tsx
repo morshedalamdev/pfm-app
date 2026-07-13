@@ -50,7 +50,7 @@ function selectByName<T extends { name: string }>(items: T[], name: string) {
 }
 
 function accountDestinationLabel(account: Account): string {
-  return `Account: ${account.name}`;
+  return `${account.name}`;
 }
 
 function accountSourceLabel(account: Account): string {

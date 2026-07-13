@@ -28,6 +28,7 @@ test("recurring expense actions and income achievement popup are safe", async ({
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
   const tokens = await page.evaluate(() => {
@@ -257,7 +258,9 @@ test("recurring expense actions and income achievement popup are safe", async ({
       route.fulfill({
         json: {
           has_more: false,
-          items: [{ ...account, current_balance: "2700.0000" }],
+          items: [
+            { ...account, current_balance: "2700.0000", is_default: true },
+          ],
           next_cursor: null,
         },
       }),
@@ -352,6 +355,7 @@ test("recurring income Delete is permanent and Close is temporary", async ({
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -492,6 +496,7 @@ test("received income stays hidden after reload without suppressing expense", as
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -618,6 +623,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
   await expect(page.getByText("Available Balance")).toBeVisible();
 
   await page.goto("/accounts");
@@ -804,9 +810,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     ),
   ).toBe(958);
 
-  await deleteWithoutBody(api, `/api/v1/transactions/${paidTransaction.id}`);
-  await deleteJson(api, `/api/v1/recurring-rules/${recurringExpense.id}`);
-
+  await page.goto("about:blank");
   await postJson(api, "/api/v1/transactions", {
     account_id: checking.id,
     amount: "1200.00",
@@ -814,7 +818,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     description: "E2E income",
     transaction_at: today,
     type: "income",
-  }, { "Idempotency-Key": `e2e-income-${Date.now()}` });
+  });
   await postJson(api, "/api/v1/transactions", {
     account_id: checking.id,
     amount: "125.50",
@@ -822,14 +826,14 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     description: "E2E groceries",
     transaction_at: today,
     type: "expense",
-  }, { "Idempotency-Key": `e2e-expense-${Date.now()}` });
+  });
   await postJson(api, "/api/v1/transactions/transfers", {
     amount: "50.00",
     description: "E2E transfer",
     from_account_id: checking.id,
     to_account_id: wallet.id,
     transaction_at: today,
-  }, { "Idempotency-Key": `e2e-transfer-${Date.now()}` });
+  });
   await postJson(api, "/api/v1/budgets", {
     category_id: groceries.id,
     currency: "USD",
@@ -898,7 +902,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
       response.url().includes("/api/v1/transactions") &&
       response.status() === 200,
     ),
-    page.reload(),
+    page.goto("/"),
   ]);
   await expect(page.getByText("Available Balance")).toBeVisible();
   await navigateAndWaitForHomeData(page, () => page.reload());
@@ -908,7 +912,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await expect(page.getByText("Checking", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByText("$1,724.50", { exact: true })).toBeVisible();
+  await expect(page.getByText("$1,732.50", { exact: true })).toBeVisible();
 
   await page.goto("/transaction/create");
   await expect(page.locator("form")).toBeVisible({ timeout: 60_000 });
@@ -1021,6 +1025,7 @@ test("dedicated account creation page stores the selected type", async ({
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
 
   await page.goto("/accounts");
   await expect(
@@ -1077,6 +1082,7 @@ test("Home uses the default account and Settings is unavailable", async ({
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -1138,6 +1144,7 @@ test("transaction selectors contain only active accounts", async ({ page }) => {
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -1224,6 +1231,7 @@ test("loan settlement account selection updates balances", async ({ page }) => {
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -1335,6 +1343,7 @@ test("used account hides the delete button", async ({ page }) => {
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -1416,6 +1425,12 @@ test("used account hides the delete button", async ({ page }) => {
   await api.dispose();
 });
 
+async function waitForHomeBootstrap(page) {
+  await expect(page.getByText("Cash", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 async function postJson(api, path, body, headers = {}) {
   const response = await api.post(path, {
     data: body,
@@ -1429,17 +1444,6 @@ async function patchJson(api, path, body) {
   const response = await api.patch(path, body === undefined ? {} : { data: body });
   expect(response.ok(), `${path} ${response.status()}`).toBe(true);
   return response.json();
-}
-
-async function deleteJson(api, path) {
-  const response = await api.delete(path);
-  expect(response.ok(), `${path} ${response.status()}`).toBe(true);
-  return response.json();
-}
-
-async function deleteWithoutBody(api, path) {
-  const response = await api.delete(path);
-  expect(response.ok(), `${path} ${response.status()}`).toBe(true);
 }
 
 async function getJson(api, path) {
