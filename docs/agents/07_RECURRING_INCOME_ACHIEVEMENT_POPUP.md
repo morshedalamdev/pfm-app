@@ -271,3 +271,65 @@
 
 - Removed automatic worker claiming of recurring income, preventing app-load-era income rules from creating transactions or increasing balances before explicit user confirmation.
 - Added independent shared-queue loading so a failed income or expense reminder request no longer suppresses the other reminder type.
+
+## Phase 07.4 — Achievement Popup UI
+
+## Confirmation Message
+
+- The income dialog asks `Have you received your “{note}”?`, using the recurring note as the named income and a safe recurring-income fallback when the note is empty.
+- Supporting copy tells the user to confirm only after the income reaches the selected account.
+
+## Displayed Fields
+
+- The popup displays the income category, note, formatted amount, selected account name, selected account currency, and rule-timezone due date.
+- Account and income-category lookups reuse the existing read-only account/category APIs and retain safe fallback labels if either lookup is unavailable.
+
+## Green Achievement Styling
+
+- Added an emerald success treatment with an achievement badge, trophy artwork, green border, gradient header, success shadow, green detail accents, and a positive amount emphasis.
+- The income presentation is isolated in `RecurringIncomeAchievementPopup`; no amber expense classes were changed.
+
+## Actions
+
+- Visible `Received`, `Delete`, and close controls are present.
+- `Received` and `Delete` are intentionally disabled and have no API, transaction, balance, completion, or queue-removal behavior in phase 07.4.
+- Final action and dismissal behavior remains deferred to phases 07.5 and 07.6.
+
+## Queue Behavior
+
+- Both popup components now honor the first item in the shared deterministic queue, so income and expense dialogs cannot open simultaneously.
+- Existing expense Paid/Delete queue advancement can reveal the next income reminder without changing the expense actions.
+- An income reminder does not remove or mutate itself in this UI-only phase.
+
+## Mobile Behavior
+
+- The dialog width is capped to the viewport, the height is capped to `100dvh` minus safe outer spacing, and overflowing content scrolls inside the dialog.
+- Detail cards collapse to one column on mobile and expand to two columns at the existing small breakpoint.
+- Footer actions retain the design-system mobile stack and desktop row behavior.
+
+## Accessibility
+
+- The popup uses the existing Radix dialog title, description, overlay, focus, and close-control primitives.
+- Decorative achievement and detail icons are hidden from assistive technology, while Received and Delete have explicit accessible labels.
+- The visible close control retains the design-system `Close` accessible name; its final dismissal behavior is deferred.
+
+## Expense Popup Safety
+
+- No expense popup color, spacing, typography, text, icon, dialog, confirmation, Paid, Delete, or Close styling was changed.
+- The only expense component change makes it render when the shared queue head is an expense, preventing simultaneous mixed-type dialogs while preserving expense-only behavior.
+
+## Phase 07.4 Check Results
+
+- TypeScript no-emit check passed.
+- Generated API contract check passed.
+- E2E JavaScript syntax check passed.
+- Frontend production build passed.
+- Focused recurring expense/income popup browser scenario passed: `1 passed`.
+- The browser scenario verified mobile viewport fit, green styling, confirmation text, category, note, amount, account, currency, due date, visible controls, mixed queue advancement, unchanged expense actions, zero income transactions, unchanged balance, and unset income completion state.
+- The pre-existing integrated finance browser journey still times out on a later request when run in the same local harness; it also reproduced independently and is outside phase 07.4 popup scope.
+- Client `lint`, `typecheck`, and unit `test` scripts remain unavailable.
+
+## Phase 07.4 Bugs Fixed
+
+- Prevented income and expense dialogs from opening simultaneously by making both popup components honor the shared queue head.
+- Added the missing recurring-income achievement presentation while keeping Received/Delete inert and preserving the expense popup presentation.

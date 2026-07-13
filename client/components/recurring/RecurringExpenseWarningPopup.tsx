@@ -58,7 +58,9 @@ export function RecurringExpenseWarningPopup() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const paymentInFlight = useRef(false);
   const deleteInFlight = useRef(false);
-  const currentReminder = expenseReminderQueue[0] ?? null;
+  const currentQueueItem = reminderQueue[0] ?? null;
+  const currentReminder =
+    currentQueueItem?.reminder_type === "expense" ? currentQueueItem : null;
 
   useEffect(() => {
     if (!currentReminder) return;

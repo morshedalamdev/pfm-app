@@ -13,7 +13,9 @@ const viewports = [
   { height: 800, label: "desktop", width: 1280 },
 ];
 
-test("recurring expense delete and close actions are safe", async ({ page }) => {
+test("recurring expense actions and income achievement popup are safe", async ({
+  page,
+}) => {
   const email = `pfm-recurring-actions-${Date.now()}@example.test`;
   const password = "StrongPass123!";
 
@@ -26,6 +28,7 @@ test("recurring expense delete and close actions are safe", async ({ page }) => 
   await page.getByPlaceholder("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await expect(page.getByText("Available Balance")).toBeVisible();
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -47,11 +50,14 @@ test("recurring expense delete and close actions are safe", async ({ page }) => 
     type: "bank",
   });
   const category = await getCategoryByName(api, "expense", "Groceries");
+  const salary = await getCategoryByName(api, "income", "Salary");
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
   const closeDueAt = new Date(monthStart);
   closeDueAt.setUTCMinutes(closeDueAt.getUTCMinutes() + 1);
+  const incomeDueAt = new Date(monthStart);
+  incomeDueAt.setUTCMinutes(incomeDueAt.getUTCMinutes() + 2);
 
   const deletedExpense = await postJson(api, "/api/v1/recurring-rules", {
     account_id: account.id,
@@ -74,6 +80,17 @@ test("recurring expense delete and close actions are safe", async ({ page }) => 
     start_at: closeDueAt.toISOString(),
     timezone: "UTC",
     transaction_type: "expense",
+  });
+  const incomeRule = await postJson(api, "/api/v1/recurring-rules", {
+    account_id: account.id,
+    amount: "2500.00",
+    category_id: salary.id,
+    description: "Job Salary",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: incomeDueAt.toISOString(),
+    timezone: "UTC",
+    transaction_type: "income",
   });
 
   await page.reload();
@@ -103,6 +120,12 @@ test("recurring expense delete and close actions are safe", async ({ page }) => 
   );
   expect(closeRuleBeforeDismiss.status).toBe("active");
   expect(closeRuleBeforeDismiss.last_paid_period).toBeNull();
+  const storedIncomeRule = await getJson(
+    api,
+    `/api/v1/recurring-rules/${incomeRule.id}`,
+  );
+  expect(storedIncomeRule.status).toBe("active");
+  expect(storedIncomeRule.last_received_period).toBeNull();
   expect(
     (await getJson(api, "/api/v1/transactions?limit=100")).items,
   ).toHaveLength(0);
@@ -134,6 +157,65 @@ test("recurring expense delete and close actions are safe", async ({ page }) => 
   await expect(
     page.getByRole("dialog").getByText("E2E close only bill"),
   ).toBeVisible({ timeout: 15_000 });
+  await page.route("**/api/v1/categories?kind=income*", (route) =>
+    route.fulfill({
+      json: { items: [salary], limit: 100, offset: 0, total: 1 },
+    }),
+  );
+  await page.route(
+    "**/api/v1/accounts?include_archived=false&limit=100",
+    (route) =>
+      route.fulfill({
+        json: { items: [account], limit: 100, offset: 0, total: 1 },
+      }),
+  );
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete recurring expense" })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete permanently" })
+    .click();
+  const achievement = page.getByRole("dialog");
+  await expect(
+    achievement.getByRole("heading", {
+      name: /Have you received your .*Job Salary.*\?/,
+    }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    achievement.getByText("Income achievement", { exact: true }),
+  ).toBeVisible();
+  await expect(achievement.getByText("Salary", { exact: true })).toBeVisible();
+  await expect(
+    achievement.getByText("Job Salary", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    achievement.getByText("Reminder Account", { exact: true }),
+  ).toBeVisible();
+  await expect(achievement.getByText("USD", { exact: true })).toBeVisible();
+  await expect(achievement.getByText(/2,500\.00/)).toBeVisible();
+  await expect(achievement.getByText("Due date", { exact: true })).toBeVisible();
+  await expect(
+    achievement.getByRole("button", { name: "Mark recurring income received" }),
+  ).toBeDisabled();
+  await expect(
+    achievement.getByRole("button", { name: "Delete recurring income" }),
+  ).toBeDisabled();
+  await expect(
+    achievement.getByRole("button", { name: "Close" }),
+  ).toBeVisible();
+  await expect(achievement).toHaveClass(/border-emerald-400/);
+  const achievementFitsViewport = await achievement.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return (
+      bounds.left >= 0 &&
+      bounds.right <= window.innerWidth &&
+      bounds.top >= 0 &&
+      bounds.bottom <= window.innerHeight
+    );
+  });
+  expect(achievementFitsViewport).toBe(true);
   await api.dispose();
 });
 
