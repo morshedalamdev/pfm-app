@@ -251,3 +251,54 @@
 
 - Due recurring expenses are no longer claimed by the automatic transaction worker, preventing pre-Paid transaction creation and balance deduction.
 - Reminder candidates now exclude duplicate, inactive, income, future, paid, ended, and off-interval rules before reaching the client queue.
+
+## Phase 06.4 — Warning Popup UI
+
+## Displayed Fields
+
+- The warning displays the queued recurring expense category, note, formatted amount, selected account name and currency, and rule-local due date.
+- Existing account and expense-category APIs resolve display names without mutating the recurring rule, transaction ledger, or account balance.
+- The first reminder is displayed with a queue position when more than one item is waiting.
+
+## Warning Styling
+
+- The popup composes the existing Radix `Dialog` primitives with an amber warning border, background, alert icon, and restrained warning shadow.
+- The title and explanatory copy make clear that the expense is due and has not been deducted.
+
+## Actions
+
+- `Paid` and `Delete` are visible and intentionally disabled until their final behaviors are implemented in later phases.
+- The dialog close control dismisses only the currently displayed popup in local UI state.
+- No action creates a transaction, updates completion state, archives a rule, or changes an account balance.
+
+## Queue Behavior
+
+- Only the first item from the deterministic reminder queue is rendered.
+- The popup reports `Reminder 1 of N` for multiple queued reminders.
+- Advancing the queue through Paid or Delete remains deferred.
+
+## Mobile Behavior
+
+- The dialog width is constrained to the viewport with responsive padding.
+- Its content scrolls within the available dynamic viewport height on smaller screens.
+- The Playwright mobile assertion verifies that the popup remains within the horizontal viewport.
+
+## Accessibility
+
+- The dialog uses an accessible title and description with Radix focus management and keyboard dismissal.
+- Decorative icons are hidden from assistive technology.
+- Disabled action buttons retain explicit accessible labels that describe the future actions.
+
+## Phase 06.4 Check Results
+
+- TypeScript no-emit check passed.
+- E2E test syntax check passed.
+- Generated API contract check passed.
+- Frontend production build passed.
+- The popup E2E assertions passed on every run. The monolithic journey later remained blocked by its pre-existing loan-settlement setup request, which completed only when the disposable run terminated; the failure reproduced with both Playwright and native fetch and was not masked by a timeout change.
+- Client `lint` and unit `test` scripts are not available.
+
+## Phase 06.4 Bugs Fixed
+
+- Added the missing one-at-a-time warning presentation for app-load recurring expense reminders.
+- Added responsive and accessible rendering for all required recurring expense details and placeholder actions.

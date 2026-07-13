@@ -119,6 +119,50 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   const salary = await getCategoryByName(api, "income", "Salary");
   const groceries = await getCategoryByName(api, "expense", "Groceries");
 
+  const recurringExpense = await postJson(api, "/api/v1/recurring-rules", {
+    account_id: checking.id,
+    amount: "42.00",
+    category_id: groceries.id,
+    description: "E2E mobile bill",
+    frequency: "monthly",
+    interval_count: 1,
+    start_at: monthStart.toISOString(),
+    timezone: "UTC",
+    transaction_type: "expense",
+  });
+  await page.reload();
+  const recurringWarning = page.getByRole("dialog");
+  await expect(
+    recurringWarning.getByRole("heading", { name: "Recurring expense due" }),
+  ).toBeVisible();
+  await expect(
+    recurringWarning.getByText("Groceries", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    recurringWarning.getByText("Checking · USD", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    recurringWarning.getByText("E2E mobile bill", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    recurringWarning.getByText("$42.00", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    recurringWarning.getByRole("button", { name: /Delete recurring expense/ }),
+  ).toBeDisabled();
+  await expect(
+    recurringWarning.getByRole("button", {
+      name: /Mark recurring expense paid/,
+    }),
+  ).toBeDisabled();
+  const warningFitsViewport = await recurringWarning.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return bounds.left >= 0 && bounds.right <= window.innerWidth;
+  });
+  expect(warningFitsViewport).toBe(true);
+  await deleteJson(api, `/api/v1/recurring-rules/${recurringExpense.id}`);
+  await recurringWarning.getByRole("button", { name: "Close" }).click();
+
   await postJson(api, "/api/v1/transactions", {
     account_id: checking.id,
     amount: "1200.00",
