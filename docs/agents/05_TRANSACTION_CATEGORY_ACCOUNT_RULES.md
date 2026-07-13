@@ -417,3 +417,11 @@ No repository-owned production transaction mock-data module was found. Transacti
 ## Phase 05.7 Bugs Fixed
 
 - None. Existing production Home total selection already preserved transaction-only income/expense totals and loan exclusion; regression coverage was expanded.
+
+## Phase 05.8 — Regression Verification
+
+- Final backend lint, format, type, and test checks passed.
+- Final frontend production build and generated API contract checks passed.
+- The full-stack E2E workflow remains blocked before transaction coverage by the existing Agent 04 Settings/Home selected-source assertion documented in `05_TRANSACTION_TEST_REPORT.md`.
+- No phase-scope regression required a code change.
+- Agent 05 implementation is complete; recurring popup work remains deferred to Agents 06 and 07.
