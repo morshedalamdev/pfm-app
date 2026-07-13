@@ -530,3 +530,22 @@
 
 - Corrected the persistence browser assertion to compare equivalent timestamp instants instead of requiring identical ISO fractional-second formatting.
 - No production persistence, monthly-repeat, mixed-queue, or expense-regression defect was found.
+
+## Phase 07.8 — Recurring Income Regression Verification
+
+## Final Verification Result
+
+- The focused recurring-income, transaction, and dashboard regression matrix passed `72` tests.
+- The full backend suite passed `211` tests.
+- Ruff lint, Ruff formatting, Mypy, TypeScript, generated API contract, E2E syntax, and the production build passed.
+- All three Agent 07 Playwright scenarios passed independently, covering the achievement popup, Received, Delete, Close/reload, current-month persistence, selected balance and Home-income effects, mixed queues, and expense regression safety.
+- The complete Playwright command retained the pre-existing sequential registration timeout after its first passing scenario; the failure does not reproduce when the Agent 07 scenarios run independently.
+- No recurring-income production regression was found.
+
+## Final Test Report
+
+- Complete commands, results, date cases, mixed-reminder cases, checklist, deferred work, and the safe Agent 08 starting point are documented in `docs/agents/07_RECURRING_INCOME_TEST_REPORT.md`.
+
+## Phase 07.8 Bugs Fixed
+
+- None. No Agent 07 phase-scope failure required a production or test change during final verification.
