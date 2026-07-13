@@ -103,6 +103,7 @@ def test_recurring_rule_crud_pause_resume_archive(
     assert expense_rule["start_at"] == "2030-01-31T14:00:00Z"
     assert expense_rule["next_run_at"] == "2030-01-31T14:00:00Z"
     assert expense_rule["status"] == "active"
+    assert expense_rule["last_paid_period"] is None
 
     income_rule = create_recurring_rule(
         context,

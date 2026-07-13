@@ -43,6 +43,11 @@ class RecurringRule(Base):
         CheckConstraint("interval_count > 0", name="interval_count_positive"),
         CheckConstraint("run_count >= 0", name="run_count_non_negative"),
         CheckConstraint(
+            "last_paid_period IS NULL OR "
+            "last_paid_period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+            name="last_paid_period_format",
+        ),
+        CheckConstraint(
             "end_at IS NULL OR end_at > start_at",
             name="end_after_start",
         ),
@@ -123,6 +128,7 @@ class RecurringRule(Base):
     )
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_run_key: Mapped[str | None] = mapped_column(String(160))
+    last_paid_period: Mapped[str | None] = mapped_column(String(7))
     run_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

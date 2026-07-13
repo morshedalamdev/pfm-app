@@ -32,6 +32,7 @@ export type LoanSettlementCreate =
 export type LoanSummary = components["schemas"]["LoanSummaryResponse"];
 export type RecurringRuleCreate =
   components["schemas"]["RecurringRuleCreateRequest"];
+export type RecurringRule = components["schemas"]["RecurringRuleResponse"];
 export type SavingsContributionCreate =
   components["schemas"]["SavingsContributionCreateRequest"];
 export type SavingsGoal = components["schemas"]["SavingsGoalResponse"];
@@ -54,7 +55,6 @@ type CategoryList = components["schemas"]["CategoryListResponse"];
 type LoanPersonList = components["schemas"]["LoanPersonListResponse"];
 type LoanRecordList = components["schemas"]["LoanRecordListResponse"];
 type LoanSettlementList = components["schemas"]["LoanSettlementListResponse"];
-type RecurringRule = components["schemas"]["RecurringRuleResponse"];
 type SavingsGoalList = components["schemas"]["SavingsGoalListResponse"];
 type SavingsTransferResponse =
   components["schemas"]["SavingsTransferResponse"];

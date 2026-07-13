@@ -1676,6 +1676,8 @@ export interface components {
             id: string;
             /** Interval Count */
             interval_count: number;
+            /** Last Paid Period */
+            last_paid_period: string | null;
             /** Last Run At */
             last_run_at: string | null;
             /** Last Run Key */

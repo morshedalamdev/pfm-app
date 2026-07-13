@@ -127,3 +127,69 @@
 ## Phase 06.1 Bugs Fixed
 
 - None. No baseline code issue required repair during the audit.
+
+## Phase 06.2 — Data Model and Due-Date Helpers
+
+## Recurring Expense Fields
+
+- Existing `account_id`, `category_id`, `amount`, `currency`, `description`, and `frequency` fields remain the recurring expense transaction template.
+- Existing `start_at` is the first due date and remains timezone-aware.
+- Existing `status` is the active-state source; only `active` rules are eligible for the monthly expense due helper.
+- Added nullable `last_paid_period` as the monthly completion equivalent. It stores a validated `YYYY-MM` period key and is exposed by the recurring-rule response type.
+- Existing rules migrate with `last_paid_period = null`.
+- No transaction row, popup state, or client reminder queue was added.
+
+## Monthly Due Calculation
+
+- `calculate_monthly_due_at()` computes a due timestamp for a requested calendar year and month from the original `start_at` day and local wall-clock time.
+- The calculation uses the rule timezone and returns an aware UTC timestamp.
+- `is_monthly_expense_due()` accepts only active monthly expense rules, requires the current time to be inside the current monthly due window, and excludes the paid current period.
+
+## Shorter-Month Rule
+
+- If the first due day does not exist in the requested month, the helper uses that month's final valid day.
+- January 31 resolves to February 28 in 2026.
+- March 31 resolves to April 30.
+
+## Due Window Rule
+
+- `is_monthly_due_window()` returns false before the first due timestamp.
+- It returns true from the computed due timestamp through the remainder of that rule-local calendar month.
+- A later month is evaluated against its own computed due date, so an unpaid prior month is not carried into a new month before the new due date.
+- Paused or archived rules are not eligible through the composed monthly expense due helper.
+
+## Completion Period Key
+
+- `recurring_period_key()` produces `YYYY-MM` in the recurring rule's timezone.
+- `is_recurring_period_paid()` compares the current key with `last_paid_period`.
+- The database constraint accepts only valid month-shaped keys from `01` through `12`.
+
+## Test Cases
+
+- Normal monthly date: passed.
+- January 31 to February end: passed.
+- March 31 to April end: passed.
+- Before first due date: passed.
+- On due date: passed.
+- After due date within the same month: passed.
+- Already paid current month: passed.
+- Inactive rule: passed.
+- Rule-timezone period key across a UTC month boundary: passed.
+- Completion-field migration upgrade/downgrade/upgrade: passed.
+
+## Phase 06.2 Check Results
+
+- Focused recurring and migration suite: `23 passed, 1 warning`.
+- Full backend suite: `183 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 163 files.
+- Mypy passed with no issues in 110 source files.
+- Generated API contract check passed.
+- Frontend production build passed.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint`, `typecheck`, and unit `test` scripts are not available.
+
+## Phase 06.2 Bugs Fixed
+
+- Added the missing persistent monthly completion marker for recurring expenses.
+- Added explicit protection against pre-due, already-paid, and inactive monthly expense eligibility in the pure due helper.

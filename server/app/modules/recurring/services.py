@@ -303,6 +303,7 @@ class RecurringRuleService:
             next_run_at=rule.next_run_at,
             last_run_at=rule.last_run_at,
             last_run_key=rule.last_run_key,
+            last_paid_period=rule.last_paid_period,
             run_count=rule.run_count,
             status=cast(RecurringRuleStatus, rule.status),
             paused_at=rule.paused_at,

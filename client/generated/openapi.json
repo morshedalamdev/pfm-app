@@ -2387,6 +2387,17 @@
             "title": "Interval Count",
             "type": "integer"
           },
+          "last_paid_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Paid Period"
+          },
           "last_run_at": {
             "anyOf": [
               {
@@ -2475,6 +2486,7 @@
           "next_run_at",
           "last_run_at",
           "last_run_key",
+          "last_paid_period",
           "run_count",
           "status",
           "paused_at",
