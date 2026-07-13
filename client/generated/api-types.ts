@@ -916,7 +916,7 @@ export interface components {
             /** Can Delete */
             can_delete: boolean;
             /** Reasons */
-            reasons: ("transaction" | "recurring_rule" | "loan_not_connected")[];
+            reasons: ("transaction" | "recurring_rule" | "loan_record" | "loan_settlement")[];
         };
         /** AccountListResponse */
         AccountListResponse: {
@@ -1411,6 +1411,11 @@ export interface components {
         /** LoanSettlementCreateRequest */
         LoanSettlementCreateRequest: {
             /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
              * Amount
              * @description Decimal string with up to 18 digits and 4 decimal places.
              * @example 12.3400
@@ -1435,6 +1440,8 @@ export interface components {
         };
         /** LoanSettlementResponse */
         LoanSettlementResponse: {
+            /** Account Id */
+            account_id: string | null;
             /** Amount */
             amount: string;
             /**

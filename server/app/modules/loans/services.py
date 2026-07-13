@@ -403,6 +403,9 @@ class LoanService:
         record = await self.get_record_model(record_id, current_user)
         if record.status == "archived":
             raise InvalidLoanRecordStateError
+        account = await self.get_account_model(request.account_id, current_user)
+        if account.archived_at is not None or account.is_disabled:
+            raise InvalidLoanAccountStateError
 
         settled_amount = await self.loans.calculate_settled_amount(
             record.id,
@@ -415,12 +418,17 @@ class LoanService:
         settlement = LoanSettlement(
             user_id=current_user.id,
             record_id=record.id,
+            account_id=account.id,
             amount=request.amount,
             currency=record.currency,
             settled_at=request.settled_at,
             note=request.note,
         )
         await self.loans.create_settlement(settlement)
+        account.loan_balance_adjustment -= self.balance_effect(
+            cast(LoanDirection, record.direction),
+            request.amount,
+        )
         self.apply_record_state(record, settled_amount + request.amount)
         await self.loans.commit()
         await self.loans.refresh_settlement(settlement)

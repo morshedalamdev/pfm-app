@@ -45,6 +45,7 @@ import {
   type LoanSummary,
 } from "@/lib/finance/api";
 import { formatMoney } from "@/lib/finance/format";
+import { getActiveAccounts } from "@/lib/finance/accounts";
 import { PlusIcon, SearchIcon, UserRoundCogIcon } from "lucide-react";
 import Link from "next/link";
 
@@ -131,6 +132,10 @@ export default function LoanPage() {
   );
   const accountsById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
+  );
+  const settlementAccounts = useMemo(
+    () => getActiveAccounts(accounts),
     [accounts],
   );
 
@@ -225,6 +230,7 @@ export default function LoanPage() {
 
   async function handleSettlement(
     recordId: string,
+    accountId: string,
     amount: string,
     settledAt: string,
     note: string,
@@ -233,6 +239,7 @@ export default function LoanPage() {
     setSettlingRecordId(recordId);
     try {
       await createLoanSettlement(recordId, {
+        account_id: accountId,
         amount,
         note: note || null,
         settled_at: settledAt,
@@ -320,12 +327,13 @@ export default function LoanPage() {
           visibleRecords.map((record) => (
             <LoanItem
               key={record.id}
+              accounts={settlementAccounts}
               deleteError={deletingRecordId === record.id ? deleteError : null}
               isDeleting={deletingRecordId === record.id}
               isSettling={settlingRecordId === record.id}
               onDelete={() => void handleDeleteRecord(record.id)}
-              onSettle={(amount, settledAt, note) =>
-                handleSettlement(record.id, amount, settledAt, note)
+              onSettle={(accountId, amount, settledAt, note) =>
+                handleSettlement(record.id, accountId, amount, settledAt, note)
               }
               personName={peopleById.get(record.person_id)?.name ?? "Unknown person"}
               record={record}

@@ -24,6 +24,10 @@ import {
 } from "../ui/drawer";
 import { Field, FieldError, FieldGroup, FieldSet } from "../ui/field";
 import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../ui/native-select";
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
@@ -31,18 +35,29 @@ import {
 } from "../ui/input-group";
 import {
   listLoanSettlements,
+  type Account,
   type LoanRecord,
   type LoanSettlement,
 } from "@/lib/finance/api";
+import {
+  formatAccountSelectLabel,
+  resolveAccountSelectValue,
+} from "@/lib/finance/accounts";
 import { decimalInput, formatMoney } from "@/lib/finance/format";
 
 type LoanItemProps = {
+  accounts: Account[];
   deleteError?: string | null;
   displayCurrency: string;
   isDeleting?: boolean;
   isSettling?: boolean;
   onDelete?: () => void;
-  onSettle?: (amount: string, settledAt: string, note: string) => Promise<void>;
+  onSettle?: (
+    accountId: string,
+    amount: string,
+    settledAt: string,
+    note: string,
+  ) => Promise<void>;
   personName: string;
   record: LoanRecord;
   settlementError?: string | null;
@@ -73,6 +88,7 @@ function localTodayValue(): string {
 }
 
 export default function LoanItem({
+  accounts,
   deleteError,
   displayCurrency,
   isDeleting = false,
@@ -87,6 +103,9 @@ export default function LoanItem({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoadingSettlements, setIsLoadingSettlements] = useState(false);
   const [note, setNote] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState(() =>
+    resolveAccountSelectValue(accounts, record.account_id),
+  );
   const [settledAt, setSettledAt] = useState(todayInputValue());
   const [settlements, setSettlements] = useState<LoanSettlement[]>([]);
   const [settlementsError, setSettlementsError] = useState<string | null>(null);
@@ -122,8 +141,9 @@ export default function LoanItem({
 
   async function handleSettlement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!onSettle) return;
+    if (!onSettle || !selectedAccountId) return;
     await onSettle(
+      selectedAccountId,
       decimalInput(amount),
       new Date(`${settledAt}T00:00:00.000Z`).toISOString(),
       note,
@@ -259,7 +279,16 @@ export default function LoanItem({
                   key={settlement.id}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span>{dateLabel(settlement.settled_at)}</span>
+                  <span>
+                    {dateLabel(settlement.settled_at)}
+                    {settlement.account_id && (
+                      <span className="block text-xs text-secondary/80">
+                        {accounts.find(
+                          (account) => account.id === settlement.account_id,
+                        )?.name ?? "Account"}
+                      </span>
+                    )}
+                  </span>
                   <span>{formatMoney(settlement.amount, displayCurrency)}</span>
                 </div>
               ))}
@@ -269,6 +298,30 @@ export default function LoanItem({
             <form onSubmit={handleSettlement}>
               <FieldSet className="gap-2">
                 <FieldGroup>
+                  <Field>
+                    <label className="block space-y-1">
+                      <span className="text-xs font-bold text-primary-foreground">
+                        Account
+                      </span>
+                      <NativeSelect
+                        aria-label="Settlement account"
+                        className="w-full border border-border bg-transparent"
+                        value={selectedAccountId}
+                        onChange={(event) =>
+                          setSelectedAccountId(event.target.value)
+                        }
+                        disabled={isSettling}
+                        required
+                      >
+                        {accounts.map((account) => (
+                          <NativeSelectOption key={account.id} value={account.id}>
+                            {formatAccountSelectLabel(account)}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </label>
+                    <FieldError />
+                  </Field>
                   <Field>
                     <InputGroup className="border-border">
                       <InputGroupInput

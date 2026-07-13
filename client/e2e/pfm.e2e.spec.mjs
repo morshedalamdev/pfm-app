@@ -877,6 +877,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     repay_date: nextMonth.toISOString().slice(0, 10),
   });
   await postJson(api, `/api/v1/loans/records/${givenLoan.id}/settlements`, {
+    account_id: checking.id,
     amount: "50.00",
     note: "E2E partial settlement",
     settled_at: today,
@@ -1208,6 +1209,209 @@ test("transaction selectors contain only active accounts", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
   await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
+
+  await api.dispose();
+});
+
+test("loan settlement account selection updates balances", async ({ page }) => {
+  const email = `pfm-loan-settlement-account-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const loanAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Loan Source",
+    opening_balance: "500.00",
+    type: "bank_account",
+  });
+  const settlementAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Settlement Wallet",
+    opening_balance: "200.00",
+    type: "mobile_banking",
+  });
+  const disabledAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Inactive Settlement Account",
+    opening_balance: "100.00",
+    type: "cash",
+  });
+  await patchJson(api, `/api/v1/accounts/${disabledAccount.id}/disable`);
+  const person = await postJson(api, "/api/v1/loans/people", {
+    name: "Settlement E2E Person",
+    phone_number: `556${Date.now().toString().slice(-7)}`,
+  });
+  const issuedAt = new Date().toISOString();
+  const repayDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  await postJson(api, "/api/v1/loans/records", {
+    account_id: loanAccount.id,
+    currency: "USD",
+    direction: "given",
+    issued_at: issuedAt,
+    person_id: person.id,
+    principal_amount: "50.00",
+    repay_date: repayDate,
+  });
+  await postJson(api, "/api/v1/loans/records", {
+    account_id: loanAccount.id,
+    currency: "USD",
+    direction: "taken",
+    issued_at: issuedAt,
+    person_id: person.id,
+    principal_amount: "30.00",
+    repay_date: repayDate,
+  });
+
+  await page.goto("/loan");
+  await expect(page.getByText("Settlement E2E Person").first()).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await page.locator("[data-overdue]").filter({ hasText: "$50.00" }).click();
+  const settlementSelect = page.getByRole("combobox", {
+    name: "Settlement account",
+  });
+  await expect(settlementSelect).toBeVisible();
+  await expect(
+    settlementSelect.locator(`option[value="${disabledAccount.id}"]`),
+  ).toHaveCount(0);
+  await settlementSelect.selectOption(settlementAccount.id);
+  await page.getByPlaceholder("$0.00").fill("10.00");
+  await page.getByRole("button", { name: "Settle Partially" }).click();
+  await expect(page.getByText("$40.00", { exact: true }).first()).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.locator("[data-overdue]").filter({ hasText: "$30.00" }).click();
+  await page
+    .getByRole("combobox", { name: "Settlement account" })
+    .selectOption(settlementAccount.id);
+  await page.getByPlaceholder("$0.00").fill("5.00");
+  await page.getByRole("button", { name: "Settle Partially" }).click();
+  await expect(page.getByText("$25.00", { exact: true }).first()).toBeVisible();
+
+  const accounts = await getJson(api, "/api/v1/accounts?limit=100");
+  const updatedLoanAccount = accounts.items.find(
+    (account) => account.id === loanAccount.id,
+  );
+  const updatedSettlementAccount = accounts.items.find(
+    (account) => account.id === settlementAccount.id,
+  );
+  expect(Number(updatedLoanAccount.current_balance)).toBe(480);
+  expect(Number(updatedSettlementAccount.current_balance)).toBe(205);
+
+  await api.dispose();
+});
+
+test("used account hides the delete button", async ({ page }) => {
+  const email = `pfm-used-account-delete-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const usedAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Used Account",
+    opening_balance: "100.00",
+    type: "debit_card",
+  });
+  await postJson(api, "/api/v1/accounts", {
+    currency: "USD",
+    name: "Unused Account",
+    opening_balance: "100.00",
+    type: "cash",
+  });
+  const groceries = await getCategoryByName(api, "expense", "Groceries");
+  await postJson(
+    api,
+    "/api/v1/transactions",
+    {
+      account_id: usedAccount.id,
+      amount: "5.00",
+      category_id: groceries.id,
+      transaction_at: new Date().toISOString(),
+      type: "expense",
+    },
+    { "Idempotency-Key": `used-account-${Date.now()}` },
+  );
+
+  await page.goto("/accounts");
+  await expect(page.getByText("Used Account", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes(
+          `/api/v1/accounts/${usedAccount.id}/delete-eligibility`,
+        ) && response.status() === 200,
+    ),
+    page.getByRole("button", { name: /Used Account/ }).click(),
+  ]);
+  let accountDialog = page.getByRole("dialog");
+  await expect(
+    accountDialog.getByRole("heading", { name: "Used Account" }),
+  ).toBeVisible();
+  await expect(
+    accountDialog.getByRole("button", { name: "Delete Account" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  const unusedAccountButton = page.getByRole("button", {
+    name: /Unused Account/,
+  });
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes("/delete-eligibility") &&
+        response.status() === 200,
+    ),
+    unusedAccountButton.click(),
+  ]);
+  accountDialog = page.getByRole("dialog");
+  await expect(
+    accountDialog.getByRole("button", { name: "Delete Account" }),
+  ).toBeVisible();
 
   await api.dispose();
 });
