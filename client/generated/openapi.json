@@ -2260,6 +2260,36 @@
         "title": "RecurringExpenseReminderResponse",
         "type": "object"
       },
+      "RecurringIncomeReceivedRequest": {
+        "properties": {
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "received_at"
+        ],
+        "title": "RecurringIncomeReceivedRequest",
+        "type": "object"
+      },
+      "RecurringIncomeReceivedResponse": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionResponse"
+          }
+        },
+        "required": [
+          "transaction",
+          "rule"
+        ],
+        "title": "RecurringIncomeReceivedResponse",
+        "type": "object"
+      },
       "RecurringIncomeReminderListResponse": {
         "properties": {
           "items": {
@@ -7116,6 +7146,63 @@
           }
         ],
         "summary": "Pause Recurring Rule",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
+    "/api/v1/recurring-rules/{rule_id}/received": {
+      "post": {
+        "operationId": "mark_recurring_income_received_api_v1_recurring_rules__rule_id__received_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringIncomeReceivedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringIncomeReceivedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Recurring Income Received",
         "tags": [
           "recurring"
         ]

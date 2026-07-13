@@ -33,6 +33,8 @@ from app.modules.recurring.schemas import (
     RecurringExpensePaidResponse,
     RecurringExpenseReminderListResponse,
     RecurringExpenseReminderResponse,
+    RecurringIncomeReceivedRequest,
+    RecurringIncomeReceivedResponse,
     RecurringIncomeReminderListResponse,
     RecurringIncomeReminderResponse,
     RecurringRuleCreateRequest,
@@ -288,6 +290,76 @@ class RecurringRuleService:
             await self.rules.rollback()
             raise
         return RecurringExpensePaidResponse(
+            transaction=transaction,
+            rule=self.build_rule_response(rule),
+        )
+
+    async def mark_income_received(
+        self,
+        rule_id: uuid.UUID,
+        request: RecurringIncomeReceivedRequest,
+        current_user: User,
+        *,
+        current_at: datetime | None = None,
+    ) -> RecurringIncomeReceivedResponse:
+        effective_current_at = current_at or datetime.now(UTC)
+        rule = await self.rules.get_owned_for_update(rule_id, current_user.id)
+        if rule is None:
+            raise RecurringRuleNotFoundError
+        if (
+            rule.status != "active"
+            or rule.archived_at is not None
+            or rule.transaction_type != "income"
+            or rule.frequency != "monthly"
+        ):
+            raise InvalidRecurringRuleStateError
+
+        period_key = recurring_period_key(
+            effective_current_at,
+            timezone=rule.timezone,
+        )
+        is_replay = rule.last_received_period == period_key
+        if not is_replay and (
+            (rule.end_at is not None and effective_current_at >= rule.end_at)
+            or not is_monthly_income_due(
+                transaction_type=rule.transaction_type,
+                frequency=rule.frequency,
+                status=rule.status,
+                first_due_at=rule.start_at,
+                current_at=effective_current_at,
+                timezone=rule.timezone,
+                last_received_period=rule.last_received_period,
+                interval_count=rule.interval_count,
+            )
+        ):
+            raise InvalidRecurringRuleStateError
+
+        transaction_request = TransactionCreateRequest(
+            account_id=rule.account_id,
+            category_id=rule.category_id,
+            type="income",
+            amount=rule.amount,
+            transaction_at=request.received_at,
+            description=rule.description,
+        )
+        try:
+            transaction = await self.transactions.create_transaction(
+                transaction_request,
+                current_user,
+                f"recurring-income-received:{rule.id}:{period_key}",
+                commit=False,
+            )
+        except InvalidTransactionReferenceError as exc:
+            raise InvalidRecurringRuleReferenceError from exc
+
+        rule.last_received_period = period_key
+        try:
+            await self.rules.commit()
+            await self.rules.refresh(rule)
+        except Exception:
+            await self.rules.rollback()
+            raise
+        return RecurringIncomeReceivedResponse(
             transaction=transaction,
             rule=self.build_rule_response(rule),
         )

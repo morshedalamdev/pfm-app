@@ -333,3 +333,65 @@
 
 - Prevented income and expense dialogs from opening simultaneously by making both popup components honor the shared queue head.
 - Added the missing recurring-income achievement presentation while keeping Received/Delete inert and preserving the expense popup presentation.
+
+## Phase 07.5 — Received Action
+
+## Created Transaction Fields
+
+- Received creates one normal `income` transaction through the shared transaction service.
+- The transaction copies the recurring rule's selected account, income category, amount, and note, while currency is resolved from the selected active account.
+- The recurring rule remains active after successful confirmation.
+
+## Transaction Date Rule
+
+- The client captures one `new Date().toISOString()` value when Received is clicked and sends it as `received_at`.
+- The server validates the value as an aware UTC timestamp and stores it as the transaction date instead of using the scheduled due date.
+
+## Account Balance Effect
+
+- The normal ledger-derived balance calculation increases only the selected account by the received amount.
+- No imperative balance mutation was added, so the transaction affects the balance once and leaves every other account unchanged.
+- A shared finance-data notification refetches the Home balance source after confirmation so the derived result is visible immediately.
+
+## Home Income Total Effect
+
+- Home income remains transaction-derived; the recurring rule itself contributes nothing to report totals.
+- The one created income transaction increases Home income once, and the dashboard report/recent-transaction data refetch after success.
+
+## Current-Period Completion
+
+- Successful confirmation stores the current rule-local `YYYY-MM` key in `last_received_period` in the same database commit as the transaction.
+- The due-income endpoint then excludes the completed rule for the current month without pausing or archiving it.
+
+## Duplicate Protection
+
+- The server takes a row lock and uses the occurrence key `recurring-income-received:{rule_id}:{period_key}` with the normal idempotent transaction service.
+- An exact replay returns the original transaction; a conflicting replay is rejected without a second transaction, balance increase, or Home income increase.
+- The client disables Received while it is pending and also uses an in-flight ref guard to suppress rapid duplicate clicks.
+
+## Queue Advancement
+
+- After the server confirms success, the completed reminder key is removed from the shared queue and the next reminder becomes eligible to render.
+- A failed request keeps the reminder visible and shows an error so the user can retry.
+- Delete remains disabled and Close behavior remains unchanged for phase 07.6.
+
+## Phase 07.5 Check Results
+
+- Focused recurring, transaction, and dashboard backend regression suite: `53 passed, 1 warning`.
+- Full backend suite: `206 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 144 files.
+- Mypy passed with no issues in 110 source files.
+- Generated API contract check passed.
+- TypeScript no-emit check passed.
+- E2E JavaScript syntax check passed.
+- Frontend production build passed after the approved network-enabled rerun fetched the configured Urbanist font.
+- Focused recurring expense/income popup browser scenario passed: `1 passed`.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint`, `typecheck`, and unit `test` scripts remain unavailable.
+
+## Phase 07.5 Bugs Fixed
+
+- Added the missing atomic Received path for one income transaction and current-month completion.
+- Prevented duplicate income, balance, and Home-total effects across exact replays, conflicting replays, and rapid client clicks.
+- Added immediate Home report, recent transaction, and selected balance-source refresh after successful confirmation.

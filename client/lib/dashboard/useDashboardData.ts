@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import { subscribeFinanceDataChanged } from "@/lib/finance/events";
 import type { components } from "@/generated/api-types";
 
 type AccountListResponse = components["schemas"]["AccountListResponse"];
@@ -125,6 +126,15 @@ export function useDashboardData() {
   useEffect(() => {
     void loadTransactions();
   }, [loadTransactions]);
+
+  useEffect(
+    () =>
+      subscribeFinanceDataChanged(() => {
+        void loadReport();
+        void loadTransactions();
+      }),
+    [loadReport, loadTransactions],
+  );
 
   const chartBuckets = useMemo<DashboardChartBucket[]>(() => {
     return (

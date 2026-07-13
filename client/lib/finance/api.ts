@@ -41,6 +41,10 @@ export type RecurringExpensePaidRequest =
   components["schemas"]["RecurringExpensePaidRequest"];
 export type RecurringExpensePaidResponse =
   components["schemas"]["RecurringExpensePaidResponse"];
+export type RecurringIncomeReceivedRequest =
+  components["schemas"]["RecurringIncomeReceivedRequest"];
+export type RecurringIncomeReceivedResponse =
+  components["schemas"]["RecurringIncomeReceivedResponse"];
 export type SavingsContributionCreate =
   components["schemas"]["SavingsContributionCreateRequest"];
 export type SavingsGoal = components["schemas"]["SavingsGoalResponse"];
@@ -333,6 +337,19 @@ export function markRecurringExpensePaid(
 ) {
   return apiPost<RecurringExpensePaidRequest, RecurringExpensePaidResponse>(
     apiPath(`/api/v1/recurring-rules/${ruleId}/paid`),
+    body,
+  );
+}
+
+export function markRecurringIncomeReceived(
+  ruleId: string,
+  body: RecurringIncomeReceivedRequest,
+) {
+  return apiPost<
+    RecurringIncomeReceivedRequest,
+    RecurringIncomeReceivedResponse
+  >(
+    apiPath(`/api/v1/recurring-rules/${ruleId}/received`),
     body,
   );
 }

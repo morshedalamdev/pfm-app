@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
   CalendarDays,
@@ -23,18 +23,23 @@ import {
 import {
   listAccounts,
   listCategories,
+  markRecurringIncomeReceived,
   type Account,
   type Category,
 } from "@/lib/finance/api";
+import { notifyFinanceDataChanged } from "@/lib/finance/events";
 import { formatMoney } from "@/lib/finance/format";
 
 export function RecurringIncomeAchievementPopup() {
-  const { reminderQueue } = useRecurringReminders();
+  const { reminderQueue, removeReminder } = useRecurringReminders();
   const currentQueueItem = reminderQueue[0] ?? null;
   const currentReminder =
     currentQueueItem?.reminder_type === "income" ? currentQueueItem : null;
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [isReceiving, setIsReceiving] = useState(false);
+  const [receiveError, setReceiveError] = useState<string | null>(null);
+  const receiveInFlight = useRef(false);
 
   useEffect(() => {
     if (!currentReminder) return;
@@ -79,6 +84,28 @@ export function RecurringIncomeAchievementPopup() {
     currentReminder.due_at,
     currentReminder.rule.timezone,
   );
+  const handleReceived = async () => {
+    if (receiveInFlight.current) return;
+    receiveInFlight.current = true;
+    setIsReceiving(true);
+    setReceiveError(null);
+    try {
+      await markRecurringIncomeReceived(currentReminder.rule.id, {
+        received_at: new Date().toISOString(),
+      });
+      removeReminder(currentReminder.reminder_key);
+      notifyFinanceDataChanged();
+    } catch (error) {
+      setReceiveError(
+        error instanceof Error
+          ? error.message
+          : "The recurring income could not be marked received.",
+      );
+    } finally {
+      receiveInFlight.current = false;
+      setIsReceiving(false);
+    }
+  };
 
   return (
     <Dialog open onOpenChange={() => undefined}>
@@ -150,6 +177,14 @@ export function RecurringIncomeAchievementPopup() {
         </div>
 
         <DialogFooter className="border-t border-emerald-400/20 bg-emerald-500/5 px-5 py-4 sm:justify-stretch">
+          {receiveError ? (
+            <p
+              className="text-sm font-semibold text-destructive sm:col-span-2"
+              role="alert"
+            >
+              {receiveError}
+            </p>
+          ) : null}
           <Button
             type="button"
             variant="destructive"
@@ -160,12 +195,13 @@ export function RecurringIncomeAchievementPopup() {
           </Button>
           <Button
             type="button"
-            disabled
+            disabled={isReceiving}
+            onClick={() => void handleReceived()}
             className="bg-emerald-300 text-emerald-950 hover:bg-emerald-200"
             aria-label="Mark recurring income received"
           >
             <BadgeCheck aria-hidden="true" />
-            Received
+            {isReceiving ? "Receiving..." : "Received"}
           </Button>
         </DialogFooter>
       </DialogContent>

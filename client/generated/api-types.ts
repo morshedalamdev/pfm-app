@@ -602,6 +602,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recurring-rules/{rule_id}/received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Recurring Income Received */
+        post: operations["mark_recurring_income_received_api_v1_recurring_rules__rule_id__received_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recurring-rules/{rule_id}/resume": {
         parameters: {
             query?: never;
@@ -1664,6 +1681,19 @@ export interface components {
             /** Reminder Key */
             reminder_key: string;
             rule: components["schemas"]["RecurringRuleResponse"];
+        };
+        /** RecurringIncomeReceivedRequest */
+        RecurringIncomeReceivedRequest: {
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+        };
+        /** RecurringIncomeReceivedResponse */
+        RecurringIncomeReceivedResponse: {
+            rule: components["schemas"]["RecurringRuleResponse"];
+            transaction: components["schemas"]["TransactionResponse"];
         };
         /** RecurringIncomeReminderListResponse */
         RecurringIncomeReminderListResponse: {
@@ -4067,6 +4097,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringRuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_recurring_income_received_api_v1_recurring_rules__rule_id__received_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringIncomeReceivedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringIncomeReceivedResponse"];
                 };
             };
             /** @description Validation Error */

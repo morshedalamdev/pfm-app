@@ -14,6 +14,7 @@ import {
   listAccounts,
   listBudgets,
 } from "@/lib/finance/api";
+import { subscribeFinanceDataChanged } from "@/lib/finance/events";
 import { monthKey } from "@/lib/finance/format";
 
 export type HomeBalanceDisplay = {
@@ -71,6 +72,15 @@ export function useHomeBalanceSource() {
     const controller = new AbortController();
     void loadBalanceSources(controller.signal);
     return () => controller.abort();
+  }, [loadBalanceSources, pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/") {
+      return;
+    }
+    return subscribeFinanceDataChanged(() => {
+      void loadBalanceSources();
+    });
   }, [loadBalanceSources, pathname]);
 
   const balance = useMemo(

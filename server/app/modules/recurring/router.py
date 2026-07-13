@@ -15,6 +15,8 @@ from app.modules.recurring.schemas import (
     RecurringExpensePaidRequest,
     RecurringExpensePaidResponse,
     RecurringExpenseReminderListResponse,
+    RecurringIncomeReceivedRequest,
+    RecurringIncomeReceivedResponse,
     RecurringIncomeReminderListResponse,
     RecurringRuleCreateRequest,
     RecurringRuleListResponse,
@@ -134,6 +136,34 @@ async def mark_recurring_expense_paid(
 ) -> RecurringExpensePaidResponse:
     try:
         return await build_recurring_rule_service(session).mark_expense_paid(
+            parse_uuid_or_404(rule_id),
+            request,
+            current_user,
+        )
+    except RecurringRuleNotFoundError as exc:
+        raise not_found_error() from exc
+    except InvalidRecurringRuleReferenceError as exc:
+        raise invalid_reference_error() from exc
+    except InvalidRecurringRuleStateError as exc:
+        raise invalid_state_error() from exc
+    except IdempotencyConflictError as exc:
+        raise idempotency_conflict_error() from exc
+    except IdempotencyInProgressError as exc:
+        raise idempotency_in_progress_error() from exc
+
+
+@router.post(
+    "/{rule_id}/received",
+    response_model=RecurringIncomeReceivedResponse,
+)
+async def mark_recurring_income_received(
+    rule_id: str,
+    request: RecurringIncomeReceivedRequest,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> RecurringIncomeReceivedResponse:
+    try:
+        return await build_recurring_rule_service(session).mark_income_received(
             parse_uuid_or_404(rule_id),
             request,
             current_user,

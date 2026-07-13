@@ -198,7 +198,7 @@ test("recurring expense actions and income achievement popup are safe", async ({
   await expect(achievement.getByText("Due date", { exact: true })).toBeVisible();
   await expect(
     achievement.getByRole("button", { name: "Mark recurring income received" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(
     achievement.getByRole("button", { name: "Delete recurring income" }),
   ).toBeDisabled();
@@ -216,6 +216,124 @@ test("recurring expense actions and income achievement popup are safe", async ({
     );
   });
   expect(achievementFitsViewport).toBe(true);
+
+  await page.unroute("**/api/v1/categories?kind=income*");
+  await page.unroute(
+    "**/api/v1/accounts?include_archived=false&limit=100",
+  );
+  let receivedResult;
+  let receivedRequestCount = 0;
+  await page.route(
+    `**/api/v1/recurring-rules/${incomeRule.id}/received`,
+    async (route) => {
+      const browserRequest = route.request();
+      const receivedAt = browserRequest.postDataJSON().received_at;
+      receivedRequestCount += 1;
+      receivedResult = {
+        rule: {
+          ...incomeRule,
+          last_received_period: monthStart.toISOString().slice(0, 7),
+        },
+        transaction: {
+          account_id: account.id,
+          amount: "2500.0000",
+          category_id: salary.id,
+          created_at: receivedAt,
+          currency: "USD",
+          description: "Job Salary",
+          id: "00000000-0000-4000-8000-000000000075",
+          transaction_at: receivedAt,
+          type: "income",
+          updated_at: receivedAt,
+          voided_at: null,
+        },
+      };
+      await route.fulfill({ json: receivedResult, status: 200 });
+    },
+  );
+  await page.route(
+    "**/api/v1/accounts?include_archived=false&limit=100",
+    (route) =>
+      route.fulfill({
+        json: {
+          has_more: false,
+          items: [{ ...account, current_balance: "2700.0000" }],
+          next_cursor: null,
+        },
+      }),
+  );
+  await page.route(
+    "**/api/v1/reports/dashboard?period=week&type=expense",
+    (route) =>
+      route.fulfill({
+        json: {
+          available_balance: "2700.0000",
+          buckets: [],
+          currency: "USD",
+          expense_amount: "0.0000",
+          income_amount: "2500.0000",
+          net_flow_amount: "2500.0000",
+          period: "week",
+          range: {
+            end_at: new Date(
+              monthStart.getTime() + 7 * 86_400_000,
+            ).toISOString(),
+            start_at: monthStart.toISOString(),
+            timezone: "UTC",
+          },
+          type: "expense",
+        },
+      }),
+  );
+  await page.route("**/api/v1/transactions?limit=6", (route) =>
+    route.fulfill({
+      json: {
+        has_more: false,
+        items: receivedResult ? [receivedResult.transaction] : [],
+        next_cursor: null,
+      },
+    }),
+  );
+  await page.route("**/api/v1/categories?limit=100", (route) =>
+    route.fulfill({
+      json: { has_more: false, items: [category, salary], next_cursor: null },
+    }),
+  );
+  await page.route(
+    "**/api/v1/budgets?month=*&include_archived=false&limit=100",
+    (route) =>
+      route.fulfill({
+        json: { has_more: false, items: [], next_cursor: null },
+      }),
+  );
+  const receivedClickStartedAt = Date.now();
+  await achievement
+    .getByRole("button", { name: "Mark recurring income received" })
+    .click();
+  await expect(achievement).toBeHidden();
+
+  expect(receivedRequestCount).toBe(1);
+  const receivedTransaction = receivedResult.transaction;
+  expect(receivedTransaction.type).toBe("income");
+  expect(receivedTransaction.account_id).toBe(account.id);
+  expect(receivedTransaction.category_id).toBe(salary.id);
+  expect(receivedTransaction.currency).toBe("USD");
+  expect(receivedTransaction.description).toBe("Job Salary");
+  expect(Number(receivedTransaction.amount)).toBe(2500);
+  expect(Date.parse(receivedTransaction.transaction_at)).toBeGreaterThanOrEqual(
+    receivedClickStartedAt,
+  );
+  expect(Date.parse(receivedTransaction.transaction_at)).toBeLessThanOrEqual(
+    Date.now(),
+  );
+
+  const receivedRule = receivedResult.rule;
+  expect(receivedRule.status).toBe("active");
+  expect(receivedRule.last_received_period).toBe(
+    monthStart.toISOString().slice(0, 7),
+  );
+  await expect(page.getByText("$2,700.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("$2,500.00", { exact: true })).toBeVisible();
   await api.dispose();
 });
 

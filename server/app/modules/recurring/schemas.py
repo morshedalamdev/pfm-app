@@ -172,6 +172,23 @@ class RecurringExpensePaidResponse(BaseModel):
     rule: RecurringRuleResponse
 
 
+class RecurringIncomeReceivedRequest(BaseModel):
+    received_at: datetime
+
+    @field_validator("received_at")
+    @classmethod
+    def normalize_received_at(cls, received_at: datetime) -> datetime:
+        try:
+            return normalize_aware_utc(received_at)
+        except InvalidRecurringScheduleError as exc:
+            raise ValueError(str(exc)) from exc
+
+
+class RecurringIncomeReceivedResponse(BaseModel):
+    transaction: TransactionResponse
+    rule: RecurringRuleResponse
+
+
 class RecurringExpenseReminderResponse(BaseModel):
     reminder_key: str
     period_key: str
