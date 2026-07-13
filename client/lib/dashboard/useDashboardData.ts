@@ -6,6 +6,7 @@ import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import type { components } from "@/generated/api-types";
 
+type AccountListResponse = components["schemas"]["AccountListResponse"];
 type CategoryListResponse = components["schemas"]["CategoryListResponse"];
 type DashboardPeriod = components["schemas"]["DashboardPeriod"];
 type DashboardReportResponse = components["schemas"]["DashboardReportResponse"];
@@ -22,6 +23,7 @@ export type DashboardChartBucket = {
 export type RecentDashboardTransaction = {
   amount: number;
   category: string;
+  currency: string;
   date: string;
   id: string;
   note: string;
@@ -74,7 +76,7 @@ export function useDashboardData() {
     setTransactionsError(null);
 
     try {
-      const [transactionList, categoryList] = await Promise.all([
+      const [transactionList, categoryList, accountList] = await Promise.all([
         apiGet<TransactionListResponse>("/api/v1/transactions", {
           params: {
             limit: 6,
@@ -85,15 +87,28 @@ export function useDashboardData() {
             limit: 100,
           },
         }),
+        apiGet<AccountListResponse>("/api/v1/accounts", {
+          params: {
+            include_archived: false,
+            limit: 100,
+          },
+        }),
       ]);
 
       const categoryNames = new Map(
         categoryList.items.map((category) => [category.id, category.name]),
       );
+      const accountCurrencies = new Map(
+        accountList.items.map((account) => [account.id, account.currency]),
+      );
 
       setTransactions(
         transactionList.items.map((transaction) =>
-          toRecentDashboardTransaction(transaction, categoryNames),
+          toRecentDashboardTransaction(
+            transaction,
+            categoryNames,
+            accountCurrencies,
+          ),
         ),
       );
       setTransactionsStatus("success");
@@ -141,6 +156,7 @@ export function useDashboardData() {
 function toRecentDashboardTransaction(
   transaction: TransactionResponse,
   categoryNames: Map<string, string>,
+  accountCurrencies: Map<string, string>,
 ): RecentDashboardTransaction {
   const transactionDate = new Date(transaction.transaction_at);
   const isTransfer = transaction.type.startsWith("transfer");
@@ -152,6 +168,10 @@ function toRecentDashboardTransaction(
     category:
       (transaction.category_id && categoryNames.get(transaction.category_id)) ||
       (isTransfer ? transferLabel : "Other"),
+    currency:
+      accountCurrencies.get(transaction.account_id) ??
+      transaction.currency ??
+      "USD",
     date: transactionDate.toLocaleTimeString("en-US", {
       hour: "2-digit",
       hour12: false,

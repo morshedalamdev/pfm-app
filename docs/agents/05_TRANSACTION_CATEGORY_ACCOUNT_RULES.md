@@ -335,3 +335,43 @@ No repository-owned production transaction mock-data module was found. Transacti
 - Account `current_balance` now includes income and expense transaction effects for that account.
 - Transaction edits that change amount or selected account now adjust both affected account balances through ledger recomputation.
 - Voiding a transaction now removes its effect from the selected account balance.
+
+## Phase 05.6 — Account Currency Applied to Transaction Lists
+
+## Currency Source
+
+- Transaction list rows resolve the current currency from the account referenced by `transaction.account_id`.
+- Home recent transaction rows load the same account data and retain the resolved account currency in their view model.
+- No currency conversion is performed; each amount is formatted directly in its selected account currency.
+
+## Legacy Transaction Fallback
+
+- If the referenced account is unavailable from the active account list, display falls back to the transaction's stored `currency` value.
+- The shared transaction card retains `USD` as the final safe fallback when no currency is supplied.
+
+## List Display
+
+- The shared transaction card now formats row amounts through `formatMoney(amount, currency)` instead of a hard-coded dollar sign.
+- Income and transfer-credit rows retain the positive sign; expense and debit rows retain the negative sign.
+- The transaction-page activity footer groups totals by resolved currency instead of combining mixed-currency amounts under USD.
+- Home recent transaction cards use the same selected-account currency rule.
+
+## Detail Display
+
+- The transaction detail drawer uses the same resolved currency passed to its row card.
+- Row and detail displays therefore stay consistent for USD, BDT, CNY, and every other supported account currency.
+- Recurring labels and behavior were not changed.
+
+## Phase 05.6 Check Results
+
+- `cd client && npm run build`: passed after an approved rerun allowed the configured Google-hosted Urbanist font fetch.
+- `cd client && npm run api:check`: passed; generated API artifacts are up to date.
+- `git diff --check`: passed.
+- `cd client && npm run lint`, `npm run typecheck`, and `npm test` were unavailable because those scripts do not exist.
+- No backend tests were required because phase 05.6 changes frontend display formatting only.
+
+## Phase 05.6 Bugs Fixed
+
+- Transaction list and detail amounts no longer use a hard-coded dollar sign.
+- Home recent transactions now display the selected account currency.
+- Mixed-currency transaction activity is no longer presented as one USD total.

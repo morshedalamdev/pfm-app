@@ -168,6 +168,7 @@ export default function HomePage() {
                 key={transaction.id}
                 type={transaction.type}
                 category={transaction.category}
+                currency={transaction.currency}
                 note={transaction.note}
                 amount={transaction.amount}
                 date={transaction.date}

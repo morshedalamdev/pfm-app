@@ -156,6 +156,23 @@ export default function TransactionPage() {
     return Array.from(groups.entries());
   }, [transactions]);
 
+  const activityTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    transactions.forEach((transaction) => {
+      const currency =
+        accountById.get(transaction.account_id)?.currency ??
+        transaction.currency ??
+        "USD";
+      totals.set(
+        currency,
+        (totals.get(currency) ?? 0) + Number(transaction.amount),
+      );
+    });
+    return Array.from(totals, ([currency, amount]) =>
+      formatMoney(amount, currency),
+    );
+  }, [accountById, transactions]);
+
   async function handleDelete(id: string) {
     setDeletingId(id);
     setDeleteError(null);
@@ -227,19 +244,23 @@ export default function TransactionPage() {
                 const category = transaction.category_id
                   ? categoryById.get(transaction.category_id)?.name
                   : undefined;
-                const account = accountById.get(transaction.account_id)?.name;
+                const account = accountById.get(transaction.account_id);
+                const accountName = account?.name;
+                const currency =
+                  account?.currency ?? transaction.currency ?? "USD";
                 return (
                   <TransactionItem
                     key={transaction.id}
                     amount={Number(transaction.amount)}
-                    category={category ?? account ?? "Transfer"}
+                    category={category ?? accountName ?? "Transfer"}
+                    currency={currency}
                     date={displayTime(transaction.transaction_at)}
                     deleteError={
                       deletingId === transaction.id ? deleteError : null
                     }
                     editHref={`/transaction/${transaction.id}`}
                     isDeleting={deletingId === transaction.id}
-                    note={transaction.description ?? account ?? ""}
+                    note={transaction.description ?? accountName ?? ""}
                     onDelete={() => void handleDelete(transaction.id)}
                     recurringLabel="No"
                     transactionDate={displayDate(transaction.transaction_at)}
@@ -252,12 +273,7 @@ export default function TransactionPage() {
         {!isLoading && !error && transactions.length > 0 && (
           <p className="text-input text-xs">
             Showing {transactions.length} transactions in{" "}
-            {formatMoney(
-              transactions.reduce(
-                (total, transaction) => total + Number(transaction.amount),
-                0,
-              ),
-            )}{" "}
+            {activityTotals.join(" + ")}{" "}
             activity.
           </p>
         )}
