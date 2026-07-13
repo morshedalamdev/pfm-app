@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast
 
@@ -18,16 +20,33 @@ from app.modules.recurring.pagination import (
 )
 from app.modules.recurring.repositories import RecurringRuleRepository
 from app.modules.recurring.schedule import (
+    calculate_monthly_due_at,
     calculate_next_run_on_or_after,
     initial_next_run_at,
+    is_monthly_expense_due,
+    is_monthly_income_due,
+    recurring_period_key,
     validate_schedule_bounds,
 )
 from app.modules.recurring.schemas import (
+    RecurringExpensePaidRequest,
+    RecurringExpensePaidResponse,
+    RecurringExpenseReminderListResponse,
+    RecurringExpenseReminderResponse,
+    RecurringIncomeReceivedRequest,
+    RecurringIncomeReceivedResponse,
+    RecurringIncomeReminderListResponse,
+    RecurringIncomeReminderResponse,
     RecurringRuleCreateRequest,
     RecurringRuleListResponse,
     RecurringRuleResponse,
     RecurringRuleStatus,
     RecurringRuleUpdateRequest,
+)
+from app.modules.transactions.schemas import TransactionCreateRequest
+from app.modules.transactions.services import (
+    InvalidTransactionReferenceError,
+    TransactionService,
 )
 from app.modules.users.models import User
 
@@ -48,16 +67,34 @@ class InvalidRecurringRuleStateError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class DueRecurringExpense:
+    rule: RecurringRule
+    reminder_key: str
+    period_key: str
+    due_at: datetime
+
+
+@dataclass(frozen=True)
+class DueRecurringIncome:
+    rule: RecurringRule
+    reminder_key: str
+    period_key: str
+    due_at: datetime
+
+
 class RecurringRuleService:
     def __init__(
         self,
         rules: RecurringRuleRepository,
         accounts: AccountRepository,
         categories: CategoryRepository,
+        transactions: TransactionService,
     ) -> None:
         self.rules = rules
         self.accounts = accounts
         self.categories = categories
+        self.transactions = transactions
 
     async def create_rule(
         self,
@@ -138,6 +175,194 @@ class RecurringRuleService:
     ) -> RecurringRuleResponse:
         rule = await self.get_rule_model(rule_id, current_user)
         return self.build_rule_response(rule)
+
+    async def list_due_expense_reminders(
+        self,
+        current_user: User,
+        *,
+        current_at: datetime | None = None,
+    ) -> RecurringExpenseReminderListResponse:
+        effective_current_at = current_at or datetime.now(UTC)
+        rules = await self.rules.list_active_monthly_expenses(current_user.id)
+        reminders = build_due_recurring_expense_queue(
+            rules,
+            current_at=effective_current_at,
+        )
+        return RecurringExpenseReminderListResponse(
+            items=[
+                RecurringExpenseReminderResponse(
+                    reminder_key=reminder.reminder_key,
+                    period_key=reminder.period_key,
+                    due_at=reminder.due_at,
+                    rule=self.build_rule_response(reminder.rule),
+                )
+                for reminder in reminders
+            ]
+        )
+
+    async def list_due_income_reminders(
+        self,
+        current_user: User,
+        *,
+        current_at: datetime | None = None,
+    ) -> RecurringIncomeReminderListResponse:
+        effective_current_at = current_at or datetime.now(UTC)
+        rules = await self.rules.list_active_monthly_incomes(current_user.id)
+        reminders = build_due_recurring_income_queue(
+            rules,
+            current_at=effective_current_at,
+        )
+        return RecurringIncomeReminderListResponse(
+            items=[
+                RecurringIncomeReminderResponse(
+                    reminder_key=reminder.reminder_key,
+                    period_key=reminder.period_key,
+                    due_at=reminder.due_at,
+                    rule=self.build_rule_response(reminder.rule),
+                )
+                for reminder in reminders
+            ]
+        )
+
+    async def mark_expense_paid(
+        self,
+        rule_id: uuid.UUID,
+        request: RecurringExpensePaidRequest,
+        current_user: User,
+        *,
+        current_at: datetime | None = None,
+    ) -> RecurringExpensePaidResponse:
+        effective_current_at = current_at or datetime.now(UTC)
+        rule = await self.rules.get_owned_for_update(rule_id, current_user.id)
+        if rule is None:
+            raise RecurringRuleNotFoundError
+        if (
+            rule.status != "active"
+            or rule.archived_at is not None
+            or rule.transaction_type != "expense"
+            or rule.frequency != "monthly"
+        ):
+            raise InvalidRecurringRuleStateError
+
+        period_key = recurring_period_key(
+            effective_current_at,
+            timezone=rule.timezone,
+        )
+        is_replay = rule.last_paid_period == period_key
+        if not is_replay and (
+            (rule.end_at is not None and effective_current_at >= rule.end_at)
+            or not is_monthly_expense_due(
+                transaction_type=rule.transaction_type,
+                frequency=rule.frequency,
+                status=rule.status,
+                first_due_at=rule.start_at,
+                current_at=effective_current_at,
+                timezone=rule.timezone,
+                last_paid_period=rule.last_paid_period,
+                interval_count=rule.interval_count,
+            )
+        ):
+            raise InvalidRecurringRuleStateError
+
+        transaction_request = TransactionCreateRequest(
+            account_id=rule.account_id,
+            category_id=rule.category_id,
+            type="expense",
+            amount=rule.amount,
+            transaction_at=request.paid_at,
+            description=rule.description,
+        )
+        try:
+            transaction = await self.transactions.create_transaction(
+                transaction_request,
+                current_user,
+                f"recurring-expense-paid:{rule.id}:{period_key}",
+                commit=False,
+            )
+        except InvalidTransactionReferenceError as exc:
+            raise InvalidRecurringRuleReferenceError from exc
+
+        rule.last_paid_period = period_key
+        try:
+            await self.rules.commit()
+            await self.rules.refresh(rule)
+        except Exception:
+            await self.rules.rollback()
+            raise
+        return RecurringExpensePaidResponse(
+            transaction=transaction,
+            rule=self.build_rule_response(rule),
+        )
+
+    async def mark_income_received(
+        self,
+        rule_id: uuid.UUID,
+        request: RecurringIncomeReceivedRequest,
+        current_user: User,
+        *,
+        current_at: datetime | None = None,
+    ) -> RecurringIncomeReceivedResponse:
+        effective_current_at = current_at or datetime.now(UTC)
+        rule = await self.rules.get_owned_for_update(rule_id, current_user.id)
+        if rule is None:
+            raise RecurringRuleNotFoundError
+        if (
+            rule.status != "active"
+            or rule.archived_at is not None
+            or rule.transaction_type != "income"
+            or rule.frequency != "monthly"
+        ):
+            raise InvalidRecurringRuleStateError
+
+        period_key = recurring_period_key(
+            effective_current_at,
+            timezone=rule.timezone,
+        )
+        is_replay = rule.last_received_period == period_key
+        if not is_replay and (
+            (rule.end_at is not None and effective_current_at >= rule.end_at)
+            or not is_monthly_income_due(
+                transaction_type=rule.transaction_type,
+                frequency=rule.frequency,
+                status=rule.status,
+                first_due_at=rule.start_at,
+                current_at=effective_current_at,
+                timezone=rule.timezone,
+                last_received_period=rule.last_received_period,
+                interval_count=rule.interval_count,
+            )
+        ):
+            raise InvalidRecurringRuleStateError
+
+        transaction_request = TransactionCreateRequest(
+            account_id=rule.account_id,
+            category_id=rule.category_id,
+            type="income",
+            amount=rule.amount,
+            transaction_at=request.received_at,
+            description=rule.description,
+        )
+        try:
+            transaction = await self.transactions.create_transaction(
+                transaction_request,
+                current_user,
+                f"recurring-income-received:{rule.id}:{period_key}",
+                commit=False,
+            )
+        except InvalidTransactionReferenceError as exc:
+            raise InvalidRecurringRuleReferenceError from exc
+
+        rule.last_received_period = period_key
+        try:
+            await self.rules.commit()
+            await self.rules.refresh(rule)
+        except Exception:
+            await self.rules.rollback()
+            raise
+        return RecurringIncomeReceivedResponse(
+            transaction=transaction,
+            rule=self.build_rule_response(rule),
+        )
 
     async def update_rule(
         self,
@@ -303,6 +528,8 @@ class RecurringRuleService:
             next_run_at=rule.next_run_at,
             last_run_at=rule.last_run_at,
             last_run_key=rule.last_run_key,
+            last_paid_period=rule.last_paid_period,
+            last_received_period=rule.last_received_period,
             run_count=rule.run_count,
             status=cast(RecurringRuleStatus, rule.status),
             paused_at=rule.paused_at,
@@ -310,3 +537,91 @@ class RecurringRuleService:
             created_at=rule.created_at,
             updated_at=rule.updated_at,
         )
+
+
+def build_due_recurring_expense_queue(
+    rules: Sequence[RecurringRule],
+    *,
+    current_at: datetime,
+) -> list[DueRecurringExpense]:
+    reminders: dict[str, DueRecurringExpense] = {}
+    for rule in rules:
+        if rule.end_at is not None and current_at >= rule.end_at:
+            continue
+        if not is_monthly_expense_due(
+            transaction_type=rule.transaction_type,
+            frequency=rule.frequency,
+            status=rule.status,
+            first_due_at=rule.start_at,
+            current_at=current_at,
+            timezone=rule.timezone,
+            last_paid_period=rule.last_paid_period,
+            interval_count=rule.interval_count,
+        ):
+            continue
+        period_key = recurring_period_key(current_at, timezone=rule.timezone)
+        period_year, period_month = (int(part) for part in period_key.split("-"))
+        due_at = calculate_monthly_due_at(
+            first_due_at=rule.start_at,
+            period_year=period_year,
+            period_month=period_month,
+            timezone=rule.timezone,
+        )
+        reminder_key = f"{rule.id}:{period_key}"
+        reminders.setdefault(
+            reminder_key,
+            DueRecurringExpense(
+                rule=rule,
+                reminder_key=reminder_key,
+                period_key=period_key,
+                due_at=due_at,
+            ),
+        )
+    return sorted(
+        reminders.values(),
+        key=lambda reminder: (reminder.due_at, reminder.rule.id),
+    )
+
+
+def build_due_recurring_income_queue(
+    rules: Sequence[RecurringRule],
+    *,
+    current_at: datetime,
+) -> list[DueRecurringIncome]:
+    reminders: dict[str, DueRecurringIncome] = {}
+    for rule in rules:
+        if rule.end_at is not None and current_at >= rule.end_at:
+            continue
+        if not is_monthly_income_due(
+            transaction_type=rule.transaction_type,
+            frequency=rule.frequency,
+            status=rule.status,
+            first_due_at=rule.start_at,
+            current_at=current_at,
+            timezone=rule.timezone,
+            last_received_period=rule.last_received_period,
+            interval_count=rule.interval_count,
+        ):
+            continue
+        period_key = recurring_period_key(current_at, timezone=rule.timezone)
+        period_year, period_month = (int(part) for part in period_key.split("-"))
+        due_at = calculate_monthly_due_at(
+            first_due_at=rule.start_at,
+            period_year=period_year,
+            period_month=period_month,
+            timezone=rule.timezone,
+        )
+        reminder_key = f"{rule.id}:{period_key}"
+        reminders.setdefault(
+            reminder_key,
+            DueRecurringIncome(
+                rule=rule,
+                reminder_key=reminder_key,
+                period_key=period_key,
+                due_at=due_at,
+            ),
+        )
+    return sorted(
+        reminders.values(),
+        key=lambda reminder: (reminder.due_at, reminder.rule.id),
+    )

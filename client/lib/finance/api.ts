@@ -32,6 +32,19 @@ export type LoanSettlementCreate =
 export type LoanSummary = components["schemas"]["LoanSummaryResponse"];
 export type RecurringRuleCreate =
   components["schemas"]["RecurringRuleCreateRequest"];
+export type RecurringRule = components["schemas"]["RecurringRuleResponse"];
+export type RecurringExpenseReminder =
+  components["schemas"]["RecurringExpenseReminderResponse"];
+export type RecurringIncomeReminder =
+  components["schemas"]["RecurringIncomeReminderResponse"];
+export type RecurringExpensePaidRequest =
+  components["schemas"]["RecurringExpensePaidRequest"];
+export type RecurringExpensePaidResponse =
+  components["schemas"]["RecurringExpensePaidResponse"];
+export type RecurringIncomeReceivedRequest =
+  components["schemas"]["RecurringIncomeReceivedRequest"];
+export type RecurringIncomeReceivedResponse =
+  components["schemas"]["RecurringIncomeReceivedResponse"];
 export type SavingsContributionCreate =
   components["schemas"]["SavingsContributionCreateRequest"];
 export type SavingsGoal = components["schemas"]["SavingsGoalResponse"];
@@ -54,7 +67,10 @@ type CategoryList = components["schemas"]["CategoryListResponse"];
 type LoanPersonList = components["schemas"]["LoanPersonListResponse"];
 type LoanRecordList = components["schemas"]["LoanRecordListResponse"];
 type LoanSettlementList = components["schemas"]["LoanSettlementListResponse"];
-type RecurringRule = components["schemas"]["RecurringRuleResponse"];
+type RecurringExpenseReminderList =
+  components["schemas"]["RecurringExpenseReminderListResponse"];
+type RecurringIncomeReminderList =
+  components["schemas"]["RecurringIncomeReminderListResponse"];
 type SavingsGoalList = components["schemas"]["SavingsGoalListResponse"];
 type SavingsTransferResponse =
   components["schemas"]["SavingsTransferResponse"];
@@ -292,6 +308,55 @@ export function createRecurringRule(body: RecurringRuleCreate) {
   return apiPost<RecurringRuleCreate, RecurringRule>(
     "/api/v1/recurring-rules",
     body,
+  );
+}
+
+export async function listDueRecurringExpenseReminders(config?: {
+  signal?: AbortSignal;
+}): Promise<RecurringExpenseReminder[]> {
+  const response = await apiGet<RecurringExpenseReminderList>(
+    "/api/v1/recurring-rules/due-expenses",
+    { signal: config?.signal },
+  );
+  return response.items;
+}
+
+export async function listDueRecurringIncomeReminders(config?: {
+  signal?: AbortSignal;
+}): Promise<RecurringIncomeReminder[]> {
+  const response = await apiGet<RecurringIncomeReminderList>(
+    "/api/v1/recurring-rules/due-incomes",
+    { signal: config?.signal },
+  );
+  return response.items;
+}
+
+export function markRecurringExpensePaid(
+  ruleId: string,
+  body: RecurringExpensePaidRequest,
+) {
+  return apiPost<RecurringExpensePaidRequest, RecurringExpensePaidResponse>(
+    apiPath(`/api/v1/recurring-rules/${ruleId}/paid`),
+    body,
+  );
+}
+
+export function markRecurringIncomeReceived(
+  ruleId: string,
+  body: RecurringIncomeReceivedRequest,
+) {
+  return apiPost<
+    RecurringIncomeReceivedRequest,
+    RecurringIncomeReceivedResponse
+  >(
+    apiPath(`/api/v1/recurring-rules/${ruleId}/received`),
+    body,
+  );
+}
+
+export function deleteRecurringRule(ruleId: string) {
+  return apiDelete<RecurringRule>(
+    apiPath(`/api/v1/recurring-rules/${ruleId}`),
   );
 }
 

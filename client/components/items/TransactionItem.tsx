@@ -1,4 +1,5 @@
 import { categoryIcons } from "@/lib/categoryIcons";
+import { formatMoney } from "@/lib/finance/format";
 import { Clock } from "lucide-react";
 import {
   Drawer,
@@ -23,6 +24,7 @@ import {
 type TransactionItemProps = {
   amount: number;
   category: string;
+  currency?: string;
   date: string;
   deleteError?: string | null;
   editHref?: string;
@@ -37,6 +39,7 @@ type TransactionItemProps = {
 export default function TransactionItem({
   amount,
   category,
+  currency = "USD",
   date,
   deleteError,
   editHref = "/transaction/edit",
@@ -52,7 +55,10 @@ export default function TransactionItem({
     categoryIcons.find((i) => i.name === "Other");
   const isIncome = type === "income" || type === "transfer_credit";
   const isTransfer = type.startsWith("transfer");
-  const amountLabel = `${isIncome ? "+" : "-"}$${amount.toFixed(2)}`;
+  const amountLabel = `${isIncome ? "+" : "-"}${formatMoney(
+    amount,
+    currency,
+  )}`;
 
   return (
     <Drawer>
@@ -95,7 +101,9 @@ export default function TransactionItem({
             </h3>
             <p>{note}</p>
           </div>
-          <p className="col-span-2 font-bold text-3xl">${amount.toFixed(2)}</p>
+          <p className="col-span-2 font-bold text-3xl">
+            {formatMoney(amount, currency)}
+          </p>
           <p>
             <b>Type:</b> {type}
           </p>

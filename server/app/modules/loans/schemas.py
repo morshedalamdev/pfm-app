@@ -181,6 +181,7 @@ class LoanRecordUpdateRequest(BaseModel):
 
 
 class LoanSettlementCreateRequest(BaseModel):
+    account_id: uuid.UUID
     amount: PositiveMoney
     settled_at: datetime
     note: str | None = Field(default=None, max_length=500)
@@ -252,6 +253,7 @@ class LoanRecordListResponse(BaseModel):
 class LoanSettlementResponse(BaseModel):
     id: uuid.UUID
     record_id: uuid.UUID
+    account_id: uuid.UUID | None
     amount: Decimal
     currency: str
     settled_at: datetime

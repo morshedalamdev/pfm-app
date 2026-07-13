@@ -158,6 +158,12 @@ class LoanSettlement(Base):
             name="fk_loan_settlements_record_id_user_id_loan_records",
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["account_id", "user_id"],
+            ["accounts.id", "accounts.user_id"],
+            name="fk_loan_settlements_account_id_user_id_accounts",
+            ondelete="RESTRICT",
+        ),
         Index(
             "ix_loan_settlements_user_id_record_id_settled_at",
             "user_id",
@@ -168,6 +174,11 @@ class LoanSettlement(Base):
             "ix_loan_settlements_user_id_created_at",
             "user_id",
             "created_at",
+        ),
+        Index(
+            "ix_loan_settlements_user_id_account_id",
+            "user_id",
+            "account_id",
         ),
     )
 
@@ -182,6 +193,7 @@ class LoanSettlement(Base):
         nullable=False,
     )
     record_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     currency: Mapped[str] = mapped_column(
         String(3),

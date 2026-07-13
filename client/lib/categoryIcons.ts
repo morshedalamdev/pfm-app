@@ -17,7 +17,9 @@ import {
   Plane,
   Scissors,
   CreditCard,
+  Coffee,
   MoreHorizontal,
+  PartyPopper,
 } from "lucide-react";
 
 export const categoryIcons = [
@@ -68,6 +70,18 @@ export const categoryIcons = [
   {
     name: "Entertainment",
     icon: Film,
+  },
+  {
+    name: "Hangout",
+    icon: Coffee,
+  },
+  {
+    name: "Vacation",
+    icon: Plane,
+  },
+  {
+    name: "Party",
+    icon: PartyPopper,
   },
   {
     name: "Health",

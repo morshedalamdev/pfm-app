@@ -58,12 +58,10 @@
           "type": {
             "enum": [
               "cash",
-              "bank",
-              "card",
-              "mobile_pay",
-              "wallet",
-              "savings",
-              "other"
+              "debit_card",
+              "credit_card",
+              "bank_account",
+              "mobile_banking"
             ],
             "title": "Type",
             "type": "string"
@@ -92,7 +90,8 @@
               "enum": [
                 "transaction",
                 "recurring_rule",
-                "loan_not_connected"
+                "loan_record",
+                "loan_settlement"
               ],
               "type": "string"
             },
@@ -284,12 +283,10 @@
               {
                 "enum": [
                   "cash",
-                  "bank",
-                  "card",
-                  "mobile_pay",
-                  "wallet",
-                  "savings",
-                  "other"
+                  "debit_card",
+                  "credit_card",
+                  "bank_account",
+                  "mobile_banking"
                 ],
                 "type": "string"
               },
@@ -1525,6 +1522,11 @@
       },
       "LoanSettlementCreateRequest": {
         "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
           "amount": {
             "description": "Decimal string with up to 18 digits and 4 decimal places.",
             "examples": [
@@ -1553,6 +1555,7 @@
           }
         },
         "required": [
+          "account_id",
           "amount",
           "settled_at"
         ],
@@ -1594,6 +1597,18 @@
       },
       "LoanSettlementResponse": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
           "amount": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount",
@@ -1638,6 +1653,7 @@
         "required": [
           "id",
           "record_id",
+          "account_id",
           "amount",
           "currency",
           "settled_at",
@@ -2186,6 +2202,154 @@
         "title": "ReceiptResponse",
         "type": "object"
       },
+      "RecurringExpensePaidRequest": {
+        "properties": {
+          "paid_at": {
+            "format": "date-time",
+            "title": "Paid At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paid_at"
+        ],
+        "title": "RecurringExpensePaidRequest",
+        "type": "object"
+      },
+      "RecurringExpensePaidResponse": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionResponse"
+          }
+        },
+        "required": [
+          "transaction",
+          "rule"
+        ],
+        "title": "RecurringExpensePaidResponse",
+        "type": "object"
+      },
+      "RecurringExpenseReminderListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RecurringExpenseReminderResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RecurringExpenseReminderListResponse",
+        "type": "object"
+      },
+      "RecurringExpenseReminderResponse": {
+        "properties": {
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "period_key": {
+            "title": "Period Key",
+            "type": "string"
+          },
+          "reminder_key": {
+            "title": "Reminder Key",
+            "type": "string"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          }
+        },
+        "required": [
+          "reminder_key",
+          "period_key",
+          "due_at",
+          "rule"
+        ],
+        "title": "RecurringExpenseReminderResponse",
+        "type": "object"
+      },
+      "RecurringIncomeReceivedRequest": {
+        "properties": {
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "received_at"
+        ],
+        "title": "RecurringIncomeReceivedRequest",
+        "type": "object"
+      },
+      "RecurringIncomeReceivedResponse": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionResponse"
+          }
+        },
+        "required": [
+          "transaction",
+          "rule"
+        ],
+        "title": "RecurringIncomeReceivedResponse",
+        "type": "object"
+      },
+      "RecurringIncomeReminderListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RecurringIncomeReminderResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RecurringIncomeReminderListResponse",
+        "type": "object"
+      },
+      "RecurringIncomeReminderResponse": {
+        "properties": {
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "period_key": {
+            "title": "Period Key",
+            "type": "string"
+          },
+          "reminder_key": {
+            "title": "Reminder Key",
+            "type": "string"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          }
+        },
+        "required": [
+          "reminder_key",
+          "period_key",
+          "due_at",
+          "rule"
+        ],
+        "title": "RecurringIncomeReminderResponse",
+        "type": "object"
+      },
       "RecurringRuleCreateRequest": {
         "properties": {
           "account_id": {
@@ -2387,6 +2551,28 @@
             "title": "Interval Count",
             "type": "integer"
           },
+          "last_paid_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Paid Period"
+          },
+          "last_received_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Received Period"
+          },
           "last_run_at": {
             "anyOf": [
               {
@@ -2475,6 +2661,8 @@
           "next_run_at",
           "last_run_at",
           "last_run_key",
+          "last_paid_period",
+          "last_received_period",
           "run_count",
           "status",
           "paused_at",
@@ -6676,6 +6864,58 @@
         ]
       }
     },
+    "/api/v1/recurring-rules/due-expenses": {
+      "get": {
+        "operationId": "list_due_recurring_expenses_api_v1_recurring_rules_due_expenses_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpenseReminderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Due Recurring Expenses",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
+    "/api/v1/recurring-rules/due-incomes": {
+      "get": {
+        "operationId": "list_due_recurring_incomes_api_v1_recurring_rules_due_incomes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringIncomeReminderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Due Recurring Incomes",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
     "/api/v1/recurring-rules/{rule_id}": {
       "delete": {
         "operationId": "archive_recurring_rule_api_v1_recurring_rules__rule_id__delete",
@@ -6823,6 +7063,63 @@
         ]
       }
     },
+    "/api/v1/recurring-rules/{rule_id}/paid": {
+      "post": {
+        "operationId": "mark_recurring_expense_paid_api_v1_recurring_rules__rule_id__paid_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringExpensePaidRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpensePaidResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Recurring Expense Paid",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
     "/api/v1/recurring-rules/{rule_id}/pause": {
       "post": {
         "operationId": "pause_recurring_rule_api_v1_recurring_rules__rule_id__pause_post",
@@ -6865,6 +7162,63 @@
           }
         ],
         "summary": "Pause Recurring Rule",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
+    "/api/v1/recurring-rules/{rule_id}/received": {
+      "post": {
+        "operationId": "mark_recurring_income_received_api_v1_recurring_rules__rule_id__received_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringIncomeReceivedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringIncomeReceivedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Recurring Income Received",
         "tags": [
           "recurring"
         ]

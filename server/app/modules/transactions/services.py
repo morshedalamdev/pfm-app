@@ -100,6 +100,8 @@ class TransactionService:
         request: TransactionCreateRequest,
         current_user: User,
         idempotency_key: str | None = None,
+        *,
+        commit: bool = True,
     ) -> TransactionResponse:
         if idempotency_key is not None:
             existing_response = await self.get_idempotent_response(
@@ -140,7 +142,8 @@ class TransactionService:
                 current_user=current_user,
                 response=response,
             )
-            await self.transactions.commit()
+            if commit:
+                await self.transactions.commit()
         except Exception:
             await self.transactions.rollback()
             raise
@@ -531,7 +534,7 @@ class TransactionService:
         current_user: User,
     ) -> Account:
         account = await self.accounts.get_owned(account_id, current_user.id)
-        if account is None or account.archived_at is not None:
+        if account is None or account.archived_at is not None or account.is_disabled:
             raise InvalidTransactionReferenceError
         return account
 

@@ -209,7 +209,11 @@ def test_loan_record_partial_settlement_and_summary_lifecycle(
     over_settle_response = context.client.post(
         f"/api/v1/loans/records/{given_record['id']}/settlements",
         headers=headers,
-        json={"amount": "80.0000", "settled_at": "2026-07-04T10:00:00+00:00"},
+        json={
+            "account_id": get_default_account_id(context, headers),
+            "amount": "80.0000",
+            "settled_at": "2026-07-04T10:00:00+00:00",
+        },
     )
     assert over_settle_response.status_code == 409
 
@@ -327,7 +331,11 @@ def test_loan_validation_ownership_cursors_and_openapi(
         context.client.post(
             f"/api/v1/loans/records/{record['id']}/settlements",
             headers=other_headers,
-            json={"amount": "1.0000", "settled_at": "2026-07-02T10:00:00+00:00"},
+            json={
+                "account_id": other_account_id,
+                "amount": "1.0000",
+                "settled_at": "2026-07-02T10:00:00+00:00",
+            },
         ).status_code
         == 404
     )
@@ -598,6 +606,71 @@ def test_loan_balance_effects_apply_once_and_follow_existing_edits(
     )
 
 
+def test_loan_settlements_apply_to_the_selected_account(
+    loan_context: LoanApiContext,
+) -> None:
+    context = loan_context
+    headers = auth_headers(context, "loan-settlement-account@example.com")
+    person = create_person(
+        context,
+        headers,
+        name="Settlement person",
+        phone_number="+8801788888888",
+    )
+    loan_account = create_account(context, headers, name="Loan source")
+    settlement_account = create_account(context, headers, name="Settlement wallet")
+
+    given_record = create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        account_id=loan_account["id"],
+        direction="given",
+        principal_amount="20.0000",
+        issued_at="2026-07-01T10:00:00+00:00",
+    )
+    assert get_account_balance(context, headers, loan_account["id"]) == Decimal(
+        "80.0000"
+    )
+    given_settlement = create_settlement(
+        context,
+        headers,
+        given_record["id"],
+        account_id=settlement_account["id"],
+        amount="7.0000",
+        settled_at="2026-07-02T10:00:00+00:00",
+    )
+    assert given_settlement["account_id"] == settlement_account["id"]
+    assert get_account_balance(
+        context, headers, settlement_account["id"]
+    ) == Decimal("107.0000")
+
+    taken_record = create_record(
+        context,
+        headers,
+        person_id=person["id"],
+        account_id=loan_account["id"],
+        direction="taken",
+        principal_amount="10.0000",
+        issued_at="2026-07-03T10:00:00+00:00",
+    )
+    assert get_account_balance(context, headers, loan_account["id"]) == Decimal(
+        "90.0000"
+    )
+    taken_settlement = create_settlement(
+        context,
+        headers,
+        taken_record["id"],
+        account_id=settlement_account["id"],
+        amount="4.0000",
+        settled_at="2026-07-04T10:00:00+00:00",
+    )
+    assert taken_settlement["account_id"] == settlement_account["id"]
+    assert get_account_balance(
+        context, headers, settlement_account["id"]
+    ) == Decimal("103.0000")
+
+
 def auth_headers(context: LoanApiContext, email: str) -> dict[str, str]:
     register_response = context.client.post(
         "/api/v1/auth/register",
@@ -710,13 +783,18 @@ def create_settlement(
     headers: dict[str, str],
     record_id: object,
     *,
+    account_id: object | None = None,
     amount: str,
     settled_at: str,
 ) -> dict[str, object]:
     response = context.client.post(
         f"/api/v1/loans/records/{record_id}/settlements",
         headers=headers,
-        json={"amount": amount, "settled_at": settled_at},
+        json={
+            "account_id": account_id or get_default_account_id(context, headers),
+            "amount": amount,
+            "settled_at": settled_at,
+        },
     )
     assert response.status_code == 201
     return dict(response.json())

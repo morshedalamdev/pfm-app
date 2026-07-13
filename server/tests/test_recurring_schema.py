@@ -69,6 +69,8 @@ def test_recurring_rule_model_schema() -> None:
         "next_run_at",
         "last_run_at",
         "last_run_key",
+        "last_paid_period",
+        "last_received_period",
         "run_count",
         "status",
         "paused_at",
@@ -83,6 +85,8 @@ def test_recurring_rule_model_schema() -> None:
     assert table.columns.frequency.type.length == 20
     assert table.columns.timezone.type.length == 64
     assert table.columns.last_run_key.type.length == 160
+    assert table.columns.last_paid_period.type.length == 7
+    assert table.columns.last_received_period.type.length == 7
     assert table.columns.locked_by.type.length == 120
     assert table.columns.start_at.type.timezone is True
     assert table.columns.next_run_at.type.timezone is True
@@ -94,6 +98,8 @@ def test_recurring_rule_model_schema() -> None:
         "ck_recurring_rules_amount_positive",
         "ck_recurring_rules_interval_count_positive",
         "ck_recurring_rules_run_count_non_negative",
+        "ck_recurring_rules_last_paid_period_format",
+        "ck_recurring_rules_last_received_period_format",
         "ck_recurring_rules_lock_state_consistent",
     }.issubset(
         check_constraint_names(
@@ -253,6 +259,81 @@ def test_recurring_outbox_migration_persists_worker_constraints(
     )
 
 
+def test_recurring_completion_migration_up_down_up(
+    disposable_postgres_url: str,
+) -> None:
+    config = build_alembic_config(disposable_postgres_url)
+
+    command.downgrade(config, "base")
+    command.upgrade(config, "202607130602")
+    assert asyncio.run(
+        column_exists(
+            disposable_postgres_url,
+            "recurring_rules",
+            "last_paid_period",
+        )
+    )
+    assert asyncio.run(
+        check_constraint_exists(
+            disposable_postgres_url,
+            "recurring_rules",
+            "ck_recurring_rules_last_paid_period_format",
+        )
+    )
+
+    command.downgrade(config, "202607120502")
+    assert not asyncio.run(
+        column_exists(
+            disposable_postgres_url,
+            "recurring_rules",
+            "last_paid_period",
+        )
+    )
+
+    command.upgrade(config, "head")
+
+
+def test_recurring_income_completion_migration_up_down_up(
+    disposable_postgres_url: str,
+) -> None:
+    config = build_alembic_config(disposable_postgres_url)
+
+    command.downgrade(config, "base")
+    command.upgrade(config, "202607130702")
+    assert asyncio.run(
+        column_exists(
+            disposable_postgres_url,
+            "recurring_rules",
+            "last_received_period",
+        )
+    )
+    assert asyncio.run(
+        check_constraint_exists(
+            disposable_postgres_url,
+            "recurring_rules",
+            "ck_recurring_rules_last_received_period_format",
+        )
+    )
+
+    command.downgrade(config, "202607130602")
+    assert not asyncio.run(
+        column_exists(
+            disposable_postgres_url,
+            "recurring_rules",
+            "last_received_period",
+        )
+    )
+    assert asyncio.run(
+        column_exists(
+            disposable_postgres_url,
+            "recurring_rules",
+            "last_paid_period",
+        )
+    )
+
+    command.upgrade(config, "head")
+
+
 async def table_exists(database_url: str, table_name: str) -> bool:
     engine = build_async_engine(database_url)
 
@@ -263,6 +344,44 @@ async def table_exists(database_url: str, table_name: str) -> bool:
             )
     finally:
         await engine.dispose()
+
+
+async def column_exists(
+    database_url: str,
+    table_name: str,
+    column_name: str,
+) -> bool:
+    engine = build_async_engine(database_url)
+
+    try:
+        async with engine.connect() as connection:
+            columns = await connection.run_sync(
+                lambda sync_connection: inspect(sync_connection).get_columns(table_name)
+            )
+    finally:
+        await engine.dispose()
+
+    return any(column["name"] == column_name for column in columns)
+
+
+async def check_constraint_exists(
+    database_url: str,
+    table_name: str,
+    constraint_name: str,
+) -> bool:
+    engine = build_async_engine(database_url)
+
+    try:
+        async with engine.connect() as connection:
+            constraints = await connection.run_sync(
+                lambda sync_connection: inspect(sync_connection).get_check_constraints(
+                    table_name
+                )
+            )
+    finally:
+        await engine.dispose()
+
+    return any(constraint["name"] == constraint_name for constraint in constraints)
 
 
 async def foreign_key_exists(

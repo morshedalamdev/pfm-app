@@ -1,12 +1,12 @@
-# Agent 04 — Settings and Home Page Balance Rules
+# Agent 07 — Recurring Income Achievement Popup
 
 ## Agent Identity
 
-You are **Agent 04 — Settings and Home Page Balance Rules** for the `pfm-app` project.
+You are **Agent 07 — Recurring Income Achievement Popup** for the `pfm-app` project.
 
-Your job is to update the Settings and Home/Dashboard behavior so the user can control which balance source appears on the home page, and so home income/expense totals include only real transactions, not loans.
+Your job is to implement recurring **income** reminders as achievement-style popups. Recurring income must not be automatically added to an account. Instead, when an income item becomes due, the application must repeatedly show a green achievement popup until the user confirms that the income was received or deletes the recurring rule.
 
-Do not implement sidebar changes, account-page rules, loan/debt business logic, transaction-category updates, recurring popups, or backend architecture migration in this agent.
+Do not modify recurring expense behavior in this agent. Recurring expense behavior belongs to Agent 06 and must remain unchanged.
 
 ---
 
@@ -21,16 +21,20 @@ Live frontend: https://pfm.morshedalam.dev
 
 ## Required Git Branch
 
+Every agent must have its own GitHub branch.
+
+Before starting this agent, create and work only on this branch:
+
 ```bash
 git checkout main
 git pull
-git checkout -b feature/home-settings-balance-display
+git checkout -b feature/recurring-income-achievement-popup
 ```
 
 If the branch already exists:
 
 ```bash
-git checkout feature/home-settings-balance-display
+git checkout feature/recurring-income-achievement-popup
 git pull
 ```
 
@@ -38,16 +42,23 @@ git pull
 
 ## Required Previous Agents
 
-Agent 04 should run after these agents are completed and merged into `main`:
+Agent 07 should run only after these agents are completed and merged into `main`:
 
 ```text
 Agent 00 — Current App Audit
 Agent 01 — Sidebar and Navigation Update
 Agent 02 — Account Page and Account Rules
 Agent 03 — Loan and Debt Account Integration
+Agent 04 — Settings and Home Page Balance Rules
+Agent 05 — Transaction Category and Account Rules
+Agent 06 — Recurring Expense Warning Popup
 ```
 
-Read these files if they exist:
+Agent 07 depends on Agent 05 because confirming recurring income must create a normal income transaction using the selected account and account currency.
+
+Agent 07 should reuse shared recurring helpers from Agent 06 where appropriate, but it must not break or merge expense-specific behavior incorrectly.
+
+Before making changes, read these files if they exist:
 
 ```text
 docs/audit/00_CURRENT_APP_AUDIT.md
@@ -55,11 +66,13 @@ docs/audit/01_FEATURE_IMPLEMENTATION_CHECKLIST.md
 docs/audit/02_BASELINE_TEST_REPORT.md
 docs/agents/02_ACCOUNT_PAGE_AND_RULES.md
 docs/agents/02_ACCOUNT_TEST_REPORT.md
-docs/agents/03_LOAN_DEBT_ACCOUNT_INTEGRATION.md
-docs/agents/03_LOAN_DEBT_TEST_REPORT.md
+docs/agents/05_TRANSACTION_CATEGORY_ACCOUNT_RULES.md
+docs/agents/05_TRANSACTION_TEST_REPORT.md
+docs/agents/06_RECURRING_EXPENSE_WARNING_POPUP.md
+docs/agents/06_RECURRING_EXPENSE_TEST_REPORT.md
 ```
 
-If account/default-account behavior from Agent 02 is missing, stop and report that Agent 04 is blocked. Do not create a second account system.
+If transaction account selection, selected-account persistence, transaction balance effects, or recurring scheduling helpers are missing, stop and report that Agent 07 is blocked. Do not create duplicate transaction or recurrence systems.
 
 ---
 
@@ -81,11 +94,16 @@ Permission:
 Can I continue to the next phase?
 ```
 
-Do **not** explain the implementation. Do **not** provide long reasoning. Do **not** start the next phase without permission.
+Do **not** explain implementation details.  
+Do **not** provide long reasoning.  
+Do **not** start the next phase without permission.  
+Do **not** include architecture explanation in the final output.
 
 ---
 
 ## Required Phase Workflow
+
+Every phase must follow:
 
 ```text
 Think internally
@@ -101,145 +119,267 @@ Ask permission for next phase
 
 ---
 
-## Agent 04 Goal
+## Agent 07 Goal
 
-Implement:
+Implement the requested recurring income behavior.
 
-- User can set from Settings which account available balance should show on the Home page.
-- The same Settings list should also include budget if user already set a budget plan.
-- Home page income total should include only income transactions.
-- Home page expense total should include only expense transactions.
-- Home income/expense totals must not include loan/debt.
+Example requirement:
+
+```text
+Category: Salary
+Note: Job Salary
+Recurring: Monthly
+First income date: selected by user
+```
+
+Expected behavior:
+
+- The recurring income must not automatically add money to the selected account.
+- On the same due date in each following month, a green achievement popup appears.
+- Popup message should ask whether the user received the income, for example:
+  - `Have you received your "Job Salary"?`
+- The popup continues appearing on every app load from the due date until the end of that month.
+- The popup stops for that month only after the user clicks `Received`.
+- The recurring rule stops permanently if the user clicks `Delete`.
+- The popup can be temporarily dismissed using a close icon.
+- Closing does not mark it received and does not delete it.
+- If closed, it must appear again the next time the app is loaded during the same due window.
+- Popup must use achievement/success styling and green colors.
+- Clicking `Received` creates a normal income transaction using the date the user clicked `Received`.
+- The created income transaction must use the recurring rule's account, category, note, amount, and account currency.
+- The selected account balance must increase only when the user clicks `Received`.
 
 ---
 
-## Agent 04 Scope
+## Agent 07 Scope
 
-Agent 04 may change:
+Agent 07 may change:
 
-- Settings page/components.
-- Home/dashboard page/components.
-- Dashboard summary selectors/helpers.
-- Account balance display source selection.
-- Budget source selection if budget data already exists.
-- Home income/expense calculation logic.
-- State/store/API helpers required for home/settings behavior.
-- Tests related to home/settings calculations.
+- Recurring income data types/schemas/models.
+- Shared recurring helpers only when safely reusable.
+- Recurring income state/store/API behavior.
+- App-load recurring income detection.
+- Recurring-income achievement popup UI.
+- Received, Delete, and Close behavior.
+- Income transaction creation triggered by Received.
+- Account balance update through existing transaction behavior.
+- Persistence for monthly completion state.
+- Tests for recurring income behavior.
 - Agent documentation.
 
-Agent 04 must not implement:
+Agent 07 must not implement:
 
-- Account creation/edit/disable/delete/default logic.
-- Loan creation/account-balance effects.
-- Transaction category additions.
-- Transaction account selection.
-- Recurring expense/income popup behavior.
-- New budget-planning business logic beyond reading existing budget plan data.
+- Recurring expense behavior changes.
+- Warning popup styling for expenses.
+- General transaction category/account behavior already handled by Agent 05.
+- Loan/debt behavior.
+- Account creation/edit/disable/default logic.
+- Home/settings balance-source behavior.
+- Automatic addition of recurring income.
 - Currency conversion engine.
 
 ---
 
 ## Domain Rules
 
-### Home Balance Source Rule
+### Recurring Income Rule
 
-From Settings, user can choose the source shown as the main available balance on the Home page.
-
-Allowed sources:
+A recurring income rule should store enough information to reproduce the income later:
 
 ```text
-active accounts
-budget plans, only if budget plan data already exists
+id
+type = income
+category
+note
+amount
+accountId
+frequency
+firstDueDate
+active
+lastReceivedPeriod or completion history
+createdAt
 ```
 
-### Account Balance Display Rule
+Use project naming conventions.
 
-If selected source is an account:
+### Monthly Due Rule
+
+For monthly recurrence:
 
 ```text
-Home page shows that account's current/available balance
-Home page uses that account's currency
+due day = day from firstDueDate
+due period = each calendar month while rule is active
 ```
 
-### Budget Balance Display Rule
+If the original day does not exist in a shorter month, use the last valid day of that month.
 
-If selected source is a budget plan:
+Examples:
 
 ```text
-Home page shows budget remaining/available value based on existing budget data
-Home page uses budget currency if available, otherwise existing app convention
-Do not invent currency conversion
+January 31 → February 28 or 29
+March 31 → April 30
 ```
 
-### Income/Expense Total Rule
+Reuse tested date helpers from Agent 06 if they are generic and safe.
+
+### Due Window Rule
+
+Popup should be eligible to display:
 
 ```text
-Income total = income transactions only
-Expense total = expense transactions only
-Exclude taken loans from income
-Exclude given loans from expense
+from computed due date
+through the final day of that same month
 ```
 
-If loans and transactions share the same data list, add or use a discriminator/helper to filter loans out of home income/expense totals.
+Before due date:
+
+```text
+do not show popup
+```
+
+After the user marks it received for that month:
+
+```text
+do not show again during that month
+```
+
+If not received or deleted:
+
+```text
+show again on every app load during the due window
+```
+
+### Received Rule
+
+When user clicks `Received`:
+
+```text
+create a normal income transaction
+transaction date = date/time user clicked Received
+use recurring rule category
+use recurring rule note
+use recurring rule amount
+use recurring rule selected account
+increase only that account balance
+mark recurring rule completed for current month
+do not show popup again for current month
+keep recurring rule active for future months
+```
+
+### Delete Rule
+
+When user clicks `Delete`:
+
+```text
+deactivate or delete recurring rule according to existing persistence style
+do not create an income transaction
+do not change account balance
+do not show future reminders for this rule
+```
+
+Prefer soft deactivation if historical recurring metadata must be preserved.
+
+### Close Rule
+
+When user clicks close icon:
+
+```text
+close popup for current browser session/view only
+do not mark received
+do not deactivate rule
+do not update account balance
+show again on next app load during due window
+```
+
+### Styling Rule
+
+Recurring income popup must use:
+
+```text
+achievement/success visual mode
+green success color
+positive/achievement icon
+clear Received and Delete actions
+close icon
+```
+
+Use existing design-system components and colors.
 
 ---
 
-# Phase 04.1 — Settings and Home Baseline Audit
+# Phase 07.1 — Recurring Income Baseline and Dependency Audit
 
 ## Objective
 
-Audit current Settings and Home/Dashboard behavior before changing logic.
+Audit existing recurring income behavior and confirm Agent 05/06 dependencies exist.
 
 ## Tasks
 
-1. Read Agent 00, Agent 02, and Agent 03 docs if available.
-2. Inspect current Settings page/components.
-3. Inspect current Home/Dashboard page/components.
-4. Locate current home summary cards/calculations:
-   - available balance
-   - income total
-   - expense total
-   - savings/budget values if any
-5. Locate current data sources:
-   - account store/state/API
-   - budget store/state/API
-   - transaction store/state/API
-   - loan/debt store/state/API
-6. Confirm whether home currently includes loan/debt in income/expense totals.
-7. Confirm whether settings currently has dashboard/home display preferences.
+1. Read Agent 05 and Agent 06 docs if available.
+2. Inspect:
+   - recurring transaction fields
+   - income category handling
+   - recurring frequency options
+   - recurring date fields
+   - shared recurring state/store/API
+   - transaction creation service/helper
+   - account balance update behavior
+   - app shell/root layout where reminders are detected
+   - reminder queue from Agent 06
+   - existing success/achievement UI components
+3. Confirm whether recurring income currently:
+   - auto-creates transactions
+   - auto-adds balances
+   - only stores a flag
+   - has next due date
+   - has completion history
+4. Confirm Agent 05 provides:
+   - selected account on transaction
+   - account currency
+   - transaction creation helper
+   - income balance effect
+5. Confirm Agent 06 provides reusable:
+   - due-date helper
+   - due-window helper
+   - period key
+   - reminder queue or provider
+6. Identify which Agent 06 helpers can be reused without changing expense behavior.
+7. If dependencies are missing, stop and mark Agent 07 as blocked.
 8. Create or update:
 
 ```text
-docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md
+docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md
 ```
 
-9. Add this section:
+9. Add:
 
 ```md
-# Agent 04 — Settings and Home Page Balance Rules
+# Agent 07 — Recurring Income Achievement Popup
 
-## Phase 04.1 — Settings and Home Baseline Audit
+## Phase 07.1 — Baseline and Dependency Audit
 
 ## Files Inspected
 
-## Current Settings Behavior
+## Current Recurring Income Behavior
 
-## Current Home Dashboard Behavior
+## Existing Transaction Creation Flow
 
-## Current Balance Source
+## Existing Account Balance Flow
 
-## Current Income/Expense Calculation
+## Shared Helpers from Agent 06
 
-## Current Budget Data Availability
+## Existing Reminder Queue
 
-## Current Loan Inclusion Behavior
+## Existing Success UI Components
 
 ## Planned Files to Change
 
-## Risks
+## Blockers
 ```
 
 ## Tests to Run
+
+Run available commands only:
 
 ```bash
 cd client && npm run build
@@ -250,6 +390,7 @@ If available:
 ```bash
 cd client && npm run lint
 cd client && npm run typecheck
+cd client && npm test
 ```
 
 If backend tests exist and are relevant:
@@ -270,318 +411,477 @@ Do not invent missing scripts.
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.1: audit settings and home dashboard"
+git commit -m "agent 07 phase 07.1: audit recurring income behavior"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 04.2.
+Stop after the commit and ask permission before phase 07.2.
 
 ---
 
-# Phase 04.2 — Add Home Balance Source Setting
+# Phase 07.2 — Recurring Income Data Model and Due-Date Integration
 
 ## Objective
 
-Add a Settings option that allows the user to choose what balance source appears on the Home page.
+Add recurring-income state and reuse due-date helpers without showing the popup yet.
 
 ## Tasks
 
-1. Add or update Settings UI for `Home Balance Source`.
-2. Available source types should include:
-   - account
-   - budget, only if budget plan data exists
-3. Use existing UI controls and styling.
-4. Persist the selected source using the current project state persistence pattern.
-5. Store enough information to identify:
-   - source type
-   - source id
-6. Add safe fallback if selected source no longer exists.
-7. Do not implement budget creation.
-8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+1. Extend recurring income type/schema/model with required fields.
+2. Ensure recurring income stores:
+   - category
+   - note
+   - amount
+   - account ID
+   - frequency
+   - first due date
+   - active status
+   - monthly completion history or equivalent
+3. Reuse generic recurring date helpers from Agent 06 where safe.
+4. If Agent 06 helpers are expense-specific, refactor only the minimum needed into shared generic helpers.
+5. Do not change expense outputs or behavior.
+6. Add pure/testable helpers for:
+   - checking whether recurring income is due
+   - checking whether current period is already received
+   - identifying income reminder type
+7. Do not create transactions.
+8. Do not render popup.
+9. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 04.2 — Home Balance Source Setting
+## Phase 07.2 — Data Model and Due-Date Integration
 
-## Setting Name
+## Recurring Income Fields
 
-## Source Types
+## Reused Shared Helpers
 
-## Persistence Behavior
+## Refactored Helpers
 
-## Missing Source Fallback
+## Monthly Due Calculation
 
-## UI Behavior
+## Completion Period Key
+
+## Expense Regression Safety
+
+## Test Cases
 ```
 
 ## Tests to Run
 
-```bash
-cd client && npm run build
-```
+Required date test cases where supported:
 
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If backend tests exist:
-
-```bash
-cd server && pytest
+```text
+normal monthly date
+January 31 to February
+March 31 to April
+before due date
+on due date
+after due date within same month
+already received current month
+inactive rule
+expense helper behavior unchanged
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.2: add home balance source setting"
+git commit -m "agent 07 phase 07.2: add recurring income due logic"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 04.3.
+Stop after the commit and ask permission before phase 07.3.
 
 ---
 
-# Phase 04.3 — Include Accounts and Budget Plans in Settings Source List
+# Phase 07.3 — App-Load Detection and Shared Reminder Queue
 
 ## Objective
 
-Populate the Home Balance Source setting with active accounts and existing budget plans.
+Detect due recurring income whenever the web app loads.
 
 ## Tasks
 
-1. Load active accounts from Agent 02 account state/API.
-2. Exclude disabled accounts from new selection.
-3. If a disabled account was previously selected, apply fallback behavior.
-4. Load budget plans only if budget data already exists.
-5. Do not create new budget setup logic.
-6. Display source labels clearly:
-   - account name and currency
-   - budget name/period if available
-7. If no sources exist, show a clear empty state.
-8. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+1. Integrate recurring income detection into the existing reminder provider/queue.
+2. Load only active recurring income rules.
+3. Filter to rules:
+   - due now
+   - inside current due window
+   - not already received for current month
+4. Exclude:
+   - recurring expense rules from income detection
+   - deleted/inactive rules
+   - future rules
+   - already completed rules for current month
+5. Ensure both income and expense reminders can coexist.
+6. Define deterministic queue ordering.
+7. Prevent duplicate popup entries for the same rule/period.
+8. Do not auto-create transactions.
+9. Do not auto-change account balances.
+10. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 04.3 — Account and Budget Source Options
+## Phase 07.3 — App-Load Detection and Shared Reminder Queue
 
-## Account Source Rule
+## Detection Entry Point
 
-## Disabled Account Handling
+## Income Eligibility Filters
 
-## Budget Source Rule
+## Expense/Income Coexistence
 
-## Empty State
+## Queue Ordering
 
-## Labels
+## Duplicate Prevention
+
+## Excluded Rules
 ```
 
 ## Tests to Run
 
-```bash
-cd client && npm run build
-```
+Verify:
 
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If backend tests exist:
-
-```bash
-cd server && pytest
+```text
+income reminder detected
+expense reminder still detected
+income and expense reminders can coexist
+duplicate income reminders are prevented
+future income reminder is excluded
+received income reminder is excluded
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.3: populate home balance source options"
+git commit -m "agent 07 phase 07.3: detect due recurring income"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 04.4.
+Stop after the commit and ask permission before phase 07.4.
 
 ---
 
-# Phase 04.4 — Connect Home Available Balance to Selected Source
+# Phase 07.4 — Achievement Popup UI
 
 ## Objective
 
-Update the Home page available balance card to show the selected account or budget source.
+Build the recurring income achievement popup UI without implementing final actions yet.
 
 ## Tasks
 
-1. Read selected home balance source from settings state.
-2. If selected source is account:
-   - show selected account available/current balance
-   - format with selected account currency
-3. If selected source is budget:
-   - show selected budget remaining/available value from existing budget data
-   - format with budget currency or existing app convention
-4. Add fallback behavior:
-   - if selected source missing, choose default account if available
-   - if no default account, choose first active account if available
-   - if no account/budget, show safe empty state
-5. Update Home page label/subtitle if needed so user understands which balance is shown.
-6. Do not modify income/expense totals in this phase.
-7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+1. Build popup using existing dialog/alert-dialog components.
+2. Use green achievement/success visual style.
+3. Show a positive confirmation message, such as:
+
+```text
+Have you received your "Job Salary"?
+```
+
+4. Show:
+   - success/achievement icon
+   - category
+   - note
+   - amount
+   - selected account name
+   - selected account currency
+   - due date
+5. Add visible controls:
+   - `Received`
+   - `Delete`
+   - close icon
+6. Reuse reminder queue so multiple income/expense reminders show one at a time.
+7. Ensure mobile responsiveness.
+8. Ensure keyboard and accessibility behavior follow existing dialog patterns.
+9. Do not implement final Received/Delete behavior yet.
+10. Do not modify expense popup styling.
+11. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 04.4 — Home Balance Connected to Selected Source
+## Phase 07.4 — Achievement Popup UI
 
-## Account Display Rule
+## Confirmation Message
 
-## Budget Display Rule
+## Displayed Fields
 
-## Currency Display Rule
+## Green Achievement Styling
 
-## Fallback Rule
+## Actions
 
-## Empty State
+## Queue Behavior
+
+## Mobile Behavior
+
+## Accessibility
+
+## Expense Popup Safety
 ```
 
 ## Tests to Run
 
+Run build/lint/typecheck and UI tests if available.
+
+## Commit
+
 ```bash
-cd client && npm run build
+git add .
+git commit -m "agent 07 phase 07.4: add recurring income achievement popup"
 ```
 
-If available:
+## Stop Condition
 
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
+Stop after the commit and ask permission before phase 07.5.
+
+---
+
+# Phase 07.5 — Received Action
+
+## Objective
+
+Create a normal income transaction when user clicks `Received`.
+
+## Tasks
+
+1. Connect `Received` to existing transaction creation behavior from Agent 05.
+2. Created transaction must use:
+   - type: income
+   - recurring rule category
+   - recurring rule note
+   - recurring rule amount
+   - recurring rule account ID
+   - transaction date = actual date/time user clicked Received
+3. Apply income balance effect only once to selected account.
+4. Mark current recurring period as received/completed.
+5. Keep recurring rule active for future periods.
+6. Remove current reminder from queue.
+7. If another reminder exists, show next one.
+8. Prevent double-submit and duplicate transaction creation.
+9. Ensure Home income total includes the created income transaction exactly once.
+10. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
+
+```md
+## Phase 07.5 — Received Action
+
+## Created Transaction Fields
+
+## Transaction Date Rule
+
+## Account Balance Effect
+
+## Home Income Total Effect
+
+## Current-Period Completion
+
+## Duplicate Protection
+
+## Queue Advancement
 ```
 
-If backend tests exist:
+## Tests to Run
 
-```bash
-cd server && pytest
+Required tests where supported:
+
+```text
+Received creates exactly one income transaction
+Received uses click date
+Received uses recurring rule account
+Received increases selected account once
+Received updates Home income total once
+Received hides popup for current month
+Received keeps rule active for future month
+double click does not duplicate transaction
+expense behavior remains unchanged
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.4: connect home balance source"
+git commit -m "agent 07 phase 07.5: implement recurring income received action"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 04.5.
+Stop after the commit and ask permission before phase 07.6.
 
 ---
 
-# Phase 04.5 — Fix Home Income and Expense Totals to Exclude Loans
+# Phase 07.6 — Delete and Close Actions
 
 ## Objective
 
-Ensure Home page income/expense totals only include transaction income/expense, not loan/debt amounts.
+Implement permanent delete/deactivation and temporary dismissal behavior.
 
 ## Tasks
 
-1. Locate current income total calculation.
-2. Locate current expense total calculation.
-3. Add or update helpers/selectors so:
-   - income total includes income transactions only
-   - expense total includes expense transactions only
-   - taken loans are excluded from income total
-   - given loans are excluded from expense total
-4. If loans and transactions share a data structure:
-   - add/use a type discriminator
-   - filter loan/debt records out of income/expense calculations
-5. Do not change loan/debt page calculations.
-6. Do not change transaction creation behavior.
-7. Update `docs/agents/04_HOME_SETTINGS_BALANCE_DISPLAY.md` with:
+### Delete
+
+1. Delete or deactivate recurring income rule using existing persistence style.
+2. Prefer deactivation if historical metadata should remain.
+3. Do not create an income transaction.
+4. Do not change account balance.
+5. Remove reminder from queue.
+6. Prevent future reminders for this rule.
+
+### Close
+
+1. Close popup without changing recurring rule.
+2. Do not mark current month received.
+3. Do not create a transaction.
+4. Do not change account balance.
+5. Dismiss only current view/session.
+6. Ensure reminder appears again on next app load during due window.
+
+7. Do not modify recurring expense Delete/Close behavior.
+8. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
 
 ```md
-## Phase 04.5 — Home Income/Expense Totals Exclude Loans
+## Phase 07.6 — Delete and Close Actions
 
-## Income Calculation Rule
+## Delete Behavior
 
-## Expense Calculation Rule
+## Deactivation Strategy
 
-## Loan Exclusion Rule
+## Close Behavior
 
-## Shared Data Structure Handling
+## Next App-Load Behavior
 
-## Edge Cases
+## Balance Safety
+
+## Transaction Safety
+
+## Expense Regression Safety
 ```
 
 ## Tests to Run
 
-```bash
-cd client && npm run build
-```
+Required tests where supported:
 
-If available:
-
-```bash
-cd client && npm run lint
-cd client && npm run typecheck
-```
-
-If project has relevant unit tests, add/run them.
-
-If backend tests exist:
-
-```bash
-cd server && pytest
+```text
+Delete disables future income reminders
+Delete does not create income transaction
+Delete does not change balance
+Close hides current income popup
+Close does not mark received
+Close does not deactivate rule
+Close income reminder appears on next app load
+expense Delete/Close behavior remains unchanged
 ```
 
 ## Commit
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.5: exclude loans from home totals"
+git commit -m "agent 07 phase 07.6: implement recurring income delete close actions"
 ```
 
 ## Stop Condition
 
-Stop after the commit and ask permission before phase 04.6.
+Stop after the commit and ask permission before phase 07.7.
 
 ---
 
-# Phase 04.6 — Home and Settings Regression Verification
+# Phase 07.7 — Persistence, Monthly Repeat, and Mixed Reminder Verification
 
 ## Objective
 
-Run full verification for Agent 04 and document final behavior.
+Verify recurring income state persists correctly and coexists with recurring expenses.
+
+## Tasks
+
+1. Confirm current-month received state persists.
+2. Confirm received reminder does not reappear after reload in same month.
+3. Confirm recurring income rule becomes eligible again next month.
+4. Confirm deleted/deactivated rule never reappears.
+5. Confirm closed-only reminder reappears after reload in same due window.
+6. Confirm future recurring income does not appear early.
+7. Confirm prior-month unpaid reminder is not shown outside its due month unless product already defines carryover.
+8. Confirm mixed income and expense reminders process deterministically.
+9. Confirm one reminder's completion does not affect another.
+10. Confirm expense warning styling and behavior remain unchanged.
+11. Update `docs/agents/07_RECURRING_INCOME_ACHIEVEMENT_POPUP.md` with:
+
+```md
+## Phase 07.7 — Persistence and Mixed Reminder Verification
+
+## Received Persistence
+
+## Next-Month Reactivation
+
+## Deleted Rule Persistence
+
+## Close and Reload Behavior
+
+## Prior-Month Expiry
+
+## Mixed Queue Ordering
+
+## Reminder Isolation
+
+## Expense Regression Safety
+```
+
+## Tests to Run
+
+Use controlled dates/fake timers if supported.
+
+## Commit
+
+```bash
+git add .
+git commit -m "agent 07 phase 07.7: verify recurring income persistence"
+```
+
+## Stop Condition
+
+Stop after the commit and ask permission before phase 07.8.
+
+---
+
+# Phase 07.8 — Recurring Income Regression Verification
+
+## Objective
+
+Run full verification for Agent 07 and document final behavior.
 
 ## Tasks
 
 1. Run all available relevant tests/builds.
 2. Verify:
-   - Settings page has Home Balance Source option.
-   - Active accounts appear in the source list.
-   - Disabled accounts do not appear for new selection.
-   - Existing budget plans appear if budget data exists.
-   - Empty state is safe if no accounts/budgets exist.
-   - Home page shows selected account balance.
-   - Home page uses selected account currency.
-   - Home page can show selected budget value if budget plan exists.
-   - Missing selected source falls back safely.
-   - Home income total excludes loans.
-   - Home expense total excludes loans.
-   - Loan/debt page calculations are not broken.
+   - recurring income does not auto-add balance
+   - recurring income does not auto-create transaction
+   - reminder appears on due date
+   - reminder appears after due date through end of month
+   - reminder does not appear before due date
+   - achievement/success style is green
+   - popup asks whether income was received
+   - popup shows category, note, amount, account, currency, and due date
+   - Received creates one normal income transaction
+   - Received uses actual click date
+   - Received increases selected account once
+   - Received updates Home income total once
+   - Received hides reminder for current month
+   - Received keeps recurring rule active for future months
+   - Delete disables future income reminders
+   - Delete does not create transaction or change balance
+   - Close dismisses only current view
+   - Close reminder appears again on next app load
+   - current-month completion stays hidden after reload
+   - next-month reminder appears again
+   - multiple and mixed reminders work correctly
+   - recurring expense warning behavior remains unchanged
 3. Create or update:
 
 ```text
-docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
+docs/agents/07_RECURRING_INCOME_TEST_REPORT.md
 ```
 
 4. Include:
 
 ```md
-# Agent 04 Test Report
+# Agent 07 Test Report
 
 ## Branch
 
@@ -593,14 +893,18 @@ docs/agents/04_HOME_SETTINGS_TEST_REPORT.md
 
 ## Bugs Fixed
 
+## Date-Based Test Cases
+
+## Mixed Reminder Test Cases
+
 ## Manual Verification Checklist
 
 ## Deferred Work
 
-## Safe Starting Point for Agent 05
+## Safe Starting Point for Agent 08
 ```
 
-5. Do not start Agent 05.
+5. Do not start Agent 08.
 
 ## Tests to Run
 
@@ -617,11 +921,6 @@ If available:
 ```bash
 cd client && npm run lint
 cd client && npm run typecheck
-```
-
-Optional only if the project has the script:
-
-```bash
 cd client && npm test
 ```
 
@@ -643,7 +942,7 @@ Only run commands that actually exist.
 
 ```bash
 git add .
-git commit -m "agent 04 phase 04.6: verify home settings balance rules"
+git commit -m "agent 07 phase 07.8: verify recurring income achievement popup"
 ```
 
 ## Stop Condition
@@ -663,34 +962,39 @@ Bugs fixed:
 - ...
 
 Permission:
-Agent 04 is complete. Can I continue with Agent 05 planning/generation?
+Agent 07 is complete. Can I continue with Agent 08 planning/generation?
 ```
 
 ---
 
-# Agent 04 Final Success Criteria
+# Agent 07 Final Success Criteria
 
-Agent 04 is complete only when:
+Agent 07 is complete only when:
 
-- Branch `feature/home-settings-balance-display` exists.
-- Settings page has a Home Balance Source option.
-- Active accounts can be selected as home balance source.
-- Disabled accounts are excluded from new source selection.
-- Existing budget plans appear as source options if budget data exists.
-- Home page displays selected account available/current balance.
-- Home page displays selected source using the correct currency convention.
-- Home page has safe fallback if selected source is missing.
-- Home income total includes only income transactions.
-- Home expense total includes only expense transactions.
-- Home income total excludes taken loans.
-- Home expense total excludes given loans.
+- Branch `feature/recurring-income-achievement-popup` exists.
+- Recurring income does not auto-create a transaction.
+- Recurring income does not auto-add account balance.
+- Monthly due date calculation works.
+- Shorter-month fallback works.
+- Popup appears from due date through end of month.
+- Popup appears on every app load until Received or Delete.
+- Popup uses green achievement/success styling.
+- Popup asks whether the named income was received.
+- Received creates one normal income transaction using click date.
+- Received uses recurring rule account/category/note/amount.
+- Received increases selected account once.
+- Received updates Home income total once.
+- Received marks current month completed.
+- Received keeps recurring rule active for future months.
+- Delete disables future income reminders without creating transaction.
+- Close dismisses temporarily and reminder returns on next app load.
+- Current-month completion persists across reload.
+- Next-month recurrence works.
+- Mixed income/expense reminders work deterministically.
+- Recurring expense behavior remains unchanged.
 - Tests/builds have been run.
-- Agent 04 docs are updated.
-- Agent 04 test report is created.
-- No account page/business-rule work is implemented.
-- No loan/debt business logic is implemented.
-- No transaction category/account behavior is implemented.
-- No recurring popup logic is implemented.
-- Agent stops and asks permission before Agent 05.
+- Agent 07 docs are updated.
+- Agent 07 test report is created.
+- Agent stops and asks permission before Agent 08.
 
 ---

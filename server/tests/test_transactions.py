@@ -187,6 +187,68 @@ def test_income_and_expense_crud_precision_and_void(
     assert update_voided_response.status_code == 409
 
 
+def test_income_expense_balance_effects_follow_selected_account(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transaction-balances@example.com")
+    checking = create_account(context, headers, "Balance Checking", "bank", "100")
+    reserve = create_account(context, headers, "Balance Reserve", "bank", "50")
+    income_category = create_category(
+        context,
+        headers,
+        "Balance Income",
+        "income",
+        "briefcase",
+    )
+    expense_category = create_category(
+        context,
+        headers,
+        "Balance Expense",
+        "expense",
+        "receipt",
+    )
+
+    income = create_transaction(
+        context,
+        headers,
+        checking["id"],
+        income_category["id"],
+        "income",
+        "25.0000",
+        "2026-01-05T00:00:00+00:00",
+    )
+    expense = create_transaction(
+        context,
+        headers,
+        checking["id"],
+        expense_category["id"],
+        "expense",
+        "5.0000",
+        "2026-01-06T00:00:00+00:00",
+    )
+
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("120.0000")
+    assert get_account_balance(context, headers, reserve["id"]) == Decimal("50.0000")
+
+    move_expense_response = context.client.patch(
+        f"/api/v1/transactions/{expense['id']}",
+        headers=headers,
+        json={"account_id": reserve["id"], "amount": "7.0000"},
+    )
+    assert move_expense_response.status_code == 200
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("125.0000")
+    assert get_account_balance(context, headers, reserve["id"]) == Decimal("43.0000")
+
+    void_income_response = context.client.delete(
+        f"/api/v1/transactions/{income['id']}",
+        headers=headers,
+    )
+    assert void_income_response.status_code == 200
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("100.0000")
+    assert get_account_balance(context, headers, reserve["id"]) == Decimal("43.0000")
+
+
 def test_transaction_validation_and_reference_rules(
     transaction_context: TransactionApiContext,
 ) -> None:
@@ -250,7 +312,7 @@ def test_transaction_validation_and_reference_rules(
     assert transfer_type_response.status_code == 422
 
 
-def test_transaction_ownership_and_archived_reference_rejection(
+def test_transaction_ownership_and_inactive_reference_rejection(
     transaction_context: TransactionApiContext,
 ) -> None:
     context = transaction_context
@@ -325,6 +387,41 @@ def test_transaction_ownership_and_archived_reference_rejection(
         },
     )
     assert cross_user_category_response.status_code == 422
+
+    disabled_account = create_account(
+        context,
+        owner_headers,
+        "Disabled Cash",
+        "cash",
+        "0",
+    )
+    assert (
+        context.client.patch(
+            f"/api/v1/accounts/{disabled_account['id']}/disable",
+            headers=owner_headers,
+        ).status_code
+        == 200
+    )
+
+    disabled_account_response = context.client.post(
+        "/api/v1/transactions",
+        headers=owner_headers,
+        json={
+            "account_id": disabled_account["id"],
+            "category_id": category["id"],
+            "type": "income",
+            "amount": "1.0000",
+            "transaction_at": "2026-03-02T00:00:00+00:00",
+        },
+    )
+    assert disabled_account_response.status_code == 422
+
+    disabled_account_update_response = context.client.patch(
+        f"/api/v1/transactions/{transaction['id']}",
+        headers=owner_headers,
+        json={"account_id": disabled_account["id"]},
+    )
+    assert disabled_account_update_response.status_code == 422
 
     archived_account = create_account(context, owner_headers, "Archived", "cash", "0")
     archived_category = create_category(
@@ -1033,6 +1130,7 @@ def test_transaction_create_idempotency(
         idempotency_key="transaction-create-key",
     )
     assert second == first
+    assert get_account_balance(context, headers, account["id"]) == Decimal("12.3400")
 
     list_response = context.client.get(
         "/api/v1/transactions",
@@ -1297,6 +1395,19 @@ def create_account(
     )
     assert response.status_code == 201
     return dict(response.json())
+
+
+def get_account_balance(
+    context: TransactionApiContext,
+    headers: dict[str, str],
+    account_id: object,
+) -> Decimal:
+    response = context.client.get(
+        f"/api/v1/accounts/{account_id}",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    return Decimal(response.json()["current_balance"])
 
 
 def create_category(

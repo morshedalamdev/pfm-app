@@ -13,6 +13,7 @@ from app.modules.recurring.schedule import (
     normalize_aware_utc,
     validate_timezone,
 )
+from app.modules.transactions.schemas import TransactionResponse
 
 RecurringTransactionType = Literal["income", "expense"]
 RecurringFrequency = Literal["daily", "weekly", "monthly", "yearly"]
@@ -136,6 +137,8 @@ class RecurringRuleResponse(BaseModel):
     next_run_at: datetime
     last_run_at: datetime | None
     last_run_key: str | None
+    last_paid_period: str | None
+    last_received_period: str | None
     run_count: int
     status: RecurringRuleStatus
     paused_at: datetime | None
@@ -150,3 +153,59 @@ class RecurringRuleListResponse(BaseModel):
     items: list[RecurringRuleResponse]
     next_cursor: str | None
     has_more: bool
+
+
+class RecurringExpensePaidRequest(BaseModel):
+    paid_at: datetime
+
+    @field_validator("paid_at")
+    @classmethod
+    def normalize_paid_at(cls, paid_at: datetime) -> datetime:
+        try:
+            return normalize_aware_utc(paid_at)
+        except InvalidRecurringScheduleError as exc:
+            raise ValueError(str(exc)) from exc
+
+
+class RecurringExpensePaidResponse(BaseModel):
+    transaction: TransactionResponse
+    rule: RecurringRuleResponse
+
+
+class RecurringIncomeReceivedRequest(BaseModel):
+    received_at: datetime
+
+    @field_validator("received_at")
+    @classmethod
+    def normalize_received_at(cls, received_at: datetime) -> datetime:
+        try:
+            return normalize_aware_utc(received_at)
+        except InvalidRecurringScheduleError as exc:
+            raise ValueError(str(exc)) from exc
+
+
+class RecurringIncomeReceivedResponse(BaseModel):
+    transaction: TransactionResponse
+    rule: RecurringRuleResponse
+
+
+class RecurringExpenseReminderResponse(BaseModel):
+    reminder_key: str
+    period_key: str
+    due_at: datetime
+    rule: RecurringRuleResponse
+
+
+class RecurringExpenseReminderListResponse(BaseModel):
+    items: list[RecurringExpenseReminderResponse]
+
+
+class RecurringIncomeReminderResponse(BaseModel):
+    reminder_key: str
+    period_key: str
+    due_at: datetime
+    rule: RecurringRuleResponse
+
+
+class RecurringIncomeReminderListResponse(BaseModel):
+    items: list[RecurringIncomeReminderResponse]

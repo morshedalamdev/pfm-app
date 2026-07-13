@@ -515,6 +515,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recurring-rules/due-expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Due Recurring Expenses */
+        get: operations["list_due_recurring_expenses_api_v1_recurring_rules_due_expenses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-rules/due-incomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Due Recurring Incomes */
+        get: operations["list_due_recurring_incomes_api_v1_recurring_rules_due_incomes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recurring-rules/{rule_id}": {
         parameters: {
             query?: never;
@@ -534,6 +568,23 @@ export interface paths {
         patch: operations["update_recurring_rule_api_v1_recurring_rules__rule_id__patch"];
         trace?: never;
     };
+    "/api/v1/recurring-rules/{rule_id}/paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Recurring Expense Paid */
+        post: operations["mark_recurring_expense_paid_api_v1_recurring_rules__rule_id__paid_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recurring-rules/{rule_id}/pause": {
         parameters: {
             query?: never;
@@ -545,6 +596,23 @@ export interface paths {
         put?: never;
         /** Pause Recurring Rule */
         post: operations["pause_recurring_rule_api_v1_recurring_rules__rule_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-rules/{rule_id}/received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Recurring Income Received */
+        post: operations["mark_recurring_income_received_api_v1_recurring_rules__rule_id__received_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -836,7 +904,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "cash" | "bank" | "card" | "mobile_pay" | "wallet" | "savings" | "other";
+            type: "cash" | "debit_card" | "credit_card" | "bank_account" | "mobile_banking";
         };
         /** AccountDeleteEligibilityResponse */
         AccountDeleteEligibilityResponse: {
@@ -848,7 +916,7 @@ export interface components {
             /** Can Delete */
             can_delete: boolean;
             /** Reasons */
-            reasons: ("transaction" | "recurring_rule" | "loan_not_connected")[];
+            reasons: ("transaction" | "recurring_rule" | "loan_record" | "loan_settlement")[];
         };
         /** AccountListResponse */
         AccountListResponse: {
@@ -906,7 +974,7 @@ export interface components {
             /** Opening Balance */
             opening_balance?: string | null;
             /** Type */
-            type?: ("cash" | "bank" | "card" | "mobile_pay" | "wallet" | "savings" | "other") | null;
+            type?: ("cash" | "debit_card" | "credit_card" | "bank_account" | "mobile_banking") | null;
         };
         /** BudgetCreateRequest */
         BudgetCreateRequest: {
@@ -1343,6 +1411,11 @@ export interface components {
         /** LoanSettlementCreateRequest */
         LoanSettlementCreateRequest: {
             /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
              * Amount
              * @description Decimal string with up to 18 digits and 4 decimal places.
              * @example 12.3400
@@ -1367,6 +1440,8 @@ export interface components {
         };
         /** LoanSettlementResponse */
         LoanSettlementResponse: {
+            /** Account Id */
+            account_id: string | null;
             /** Amount */
             amount: string;
             /**
@@ -1583,6 +1658,68 @@ export interface components {
             /** Transaction Id */
             transaction_id: string | null;
         };
+        /** RecurringExpensePaidRequest */
+        RecurringExpensePaidRequest: {
+            /**
+             * Paid At
+             * Format: date-time
+             */
+            paid_at: string;
+        };
+        /** RecurringExpensePaidResponse */
+        RecurringExpensePaidResponse: {
+            rule: components["schemas"]["RecurringRuleResponse"];
+            transaction: components["schemas"]["TransactionResponse"];
+        };
+        /** RecurringExpenseReminderListResponse */
+        RecurringExpenseReminderListResponse: {
+            /** Items */
+            items: components["schemas"]["RecurringExpenseReminderResponse"][];
+        };
+        /** RecurringExpenseReminderResponse */
+        RecurringExpenseReminderResponse: {
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Period Key */
+            period_key: string;
+            /** Reminder Key */
+            reminder_key: string;
+            rule: components["schemas"]["RecurringRuleResponse"];
+        };
+        /** RecurringIncomeReceivedRequest */
+        RecurringIncomeReceivedRequest: {
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+        };
+        /** RecurringIncomeReceivedResponse */
+        RecurringIncomeReceivedResponse: {
+            rule: components["schemas"]["RecurringRuleResponse"];
+            transaction: components["schemas"]["TransactionResponse"];
+        };
+        /** RecurringIncomeReminderListResponse */
+        RecurringIncomeReminderListResponse: {
+            /** Items */
+            items: components["schemas"]["RecurringIncomeReminderResponse"][];
+        };
+        /** RecurringIncomeReminderResponse */
+        RecurringIncomeReminderResponse: {
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Period Key */
+            period_key: string;
+            /** Reminder Key */
+            reminder_key: string;
+            rule: components["schemas"]["RecurringRuleResponse"];
+        };
         /** RecurringRuleCreateRequest */
         RecurringRuleCreateRequest: {
             /**
@@ -1676,6 +1813,10 @@ export interface components {
             id: string;
             /** Interval Count */
             interval_count: number;
+            /** Last Paid Period */
+            last_paid_period: string | null;
+            /** Last Received Period */
+            last_received_period: string | null;
             /** Last Run At */
             last_run_at: string | null;
             /** Last Run Key */
@@ -3773,6 +3914,46 @@ export interface operations {
             };
         };
     };
+    list_due_recurring_expenses_api_v1_recurring_rules_due_expenses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpenseReminderListResponse"];
+                };
+            };
+        };
+    };
+    list_due_recurring_incomes_api_v1_recurring_rules_due_incomes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringIncomeReminderListResponse"];
+                };
+            };
+        };
+    };
     get_recurring_rule_api_v1_recurring_rules__rule_id__get: {
         parameters: {
             query?: never;
@@ -3870,6 +4051,41 @@ export interface operations {
             };
         };
     };
+    mark_recurring_expense_paid_api_v1_recurring_rules__rule_id__paid_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringExpensePaidRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpensePaidResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     pause_recurring_rule_api_v1_recurring_rules__rule_id__pause_post: {
         parameters: {
             query?: never;
@@ -3888,6 +4104,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringRuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_recurring_income_received_api_v1_recurring_rules__rule_id__received_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringIncomeReceivedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringIncomeReceivedResponse"];
                 };
             };
             /** @description Validation Error */

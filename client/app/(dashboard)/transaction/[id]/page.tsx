@@ -17,16 +17,18 @@ import TransactionInput from "@/components/inputs/TransactionInput";
 import BackBtn from "@/components/BackBtn";
 import { useParams, useRouter } from "next/navigation";
 import {
+  getActiveAccounts,
+  resolveAccountSelectValue,
+} from "@/lib/finance/accounts";
+import {
   createRecurringRule,
   createTransaction,
   createTransfer,
   getTransaction,
   listAccounts,
-  listBudgets,
   listCategories,
   updateTransaction,
   type Account,
-  type Budget,
   type Category,
 } from "@/lib/finance/api";
 import { decimalInput, toDateTime } from "@/lib/finance/format";
@@ -34,14 +36,8 @@ import { decimalInput, toDateTime } from "@/lib/finance/format";
 const RECURRENCE_OPTIONS = ["Daily", "Weekly", "Monthly", "Yearly"];
 
 type FormType = "expense" | "income" | "transfer";
-type ExpenseSource = {
+type AccountOption = {
   id: string;
-  kind: "account" | "budget";
-  label: string;
-};
-type TransferDestination = {
-  id: string;
-  kind: "account" | "budget";
   label: string;
 };
 
@@ -54,23 +50,11 @@ function selectByName<T extends { name: string }>(items: T[], name: string) {
 }
 
 function accountDestinationLabel(account: Account): string {
-  return `Account: ${account.name}`;
+  return `${account.name}`;
 }
 
 function accountSourceLabel(account: Account): string {
-  return account.type === "savings"
-    ? `Saving Account: ${account.name}`
-    : accountDestinationLabel(account);
-}
-
-function budgetSourceLabel(budget: Budget): string {
-  return budget.category_name
-    ? `Budget: ${budget.category_name}`
-    : "Budget: Monthly Budget";
-}
-
-function currentMonthKey(): string {
-  return new Date().toISOString().slice(0, 7);
+  return accountDestinationLabel(account);
 }
 
 export default function CreateTransactionPage() {
@@ -81,7 +65,6 @@ export default function CreateTransactionPage() {
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [amount, setAmount] = useState("");
-  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [error, setError] = useState<string | null>(null);
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
@@ -98,11 +81,12 @@ export default function CreateTransactionPage() {
   const [toDestinationName, setToDestinationName] = useState("");
   const [type, setType] = useState<FormType>("expense");
 
+  const activeAccounts = useMemo(() => getActiveAccounts(accounts), [accounts]);
   const accountNames = useMemo(
-    () => accounts.map((account) => account.name),
-    [accounts],
+    () => activeAccounts.map((account) => account.name),
+    [activeAccounts],
   );
-  const incomeAccounts = useMemo(() => accounts, [accounts]);
+  const incomeAccounts = activeAccounts;
   const incomeAccountNames = useMemo(
     () => incomeAccounts.map((account) => account.name),
     [incomeAccounts],
@@ -112,62 +96,25 @@ export default function CreateTransactionPage() {
     () => activeCategories.map((category) => category.name),
     [activeCategories],
   );
-  const expenseSources = useMemo<ExpenseSource[]>(
-    () => {
-      const sources = [
-        ...accounts.map((account) => ({
-          id: account.id,
-          kind: "account" as const,
-          label: accountSourceLabel(account),
-        })),
-        {
-          id: "monthly-budget",
-          kind: "budget" as const,
-          label: "Budget: Monthly Budget",
-        },
-        ...budgets.map((budget) => ({
-          id: budget.id,
-          kind: "budget" as const,
-          label: budgetSourceLabel(budget),
-        })),
-      ];
-      return sources.filter(
-        (source, index) =>
-          sources.findIndex((item) => item.label === source.label) === index,
-      );
-    },
-    [accounts, budgets],
+  const expenseSources = useMemo<AccountOption[]>(
+    () =>
+      activeAccounts.map((account) => ({
+        id: account.id,
+        label: accountSourceLabel(account),
+      })),
+    [activeAccounts],
   );
   const expenseSourceNames = useMemo(
     () => expenseSources.map((source) => source.label),
     [expenseSources],
   );
-  const transferDestinations = useMemo<TransferDestination[]>(
-    () => {
-      const destinations = [
-        {
-          id: "monthly-budget",
-          kind: "budget" as const,
-          label: "Budget: Monthly Budget",
-        },
-        ...budgets.map((budget) => ({
-          id: budget.id,
-          kind: "budget" as const,
-          label: budgetSourceLabel(budget),
-        })),
-        ...accounts.map((account) => ({
-          id: account.id,
-          kind: "account" as const,
-          label: accountDestinationLabel(account),
-        })),
-      ];
-      return destinations.filter(
-        (destination, index) =>
-          destinations.findIndex((item) => item.label === destination.label) ===
-          index,
-      );
-    },
-    [accounts, budgets],
+  const transferDestinations = useMemo<AccountOption[]>(
+    () =>
+      activeAccounts.map((account) => ({
+        id: account.id,
+        label: accountDestinationLabel(account),
+      })),
+    [activeAccounts],
   );
   const transferDestinationNames = useMemo(
     () => transferDestinations.map((destination) => destination.label),
@@ -218,17 +165,34 @@ export default function CreateTransactionPage() {
           )?.name ?? "",
         );
       } else {
-        setSelectedAccountName((current) => current || nextAccounts[0]?.name || "");
+        const nextActiveAccounts = getActiveAccounts(nextAccounts);
+        const initialAccountId = resolveAccountSelectValue(nextAccounts);
+        const initialAccount = nextAccounts.find(
+          (account) => account.id === initialAccountId,
+        );
+        const initialTransferDestination = nextActiveAccounts.find(
+          (account) => account.id !== initialAccountId,
+        );
+        if (!initialAccount) {
+          setError(
+            "No active account is available. Create or enable an account before saving a transaction.",
+          );
+        }
+        setSelectedAccountName(
+          (current) => current || initialAccount?.name || "",
+        );
         setSelectedExpenseSourceName(
           (current) =>
             current ||
-            (nextAccounts[0] ? accountSourceLabel(nextAccounts[0]) : ""),
+            (initialAccount ? accountSourceLabel(initialAccount) : ""),
         );
-        setFromAccountName((current) => current || nextAccounts[0]?.name || "");
+        setFromAccountName((current) => current || initialAccount?.name || "");
         setToDestinationName(
           (current) =>
             current ||
-            (nextAccounts[1] ? accountDestinationLabel(nextAccounts[1]) : ""),
+            (initialTransferDestination
+              ? accountDestinationLabel(initialTransferDestination)
+              : ""),
         );
         setSelectedCategoryName((current) => current || nextExpenses[0]?.name || "");
       }
@@ -255,33 +219,6 @@ export default function CreateTransactionPage() {
   }, [loadData]);
 
   useEffect(() => {
-    let isActive = true;
-    const controller = new AbortController();
-
-    async function loadBudgets() {
-      try {
-        const nextBudgets = await listBudgets(currentMonthKey(), {
-          signal: controller.signal,
-        });
-        if (isActive) {
-          setBudgets(nextBudgets);
-        }
-      } catch {
-        if (isActive) {
-          setBudgets([]);
-        }
-      }
-    }
-
-    void loadBudgets();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, []);
-
-  useEffect(() => {
     if (type === "transfer") return;
     const options = type === "income" ? incomeCategories : expenseCategories;
     if (!options.some((category) => category.name === selectedCategoryName)) {
@@ -298,42 +235,33 @@ export default function CreateTransactionPage() {
     const selectedExpenseSource = expenseSources.find(
       (source) => source.label === selectedExpenseSourceName,
     );
-    const selectedExpenseAccount =
-      selectedExpenseSource?.kind === "account"
-        ? accounts.find((account) => account.id === selectedExpenseSource.id)
-        : undefined;
+    const selectedExpenseAccount = activeAccounts.find(
+      (account) => account.id === selectedExpenseSource?.id,
+    );
     const selectedAccount =
       type === "expense"
         ? selectedExpenseAccount
         : type === "income"
           ? selectByName(incomeAccounts, selectedAccountName)
-          : selectByName(accounts, selectedAccountName);
+          : selectByName(activeAccounts, selectedAccountName);
     const selectedCategory = selectByName(activeCategories, selectedCategoryName);
-    const fromAccount = selectByName(accounts, fromAccountName);
+    const fromAccount = selectByName(activeAccounts, fromAccountName);
     const transferDestination = transferDestinations.find(
       (destination) => destination.label === toDestinationName,
     );
-    const toAccount =
-      transferDestination?.kind === "account"
-        ? accounts.find((account) => account.id === transferDestination.id)
-        : undefined;
+    const toAccount = activeAccounts.find(
+      (account) => account.id === transferDestination?.id,
+    );
 
     if (type === "transfer") {
-      if (!fromAccount || !transferDestination) {
+      if (!fromAccount || !toAccount) {
         setError("Choose where to transfer the money.");
         return;
       }
-      if (transferDestination.kind === "budget") {
-        setError("Choose a user-created account before saving this transfer.");
-        return;
-      }
-      if (toAccount && fromAccount.id === toAccount.id) {
+      if (fromAccount.id === toAccount.id) {
         setError("Choose two different accounts for the transfer.");
         return;
       }
-    } else if (type === "expense" && selectedExpenseSource?.kind !== "account") {
-      setError("Choose a user-created account before saving this expense.");
-      return;
     } else if (!selectedAccount || !selectedCategory) {
       setError("Choose an account and category before saving.");
       return;
@@ -453,7 +381,7 @@ export default function CreateTransactionPage() {
               </TabsList>
               <TabsContent value="expense">
                 <TransactionFields
-                  accountLabel="Account / Source"
+                  accountLabel="Account"
                   accountNames={expenseSourceNames}
                   categoryLabel="Category"
                   categoryNames={activeCategoryNames}

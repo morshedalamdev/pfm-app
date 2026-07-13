@@ -282,6 +282,10 @@ async def create_loan_settlement(
         )
     except LoanRecordNotFoundError as exc:
         raise record_not_found_error() from exc
+    except LoanAccountNotFoundError as exc:
+        raise account_not_found_error() from exc
+    except InvalidLoanAccountStateError as exc:
+        raise invalid_account_state_error() from exc
     except InvalidLoanRecordStateError as exc:
         raise invalid_record_state_error() from exc
     except InvalidLoanSettlementAmountError as exc:

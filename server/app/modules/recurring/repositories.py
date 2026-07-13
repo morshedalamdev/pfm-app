@@ -34,6 +34,21 @@ class RecurringRuleRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_owned_for_update(
+        self,
+        rule_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> RecurringRule | None:
+        result = await self._session.execute(
+            select(RecurringRule)
+            .where(
+                RecurringRule.id == rule_id,
+                RecurringRule.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
     async def list_owned(
         self,
         user_id: uuid.UUID,
@@ -53,6 +68,40 @@ class RecurringRuleRepository:
             query.order_by(
                 desc(RecurringRule.created_at), desc(RecurringRule.id)
             ).limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_active_monthly_expenses(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[RecurringRule]:
+        result = await self._session.execute(
+            select(RecurringRule)
+            .where(
+                RecurringRule.user_id == user_id,
+                RecurringRule.status == "active",
+                RecurringRule.archived_at.is_(None),
+                RecurringRule.transaction_type == "expense",
+                RecurringRule.frequency == "monthly",
+            )
+            .order_by(RecurringRule.start_at, RecurringRule.id)
+        )
+        return list(result.scalars().all())
+
+    async def list_active_monthly_incomes(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[RecurringRule]:
+        result = await self._session.execute(
+            select(RecurringRule)
+            .where(
+                RecurringRule.user_id == user_id,
+                RecurringRule.status == "active",
+                RecurringRule.archived_at.is_(None),
+                RecurringRule.transaction_type == "income",
+                RecurringRule.frequency == "monthly",
+            )
+            .order_by(RecurringRule.start_at, RecurringRule.id)
         )
         return list(result.scalars().all())
 
