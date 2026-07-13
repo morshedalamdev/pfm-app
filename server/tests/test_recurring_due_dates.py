@@ -100,3 +100,51 @@ def test_inactive_monthly_expense_is_not_due() -> None:
         timezone="UTC",
         last_paid_period=None,
     )
+
+
+def test_paid_month_stays_hidden_then_reactivates_on_next_month_due_date() -> None:
+    due_options = {
+        "transaction_type": "expense",
+        "frequency": "monthly",
+        "status": "active",
+        "first_due_at": utc("2026-01-15T09:00:00+00:00"),
+        "timezone": "UTC",
+        "last_paid_period": "2026-03",
+    }
+
+    assert not is_monthly_expense_due(
+        **due_options,
+        current_at=utc("2026-03-31T23:59:59+00:00"),
+    )
+    assert not is_monthly_expense_due(
+        **due_options,
+        current_at=utc("2026-04-15T08:59:59+00:00"),
+    )
+    assert is_monthly_expense_due(
+        **due_options,
+        current_at=utc("2026-04-15T09:00:00+00:00"),
+    )
+
+
+def test_unpaid_prior_month_expires_until_the_new_month_due_date() -> None:
+    due_options = {
+        "transaction_type": "expense",
+        "frequency": "monthly",
+        "status": "active",
+        "first_due_at": utc("2026-01-20T09:00:00+00:00"),
+        "timezone": "UTC",
+        "last_paid_period": None,
+    }
+
+    assert is_monthly_expense_due(
+        **due_options,
+        current_at=utc("2026-03-31T23:59:59+00:00"),
+    )
+    assert not is_monthly_expense_due(
+        **due_options,
+        current_at=utc("2026-04-01T00:00:00+00:00"),
+    )
+    assert is_monthly_expense_due(
+        **due_options,
+        current_at=utc("2026-04-20T09:00:00+00:00"),
+    )

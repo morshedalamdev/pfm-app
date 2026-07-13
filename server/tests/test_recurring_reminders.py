@@ -93,3 +93,50 @@ def test_reminder_queue_excludes_ineligible_rules() -> None:
     )
 
     assert queue == []
+
+
+def test_paid_rule_returns_with_a_new_key_in_the_next_month() -> None:
+    rule = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000020",
+        start_at=datetime(2026, 1, 15, 9, tzinfo=UTC),
+        last_paid_period="2026-03",
+    )
+
+    assert (
+        build_due_recurring_expense_queue(
+            [rule],
+            current_at=datetime(2026, 3, 31, 23, 59, tzinfo=UTC),
+        )
+        == []
+    )
+    april_queue = build_due_recurring_expense_queue(
+        [rule],
+        current_at=datetime(2026, 4, 15, 9, tzinfo=UTC),
+    )
+
+    assert [reminder.reminder_key for reminder in april_queue] == [f"{rule.id}:2026-04"]
+    assert april_queue[0].due_at == datetime(2026, 4, 15, 9, tzinfo=UTC)
+
+
+def test_prior_month_reminder_is_not_carried_into_the_next_month() -> None:
+    rule = recurring_rule(
+        rule_id="00000000-0000-0000-0000-000000000021",
+        start_at=datetime(2026, 1, 20, 9, tzinfo=UTC),
+    )
+
+    march_queue = build_due_recurring_expense_queue(
+        [rule],
+        current_at=datetime(2026, 3, 31, 23, 59, tzinfo=UTC),
+    )
+    before_april_due = build_due_recurring_expense_queue(
+        [rule],
+        current_at=datetime(2026, 4, 1, 0, tzinfo=UTC),
+    )
+    april_queue = build_due_recurring_expense_queue(
+        [rule],
+        current_at=datetime(2026, 4, 20, 9, tzinfo=UTC),
+    )
+
+    assert [reminder.period_key for reminder in march_queue] == ["2026-03"]
+    assert before_april_due == []
+    assert [reminder.period_key for reminder in april_queue] == ["2026-04"]

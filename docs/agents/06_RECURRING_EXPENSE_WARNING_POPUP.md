@@ -418,3 +418,58 @@
 - Delete now soft-archives a recurring expense and removes its current reminder without creating a transaction or changing a balance.
 - Close now remains temporary and allows the same due reminder to return on the next app load.
 - Keying the dialog by reminder occurrence prevents the previous dialog's close lifecycle from dismissing the next reminder during queue advancement.
+
+## Phase 06.7 — Persistence and Monthly Repeat
+
+## Paid Persistence
+
+- `last_paid_period` remains stored on the recurring rule after the Paid transaction commits.
+- A separate due-reminder request in the same rule-local month returns no reminder for the paid rule.
+- The recurring rule remains active while only its paid month is suppressed.
+
+## Next-Month Reactivation
+
+- Controlled-date coverage verifies that a rule paid in March remains hidden through March 31.
+- The same rule remains hidden before its April due time and becomes eligible exactly at the computed April due time.
+- The next reminder uses a new stable key containing the new rule-local `YYYY-MM` period.
+
+## Deleted Rule Persistence
+
+- The archived status and archive timestamp persist across later repository requests.
+- Archived rules remain excluded from the active monthly-expense query and never return to the due queue.
+
+## Close and Reload Behavior
+
+- Close remains component-local and does not mutate the recurring rule or provider queue.
+- Browser coverage verifies that the same active, unpaid reminder returns after a fresh app reload in the same due window.
+
+## Prior-Month Expiry
+
+- Controlled-date coverage verifies that an unpaid March reminder is eligible through March 31 only.
+- On April 1, the March reminder is expired and no reminder appears before the April due time.
+- At the April due time, a new April reminder appears; no March reminder is carried over.
+
+## Multiple Reminder Behavior
+
+- Multiple reminders remain deduplicated by rule and period.
+- Ordering remains deterministic by computed due timestamp and then rule ID.
+- Browser coverage verifies that deleting the first reminder advances to the next reminder and that temporarily closing the next reminder does not remove it from the server queue.
+
+## Phase 06.7 Check Results
+
+- Controlled monthly date and reminder queue suite: `14 passed`.
+- Focused recurring persistence suite: `19 passed, 1 warning`.
+- Full backend suite: `192 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 166 files.
+- Mypy passed with no issues in 110 source files.
+- TypeScript no-emit check passed.
+- Generated API contract check passed.
+- Frontend production build passed.
+- The focused Playwright Delete/Close persistence and queue flow passed. The separate monolithic journey continued to reproduce its documented disposable-stack loading timeout on the unrelated Accounts page.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint` and unit `test` scripts are not available.
+
+## Phase 06.7 Bugs Fixed
+
+- None. Existing persistence and monthly-repeat behavior satisfied the phase rules; this phase added controlled regression coverage for the previously unverified date transitions.
