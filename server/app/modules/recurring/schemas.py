@@ -13,6 +13,7 @@ from app.modules.recurring.schedule import (
     normalize_aware_utc,
     validate_timezone,
 )
+from app.modules.transactions.schemas import TransactionResponse
 
 RecurringTransactionType = Literal["income", "expense"]
 RecurringFrequency = Literal["daily", "weekly", "monthly", "yearly"]
@@ -151,6 +152,23 @@ class RecurringRuleListResponse(BaseModel):
     items: list[RecurringRuleResponse]
     next_cursor: str | None
     has_more: bool
+
+
+class RecurringExpensePaidRequest(BaseModel):
+    paid_at: datetime
+
+    @field_validator("paid_at")
+    @classmethod
+    def normalize_paid_at(cls, paid_at: datetime) -> datetime:
+        try:
+            return normalize_aware_utc(paid_at)
+        except InvalidRecurringScheduleError as exc:
+            raise ValueError(str(exc)) from exc
+
+
+class RecurringExpensePaidResponse(BaseModel):
+    transaction: TransactionResponse
+    rule: RecurringRuleResponse
 
 
 class RecurringExpenseReminderResponse(BaseModel):

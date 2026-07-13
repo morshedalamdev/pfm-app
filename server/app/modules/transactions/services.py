@@ -100,6 +100,8 @@ class TransactionService:
         request: TransactionCreateRequest,
         current_user: User,
         idempotency_key: str | None = None,
+        *,
+        commit: bool = True,
     ) -> TransactionResponse:
         if idempotency_key is not None:
             existing_response = await self.get_idempotent_response(
@@ -140,7 +142,8 @@ class TransactionService:
                 current_user=current_user,
                 response=response,
             )
-            await self.transactions.commit()
+            if commit:
+                await self.transactions.commit()
         except Exception:
             await self.transactions.rollback()
             raise

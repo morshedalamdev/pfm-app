@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CircleAlert, Landmark, Tags } from "lucide-react";
 
 import { useRecurringExpenseReminders } from "@/components/recurring/RecurringExpenseReminderProvider";
@@ -16,18 +16,22 @@ import {
 import {
   listAccounts,
   listCategories,
+  markRecurringExpensePaid,
   type Account,
   type Category,
 } from "@/lib/finance/api";
 import { formatMoney } from "@/lib/finance/format";
 
 export function RecurringExpenseWarningPopup() {
-  const { reminderQueue } = useRecurringExpenseReminders();
+  const { reminderQueue, removeReminder } = useRecurringExpenseReminders();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [dismissedReminderKey, setDismissedReminderKey] = useState<
     string | null
   >(null);
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const paymentInFlight = useRef(false);
   const currentReminder = reminderQueue[0] ?? null;
 
   useEffect(() => {
@@ -70,6 +74,27 @@ export function RecurringExpenseWarningPopup() {
     currentReminder.due_at,
     currentReminder.rule.timezone,
   );
+  const handlePaid = async () => {
+    if (paymentInFlight.current) return;
+    paymentInFlight.current = true;
+    setIsPaying(true);
+    setPaymentError(null);
+    try {
+      await markRecurringExpensePaid(currentReminder.rule.id, {
+        paid_at: new Date().toISOString(),
+      });
+      removeReminder(currentReminder.reminder_key);
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "The recurring expense could not be marked paid.",
+      );
+    } finally {
+      paymentInFlight.current = false;
+      setIsPaying(false);
+    }
+  };
 
   return (
     <Dialog
@@ -137,6 +162,11 @@ export function RecurringExpenseWarningPopup() {
               value={currentReminder.rule.description || "No note"}
             />
           </div>
+          {paymentError && (
+            <p role="alert" className="text-sm font-semibold text-destructive">
+              {paymentError}
+            </p>
+          )}
         </div>
 
         <DialogFooter className="border-t border-amber-400/20 bg-amber-500/5 px-5 py-4 sm:justify-stretch">
@@ -150,11 +180,12 @@ export function RecurringExpenseWarningPopup() {
           </Button>
           <Button
             type="button"
-            disabled
+            disabled={isPaying}
+            onClick={() => void handlePaid()}
             className="bg-amber-300 text-black hover:bg-amber-200"
-            aria-label="Mark recurring expense paid (available in a later phase)"
+            aria-label="Mark recurring expense paid"
           >
-            Paid
+            {isPaying ? "Saving…" : "Paid"}
           </Button>
         </DialogFooter>
       </DialogContent>

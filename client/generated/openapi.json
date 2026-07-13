@@ -2186,6 +2186,36 @@
         "title": "ReceiptResponse",
         "type": "object"
       },
+      "RecurringExpensePaidRequest": {
+        "properties": {
+          "paid_at": {
+            "format": "date-time",
+            "title": "Paid At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paid_at"
+        ],
+        "title": "RecurringExpensePaidRequest",
+        "type": "object"
+      },
+      "RecurringExpensePaidResponse": {
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionResponse"
+          }
+        },
+        "required": [
+          "transaction",
+          "rule"
+        ],
+        "title": "RecurringExpensePaidResponse",
+        "type": "object"
+      },
       "RecurringExpenseReminderListResponse": {
         "properties": {
           "items": {
@@ -6900,6 +6930,63 @@
           }
         ],
         "summary": "Update Recurring Rule",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
+    "/api/v1/recurring-rules/{rule_id}/paid": {
+      "post": {
+        "operationId": "mark_recurring_expense_paid_api_v1_recurring_rules__rule_id__paid_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringExpensePaidRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpensePaidResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Recurring Expense Paid",
         "tags": [
           "recurring"
         ]

@@ -35,6 +35,10 @@ export type RecurringRuleCreate =
 export type RecurringRule = components["schemas"]["RecurringRuleResponse"];
 export type RecurringExpenseReminder =
   components["schemas"]["RecurringExpenseReminderResponse"];
+export type RecurringExpensePaidRequest =
+  components["schemas"]["RecurringExpensePaidRequest"];
+export type RecurringExpensePaidResponse =
+  components["schemas"]["RecurringExpensePaidResponse"];
 export type SavingsContributionCreate =
   components["schemas"]["SavingsContributionCreateRequest"];
 export type SavingsGoal = components["schemas"]["SavingsGoalResponse"];
@@ -307,6 +311,16 @@ export async function listDueRecurringExpenseReminders(config?: {
     { signal: config?.signal },
   );
   return response.items;
+}
+
+export function markRecurringExpensePaid(
+  ruleId: string,
+  body: RecurringExpensePaidRequest,
+) {
+  return apiPost<RecurringExpensePaidRequest, RecurringExpensePaidResponse>(
+    apiPath(`/api/v1/recurring-rules/${ruleId}/paid`),
+    body,
+  );
 }
 
 export async function listLoanPeople(

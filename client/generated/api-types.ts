@@ -551,6 +551,23 @@ export interface paths {
         patch: operations["update_recurring_rule_api_v1_recurring_rules__rule_id__patch"];
         trace?: never;
     };
+    "/api/v1/recurring-rules/{rule_id}/paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Recurring Expense Paid */
+        post: operations["mark_recurring_expense_paid_api_v1_recurring_rules__rule_id__paid_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recurring-rules/{rule_id}/pause": {
         parameters: {
             query?: never;
@@ -1599,6 +1616,19 @@ export interface components {
             size_bytes: number;
             /** Transaction Id */
             transaction_id: string | null;
+        };
+        /** RecurringExpensePaidRequest */
+        RecurringExpensePaidRequest: {
+            /**
+             * Paid At
+             * Format: date-time
+             */
+            paid_at: string;
+        };
+        /** RecurringExpensePaidResponse */
+        RecurringExpensePaidResponse: {
+            rule: components["schemas"]["RecurringRuleResponse"];
+            transaction: components["schemas"]["TransactionResponse"];
         };
         /** RecurringExpenseReminderListResponse */
         RecurringExpenseReminderListResponse: {
@@ -3914,6 +3944,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringRuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_recurring_expense_paid_api_v1_recurring_rules__rule_id__paid_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringExpensePaidRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpensePaidResponse"];
                 };
             };
             /** @description Validation Error */

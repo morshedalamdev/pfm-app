@@ -151,17 +151,60 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     recurringWarning.getByRole("button", { name: /Delete recurring expense/ }),
   ).toBeDisabled();
   await expect(
-    recurringWarning.getByRole("button", {
-      name: /Mark recurring expense paid/,
-    }),
-  ).toBeDisabled();
+    recurringWarning.getByRole("button", { name: "Mark recurring expense paid" }),
+  ).toBeEnabled();
   const warningFitsViewport = await recurringWarning.evaluate((element) => {
     const bounds = element.getBoundingClientRect();
     return bounds.left >= 0 && bounds.right <= window.innerWidth;
   });
   expect(warningFitsViewport).toBe(true);
+  const paidClickStartedAt = Date.now();
+  await recurringWarning
+    .getByRole("button", { name: "Mark recurring expense paid" })
+    .click();
+  await expect(recurringWarning).toBeHidden();
+
+  const paidTransactions = await getJson(
+    api,
+    `/api/v1/transactions?account_id=${checking.id}&limit=100`,
+  );
+  const paidTransaction = paidTransactions.items.find(
+    (transaction) => transaction.description === "E2E mobile bill",
+  );
+  expect(paidTransaction).toBeTruthy();
+  expect(paidTransaction.type).toBe("expense");
+  expect(paidTransaction.account_id).toBe(checking.id);
+  expect(paidTransaction.category_id).toBe(groceries.id);
+  expect(paidTransaction.currency).toBe("USD");
+  expect(Number(paidTransaction.amount)).toBe(42);
+  expect(Date.parse(paidTransaction.transaction_at)).toBeGreaterThanOrEqual(
+    paidClickStartedAt,
+  );
+  expect(Date.parse(paidTransaction.transaction_at)).toBeLessThanOrEqual(
+    Date.now(),
+  );
+
+  const paidRule = await getJson(
+    api,
+    `/api/v1/recurring-rules/${recurringExpense.id}`,
+  );
+  expect(paidRule.status).toBe("active");
+  expect(paidRule.last_paid_period).toBe(monthStart.toISOString().slice(0, 7));
+  const dueAfterPaid = await getJson(
+    api,
+    "/api/v1/recurring-rules/due-expenses",
+  );
+  expect(dueAfterPaid.items).toHaveLength(0);
+  const accountsAfterPaid = await getJson(api, "/api/v1/accounts?limit=100");
+  expect(
+    Number(
+      accountsAfterPaid.items.find((account) => account.id === checking.id)
+        .current_balance,
+    ),
+  ).toBe(958);
+
+  await deleteWithoutBody(api, `/api/v1/transactions/${paidTransaction.id}`);
   await deleteJson(api, `/api/v1/recurring-rules/${recurringExpense.id}`);
-  await recurringWarning.getByRole("button", { name: "Close" }).click();
 
   await postJson(api, "/api/v1/transactions", {
     account_id: checking.id,
@@ -431,6 +474,11 @@ async function deleteJson(api, path) {
   const response = await api.delete(path);
   expect(response.ok(), `${path} ${response.status()}`).toBe(true);
   return response.json();
+}
+
+async function deleteWithoutBody(api, path) {
+  const response = await api.delete(path);
+  expect(response.ok(), `${path} ${response.status()}`).toBe(true);
 }
 
 async function getJson(api, path) {

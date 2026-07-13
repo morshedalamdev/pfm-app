@@ -34,6 +34,21 @@ class RecurringRuleRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_owned_for_update(
+        self,
+        rule_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> RecurringRule | None:
+        result = await self._session.execute(
+            select(RecurringRule)
+            .where(
+                RecurringRule.id == rule_id,
+                RecurringRule.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
     async def list_owned(
         self,
         user_id: uuid.UUID,

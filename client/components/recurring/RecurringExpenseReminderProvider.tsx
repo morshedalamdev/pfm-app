@@ -19,6 +19,7 @@ type RecurringExpenseReminderContextValue = {
   isLoading: boolean;
   error: string | null;
   reload: () => Promise<void>;
+  removeReminder: (reminderKey: string) => void;
 };
 
 const RecurringExpenseReminderContext =
@@ -66,9 +67,16 @@ export function RecurringExpenseReminderProvider({
   }, [loadReminders]);
 
   const reload = useCallback(() => loadReminders(), [loadReminders]);
+  const removeReminder = useCallback((reminderKey: string) => {
+    setReminderQueue((currentQueue) =>
+      currentQueue.filter(
+        (reminder) => reminder.reminder_key !== reminderKey,
+      ),
+    );
+  }, []);
   const contextValue = useMemo(
-    () => ({ reminderQueue, isLoading, error, reload }),
-    [error, isLoading, reload, reminderQueue],
+    () => ({ reminderQueue, isLoading, error, reload, removeReminder }),
+    [error, isLoading, reload, reminderQueue, removeReminder],
   );
 
   return (

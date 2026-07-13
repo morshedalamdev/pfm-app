@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -21,7 +21,10 @@ from app.core.database import (
     get_session_from_factory,
 )
 from app.main import create_app
-from app.modules.recurring.schedule import calculate_next_run_after
+from app.modules.recurring.schedule import (
+    calculate_next_run_after,
+    recurring_period_key,
+)
 
 
 @dataclass(frozen=True)
@@ -232,6 +235,153 @@ def test_recurring_rule_crud_pause_resume_archive(
     )
 
 
+def test_paid_recurring_expense_creates_one_selected_account_transaction(
+    recurring_context: RecurringApiContext,
+) -> None:
+    context = recurring_context
+    headers = auth_headers(context, "recurring-paid@example.com")
+    selected_account = create_account(
+        context,
+        headers,
+        "Bills Account",
+        "bank",
+        "100.0000",
+    )
+    other_account = create_account(
+        context,
+        headers,
+        "Other Account",
+        "cash",
+        "250.0000",
+    )
+    expense_category = create_category(
+        context,
+        headers,
+        "Monthly Bills",
+        "expense",
+        "bill",
+    )
+    income_category = create_category(
+        context,
+        headers,
+        "Monthly Income",
+        "income",
+        "briefcase",
+    )
+    clicked_at = datetime.now(UTC).replace(microsecond=123000)
+    month_start = clicked_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    current_period = recurring_period_key(clicked_at, timezone="UTC")
+    expense_rule = create_recurring_rule(
+        context,
+        headers,
+        account_id=selected_account["id"],
+        category_id=expense_category["id"],
+        transaction_type="expense",
+        amount="25.0000",
+        frequency="monthly",
+        interval_count=1,
+        timezone="UTC",
+        start_at=month_start.isoformat(),
+        description="Mobile bill",
+    )
+
+    paid_payload = {"paid_at": clicked_at.isoformat()}
+    paid_response = context.client.post(
+        f"/api/v1/recurring-rules/{expense_rule['id']}/paid",
+        headers=headers,
+        json=paid_payload,
+    )
+    assert paid_response.status_code == 200
+    paid = paid_response.json()
+    transaction = paid["transaction"]
+    assert transaction["type"] == "expense"
+    assert transaction["account_id"] == selected_account["id"]
+    assert transaction["category_id"] == expense_category["id"]
+    assert transaction["description"] == "Mobile bill"
+    assert Decimal(transaction["amount"]) == Decimal("25.0000")
+    assert transaction["currency"] == selected_account["currency"]
+    assert datetime.fromisoformat(transaction["transaction_at"]) == clicked_at
+    assert paid["rule"]["last_paid_period"] == current_period
+    assert paid["rule"]["status"] == "active"
+
+    transactions_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert transactions_response.status_code == 200
+    transactions = transactions_response.json()["items"]
+    assert [item["id"] for item in transactions] == [transaction["id"]]
+
+    accounts_response = context.client.get(
+        "/api/v1/accounts",
+        headers=headers,
+        params={"limit": 100},
+    )
+    assert accounts_response.status_code == 200
+    accounts = {item["id"]: item for item in accounts_response.json()["items"]}
+    assert Decimal(accounts[selected_account["id"]]["current_balance"]) == Decimal(
+        "75.0000"
+    )
+    assert Decimal(accounts[other_account["id"]]["current_balance"]) == Decimal(
+        "250.0000"
+    )
+
+    due_response = context.client.get(
+        "/api/v1/recurring-rules/due-expenses",
+        headers=headers,
+    )
+    assert due_response.status_code == 200
+    assert due_response.json()["items"] == []
+
+    replay_response = context.client.post(
+        f"/api/v1/recurring-rules/{expense_rule['id']}/paid",
+        headers=headers,
+        json=paid_payload,
+    )
+    assert replay_response.status_code == 200
+    assert replay_response.json()["transaction"]["id"] == transaction["id"]
+
+    conflicting_replay_response = context.client.post(
+        f"/api/v1/recurring-rules/{expense_rule['id']}/paid",
+        headers=headers,
+        json={"paid_at": (clicked_at + timedelta(seconds=1)).isoformat()},
+    )
+    assert conflicting_replay_response.status_code == 409
+    transactions_after_replay = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"limit": 100},
+    ).json()["items"]
+    assert [item["id"] for item in transactions_after_replay] == [transaction["id"]]
+
+    income_rule = create_recurring_rule(
+        context,
+        headers,
+        account_id=selected_account["id"],
+        category_id=income_category["id"],
+        transaction_type="income",
+        amount="500.0000",
+        frequency="monthly",
+        interval_count=1,
+        timezone="UTC",
+        start_at=month_start.isoformat(),
+    )
+    income_paid_response = context.client.post(
+        f"/api/v1/recurring-rules/{income_rule['id']}/paid",
+        headers=headers,
+        json=paid_payload,
+    )
+    assert income_paid_response.status_code == 409
+    assert (
+        context.client.get(
+            f"/api/v1/recurring-rules/{income_rule['id']}",
+            headers=headers,
+        ).json()["last_paid_period"]
+        is None
+    )
+
+
 def test_recurring_schedule_boundaries_month_end_and_timezone() -> None:
     start_at = datetime.fromisoformat("2026-01-31T09:00:00-05:00")
     february_run = calculate_next_run_after(
@@ -413,6 +563,7 @@ def test_recurring_rule_validation_ownership_and_openapi(
     openapi = context.client.get("/openapi.json").json()
     assert "/api/v1/recurring-rules" in openapi["paths"]
     assert "/api/v1/recurring-rules/due-expenses" in openapi["paths"]
+    assert "/api/v1/recurring-rules/{rule_id}/paid" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}/pause" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}/resume" in openapi["paths"]

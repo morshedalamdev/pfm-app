@@ -302,3 +302,61 @@
 
 - Added the missing one-at-a-time warning presentation for app-load recurring expense reminders.
 - Added responsive and accessible rendering for all required recurring expense details and placeholder actions.
+
+## Phase 06.5 — Paid Action
+
+## Created Transaction Fields
+
+- `Paid` creates one normal expense transaction through the existing Agent 05 transaction service.
+- The transaction copies the recurring rule's account ID, expense category, note, and amount.
+- Currency is resolved from the selected active account by the existing transaction service.
+- Recurring income, non-monthly, inactive, archived, ended, and not-yet-due rules cannot use the Paid endpoint.
+
+## Transaction Date Rule
+
+- The client captures an ISO timestamp inside the Paid click handler.
+- The backend stores that exact timezone-aware click timestamp as `transaction_at` rather than the scheduled due date.
+
+## Account Balance Effect
+
+- Account balance remains ledger-derived; the single created expense transaction decreases only its selected account.
+- The Paid transaction and monthly completion marker commit together, so no second balance mutation is performed.
+
+## Current-Period Completion
+
+- A successful Paid request stores the rule-local current `YYYY-MM` in `last_paid_period`.
+- The rule remains active for future periods while the current reminder becomes ineligible immediately.
+
+## Duplicate Protection
+
+- The backend locks the owned recurring rule while processing Paid.
+- A stable `recurring-expense-paid:{rule_id}:{period}` idempotency key prevents a second transaction for the same occurrence.
+- An identical replay returns the original transaction; a replay with a different click timestamp is rejected.
+- The client disables Paid while submitting and uses a synchronous in-flight guard against rapid repeated clicks.
+
+## Queue Advancement
+
+- After a successful response, the completed reminder is removed from client queue state.
+- The next deterministic due reminder becomes the current popup without changing any other recurring rule.
+
+## Phase 06.5 Check Results
+
+- Focused Paid API and OpenAPI tests: `2 passed, 1 warning`.
+- Recurring, worker-safety, and transaction regression suites: `29 passed, 1 warning`.
+- Full backend suite: `187 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 166 files.
+- Mypy passed with no issues in 110 source files.
+- TypeScript no-emit check passed.
+- E2E test syntax check passed.
+- Generated API contract check passed.
+- Frontend production build passed.
+- The Playwright Paid flow and all Paid assertions passed. The monolithic journey later hit the known disposable-database hang on a separate baseline transaction setup request, which returned only after the 15-second request timeout.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint` and unit `test` scripts are not available.
+
+## Phase 06.5 Bugs Fixed
+
+- Paid now creates exactly one selected-account expense at the click timestamp and marks only the current month complete.
+- Stable occurrence idempotency and a row lock prevent duplicate transactions and double balance deductions.
+- Successful payment now removes the completed reminder so the queue can advance while preserving future recurrence.
