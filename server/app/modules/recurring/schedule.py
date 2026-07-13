@@ -163,8 +163,21 @@ def is_monthly_expense_due(
     current_at: datetime,
     timezone: str,
     last_paid_period: str | None,
+    interval_count: int = 1,
 ) -> bool:
     if transaction_type != "expense" or frequency != "monthly" or status != "active":
+        return False
+    if interval_count <= 0:
+        raise InvalidRecurringScheduleError("Interval count must be positive")
+    zone = ZoneInfo(validate_timezone(timezone))
+    first_due_local = normalize_aware_utc(first_due_at).astimezone(zone)
+    current_local = normalize_aware_utc(current_at).astimezone(zone)
+    elapsed_months = (
+        (current_local.year - first_due_local.year) * 12
+        + current_local.month
+        - first_due_local.month
+    )
+    if elapsed_months < 0 or elapsed_months % interval_count != 0:
         return False
     current_period = recurring_period_key(current_at, timezone=timezone)
     return is_monthly_due_window(

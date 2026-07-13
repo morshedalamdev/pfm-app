@@ -143,6 +143,13 @@ def test_recurring_rule_crud_pause_resume_archive(
     assert second_page_response.status_code == 200
     assert len(second_page_response.json()["items"]) == 1
 
+    due_response = context.client.get(
+        "/api/v1/recurring-rules/due-expenses",
+        headers=headers,
+    )
+    assert due_response.status_code == 200
+    assert isinstance(due_response.json()["items"], list)
+
     update_response = context.client.patch(
         f"/api/v1/recurring-rules/{expense_rule['id']}",
         headers=headers,
@@ -405,6 +412,7 @@ def test_recurring_rule_validation_ownership_and_openapi(
 
     openapi = context.client.get("/openapi.json").json()
     assert "/api/v1/recurring-rules" in openapi["paths"]
+    assert "/api/v1/recurring-rules/due-expenses" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}/pause" in openapi["paths"]
     assert "/api/v1/recurring-rules/{rule_id}/resume" in openapi["paths"]

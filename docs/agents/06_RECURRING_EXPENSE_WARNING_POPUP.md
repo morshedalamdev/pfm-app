@@ -193,3 +193,61 @@
 
 - Added the missing persistent monthly completion marker for recurring expenses.
 - Added explicit protection against pre-due, already-paid, and inactive monthly expense eligibility in the pure due helper.
+
+## Phase 06.3 — App-Load Detection and Reminder Queue
+
+## Detection Entry Point
+
+- The authenticated dashboard layout now mounts `RecurringExpenseReminderProvider` inside `AuthGuard`.
+- The provider performs one due-reminder load when the authenticated app shell mounts and exposes queue, loading, error, and reload state for later popup phases.
+- `GET /api/v1/recurring-rules/due-expenses` is the read-only source for the app-load queue.
+- No dialog or popup is rendered in this phase.
+
+## Eligibility Filters
+
+- The reminder query loads only owned rules with active status, no archive timestamp, expense transaction type, and monthly frequency.
+- Due evaluation requires the current rule-local period to be on or after the first due period and the current time to be on or after that month's computed due timestamp.
+- `interval_count` is honored, so multi-month rules appear only in their scheduled months.
+- Rules whose configured end time has passed are excluded.
+- Rules whose current period matches `last_paid_period` are excluded.
+
+## Duplicate Prevention
+
+- Each reminder has a stable key composed from rule ID and rule-local `YYYY-MM` period.
+- The backend queue retains at most one reminder for each stable key.
+- The client provider defensively normalizes the response by the same stable key before storing queue state.
+
+## Multiple Reminder Ordering
+
+- The backend orders eligible reminders by computed due timestamp and then rule ID.
+- The client preserves the same deterministic due-time and rule-ID order after deduplication.
+- The provider exposes the complete ordered queue for the one-at-a-time UI planned in phase 06.4.
+
+## Excluded Rules
+
+- Recurring income rules.
+- Daily, weekly, and yearly rules.
+- Paused, archived, and ended rules.
+- Future rules and rules before the current due timestamp.
+- Already completed rules for the current rule-local month.
+- Months skipped by an interval greater than one.
+- The background recurring worker now claims income rules only, so expense reminders do not create transactions or change account balances before a future Paid action. Existing recurring income worker behavior is preserved.
+
+## Phase 06.3 Check Results
+
+- Pure date/filter/order queue suite: `10 passed`.
+- Focused recurring API and worker-safety suite: `11 passed, 1 warning`.
+- Full backend suite: `186 passed, 1 warning`.
+- Ruff lint passed.
+- Ruff format check passed for 164 files.
+- Mypy passed with no issues in 110 source files.
+- TypeScript no-emit check passed.
+- Generated API contract check passed.
+- Frontend production build passed.
+- The warning is the existing Starlette/httpx test-client deprecation warning.
+- Client `lint` and unit `test` scripts are not available.
+
+## Phase 06.3 Bugs Fixed
+
+- Due recurring expenses are no longer claimed by the automatic transaction worker, preventing pre-Paid transaction creation and balance deduction.
+- Reminder candidates now exclude duplicate, inactive, income, future, paid, ended, and off-interval rules before reaching the client queue.

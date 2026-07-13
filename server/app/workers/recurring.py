@@ -120,6 +120,7 @@ async def claim_due_recurring_rules(
         .where(
             RecurringRule.status == "active",
             RecurringRule.archived_at.is_(None),
+            RecurringRule.transaction_type == "income",
             RecurringRule.next_run_at <= now,
             or_(
                 RecurringRule.locked_until.is_(None),

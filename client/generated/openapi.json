@@ -2186,6 +2186,50 @@
         "title": "ReceiptResponse",
         "type": "object"
       },
+      "RecurringExpenseReminderListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RecurringExpenseReminderResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RecurringExpenseReminderListResponse",
+        "type": "object"
+      },
+      "RecurringExpenseReminderResponse": {
+        "properties": {
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "period_key": {
+            "title": "Period Key",
+            "type": "string"
+          },
+          "reminder_key": {
+            "title": "Reminder Key",
+            "type": "string"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RecurringRuleResponse"
+          }
+        },
+        "required": [
+          "reminder_key",
+          "period_key",
+          "due_at",
+          "rule"
+        ],
+        "title": "RecurringExpenseReminderResponse",
+        "type": "object"
+      },
       "RecurringRuleCreateRequest": {
         "properties": {
           "account_id": {
@@ -6683,6 +6727,32 @@
           }
         ],
         "summary": "Create Recurring Rule",
+        "tags": [
+          "recurring"
+        ]
+      }
+    },
+    "/api/v1/recurring-rules/due-expenses": {
+      "get": {
+        "operationId": "list_due_recurring_expenses_api_v1_recurring_rules_due_expenses_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpenseReminderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Due Recurring Expenses",
         "tags": [
           "recurring"
         ]

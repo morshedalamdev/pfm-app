@@ -11,6 +11,7 @@ from app.modules.categories.repositories import CategoryRepository
 from app.modules.recurring.repositories import RecurringRuleRepository
 from app.modules.recurring.schedule import InvalidRecurringScheduleError
 from app.modules.recurring.schemas import (
+    RecurringExpenseReminderListResponse,
     RecurringRuleCreateRequest,
     RecurringRuleListResponse,
     RecurringRuleListStatus,
@@ -75,6 +76,19 @@ async def list_recurring_rules(
         )
     except InvalidRecurringRuleCursorError as exc:
         raise invalid_cursor_error() from exc
+
+
+@router.get(
+    "/due-expenses",
+    response_model=RecurringExpenseReminderListResponse,
+)
+async def list_due_recurring_expenses(
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> RecurringExpenseReminderListResponse:
+    return await build_recurring_rule_service(session).list_due_expense_reminders(
+        current_user
+    )
 
 
 @router.get("/{rule_id}", response_model=RecurringRuleResponse)

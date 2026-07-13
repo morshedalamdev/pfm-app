@@ -33,6 +33,8 @@ export type LoanSummary = components["schemas"]["LoanSummaryResponse"];
 export type RecurringRuleCreate =
   components["schemas"]["RecurringRuleCreateRequest"];
 export type RecurringRule = components["schemas"]["RecurringRuleResponse"];
+export type RecurringExpenseReminder =
+  components["schemas"]["RecurringExpenseReminderResponse"];
 export type SavingsContributionCreate =
   components["schemas"]["SavingsContributionCreateRequest"];
 export type SavingsGoal = components["schemas"]["SavingsGoalResponse"];
@@ -55,6 +57,8 @@ type CategoryList = components["schemas"]["CategoryListResponse"];
 type LoanPersonList = components["schemas"]["LoanPersonListResponse"];
 type LoanRecordList = components["schemas"]["LoanRecordListResponse"];
 type LoanSettlementList = components["schemas"]["LoanSettlementListResponse"];
+type RecurringExpenseReminderList =
+  components["schemas"]["RecurringExpenseReminderListResponse"];
 type SavingsGoalList = components["schemas"]["SavingsGoalListResponse"];
 type SavingsTransferResponse =
   components["schemas"]["SavingsTransferResponse"];
@@ -293,6 +297,16 @@ export function createRecurringRule(body: RecurringRuleCreate) {
     "/api/v1/recurring-rules",
     body,
   );
+}
+
+export async function listDueRecurringExpenseReminders(config?: {
+  signal?: AbortSignal;
+}): Promise<RecurringExpenseReminder[]> {
+  const response = await apiGet<RecurringExpenseReminderList>(
+    "/api/v1/recurring-rules/due-expenses",
+    { signal: config?.signal },
+  );
+  return response.items;
 }
 
 export async function listLoanPeople(

@@ -151,3 +151,14 @@ class RecurringRuleListResponse(BaseModel):
     items: list[RecurringRuleResponse]
     next_cursor: str | None
     has_more: bool
+
+
+class RecurringExpenseReminderResponse(BaseModel):
+    reminder_key: str
+    period_key: str
+    due_at: datetime
+    rule: RecurringRuleResponse
+
+
+class RecurringExpenseReminderListResponse(BaseModel):
+    items: list[RecurringExpenseReminderResponse]

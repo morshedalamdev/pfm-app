@@ -102,12 +102,13 @@ def test_recurring_worker_claim_uses_skip_locked(
     context = worker_context
     headers = auth_headers(context, "worker-lock@example.com")
     account = create_account(context, headers, "Worker Checking")
-    category = create_category(context, headers, "Subscriptions", "expense")
+    category = create_category(context, headers, "Freelance", "income")
     rule = create_recurring_rule(
         context,
         headers,
         account_id=account["id"],
         category_id=category["id"],
+        transaction_type="income",
         start_at="2026-01-01T00:00:00+00:00",
     )
 
@@ -147,6 +148,55 @@ def test_recurring_worker_claim_uses_skip_locked(
         headers=headers,
     )
     assert archive_response.status_code == 200
+
+
+def test_recurring_worker_does_not_claim_or_create_expenses(
+    worker_context: WorkerTestContext,
+) -> None:
+    context = worker_context
+    headers = auth_headers(context, "worker-expense-reminder@example.com")
+    account = create_account(context, headers, "Reminder Expense Account")
+    category = create_category(context, headers, "Mobile Bill", "expense")
+    create_recurring_rule(
+        context,
+        headers,
+        account_id=account["id"],
+        category_id=category["id"],
+        transaction_type="expense",
+        frequency="monthly",
+        start_at="2026-01-01T00:00:00+00:00",
+    )
+
+    async def run_worker_and_count_transactions() -> tuple[RecurringWorkerResult, int]:
+        worker_engine = build_async_engine(context.database_url)
+        worker_session_factory = build_session_factory(worker_engine)
+        worker = RecurringWorker(
+            worker_session_factory,
+            worker_id="expense-safety-worker",
+            batch_size=10,
+        )
+        try:
+            result = await worker.run_once(now=datetime(2026, 2, 1, tzinfo=UTC))
+            async with worker_session_factory() as session:
+                count_result = await session.execute(
+                    select(func.count(Transaction.id)).where(
+                        Transaction.account_id == account["id"]
+                    )
+                )
+                return result, int(count_result.scalar_one())
+        finally:
+            await worker_engine.dispose()
+
+    result, transaction_count = asyncio.run(run_worker_and_count_transactions())
+    assert result.claimed == 0
+    assert result.created == 0
+    assert transaction_count == 0
+    account_response = context.client.get(
+        f"/api/v1/accounts/{account['id']}",
+        headers=headers,
+    )
+    assert account_response.status_code == 200
+    assert Decimal(account_response.json()["current_balance"]) == Decimal("0")
 
 
 def test_recurring_worker_concurrent_runs_create_one_transaction(
