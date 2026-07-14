@@ -45,7 +45,7 @@ Important baseline issue: the current default `:root` values are effectively dar
 
 ## Existing Theme Runtime
 
-No production theme runtime currently exists.
+Phase 01.1 found no production theme runtime.
 
 - No theme provider was found.
 - No theme hook was found.
@@ -58,6 +58,8 @@ No production theme runtime currently exists.
 Existing browser storage is limited to auth tokens in `client/lib/auth/tokenStorage.ts` under `pfm.auth.tokens`.
 
 `client/app/layout.tsx` uses `next/font/google` for Urbanist, loads `/runtime-config.js` with `strategy="beforeInteractive"`, renders a decorative global ellipse image, and sets `suppressHydrationWarning` on `<body>`. Phase 01.3 should avoid using broad hydration suppression as a way to hide theme mismatches.
+
+Phase 01.3 adds the production runtime described in `Theme Runtime` and `Theme Persistence` below.
 
 ## Existing Token Inventory
 
@@ -254,6 +256,57 @@ Phase 01.2 adds motion foundations:
 
 The existing `x-animation` utility remains unchanged. Reduced-motion handling and theme-transition suppression belong to later global foundation/runtime phases.
 
+Phase 01.3 adds a first-boot transition guard through `html[data-theme-booting="true"]`.
+
+## Theme Runtime
+
+Phase 01.3 adds:
+
+- `client/lib/theme.ts`
+- `client/lib/theme-script.ts`
+- `client/components/theme/ThemeProvider.tsx`
+- Root layout wiring in `client/app/layout.tsx`
+
+Runtime behavior:
+
+- The inline `pfm-theme-init` script runs with `strategy="beforeInteractive"`.
+- The script reads the saved preference before visible React application paint when the browser allows it.
+- The script resolves `system` through `prefers-color-scheme: dark`.
+- The script applies or removes `.dark` on `<html>`.
+- The script sets `document.documentElement.style.colorScheme`.
+- The script writes `data-theme` and `data-theme-preference` attributes for diagnostics and later selectors.
+- The script ignores invalid stored values and falls back to `system`.
+- Storage and media-query reads are guarded with `try/catch`.
+- `ThemeProvider` rehydrates the current preference on the client and keeps `<html>` synchronized after hydration.
+- `ThemeProvider` listens to OS theme changes only while the selected preference is `system`.
+
+`suppressHydrationWarning` moved from `<body>` to `<html>` because the pre-paint script intentionally mutates the root class and attributes before React hydrates. This suppression is limited to the root element that the theme boot script owns.
+
+## Theme Persistence
+
+Theme preference storage:
+
+- Key: `pfm.ui.theme`
+- Values: `system`, `light`, `dark`
+- Invalid value behavior: ignored and treated as `system`
+- Storage unavailable behavior: application still loads and resolves as `system`
+
+The stored preference and resolved theme remain separate concepts:
+
+- `system` resolves from `prefers-color-scheme`.
+- `light` always resolves to light.
+- `dark` always resolves to dark.
+
+Theme preference is not stored in auth tokens, finance state, URL parameters, cookies, backend user fields, or API payloads.
+
+## Theme Selector
+
+No selector was added in Phase 01.3. The reusable selector and Settings integration belong to Phase 01.4.
+
+## Accessibility
+
+Phase 01.3 adds browser `color-scheme` synchronization so native controls can match the resolved theme. Focus, reduced motion, and selector-specific accessibility work remain assigned to Phase 01.4 and later verification.
+
 ## Token Validation
 
 Validated conceptually against the Phase 01.2 requirements:
@@ -301,10 +354,10 @@ Further visual validation with actual route screenshots is deferred until the th
 
 ## Global Blockers
 
-- No System/Light/Dark runtime exists.
-- No persistent theme preference exists.
-- No pre-paint theme boot exists.
-- No `color-scheme` handling exists.
+- System/Light/Dark runtime was added in Phase 01.3.
+- Persistent theme preference was added in Phase 01.3.
+- Pre-paint theme boot was added in Phase 01.3.
+- `color-scheme` handling was added in Phase 01.3.
 - Default `:root` tokens are now a production light-theme foundation.
 - `client/app/(dashboard)/settings` exists as an empty directory in this worktree; the phase brief's expected `client/app/(dashboard)/settings/page.tsx` was not found.
 
@@ -351,3 +404,26 @@ Expected future Agent 01 phases may change or add:
 - `/settings` implementation mismatch: `client/app/(dashboard)/settings` exists but has no `page.tsx` in this worktree, while required docs and Agent 01 later phases expect a Settings page for the theme selector.
 - Production build may require network approval because `next/font/google` fetches the existing Urbanist font.
 - Optional `lint` and unit `test` scripts are not defined in `client/package.json`.
+
+## Changed Files
+
+### Phase 01.1
+
+- `PFM_PROJECT_STATE.md`
+- `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_FOUNDATION.md`
+
+### Phase 01.2
+
+- `PFM_PROJECT_STATE.md`
+- `client/app/globals.css`
+- `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_FOUNDATION.md`
+
+### Phase 01.3
+
+- `PFM_PROJECT_STATE.md`
+- `client/app/globals.css`
+- `client/app/layout.tsx`
+- `client/components/theme/ThemeProvider.tsx`
+- `client/lib/theme.ts`
+- `client/lib/theme-script.ts`
+- `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_FOUNDATION.md`

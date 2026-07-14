@@ -4,6 +4,8 @@ import "./globals.css";
 import Image from "next/image";
 import Script from "next/script";
 import ellipseImg from "@/assets/ellipse.svg";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { getThemeInitScript } from "@/lib/theme-script";
 
 const urbanist = Urbanist({
   variable: "--font-urbanist",
@@ -26,8 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="overflow-x-hidden">
-      <body className={`${urbanist.variable} antialiased overflow-x-hidden`} suppressHydrationWarning>
+    <html lang="en" className="overflow-x-hidden" suppressHydrationWarning>
+      <body className={`${urbanist.variable} antialiased overflow-x-hidden`}>
+        <Script
+          id="pfm-theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: getThemeInitScript() }}
+        />
         <Script src="/runtime-config.js" strategy="beforeInteractive" />
         <div className="absolute -top-60 left-0 w-full overflow-hidden z-0">
           <Image
@@ -38,7 +45,9 @@ export default function RootLayout({
             className="w-full scale-200"
           />
         </div>
-        <main className="relative h-svh mx-auto z-10">{children}</main>
+        <ThemeProvider>
+          <main className="relative h-svh mx-auto z-10">{children}</main>
+        </ThemeProvider>
       </body>
     </html>
   );

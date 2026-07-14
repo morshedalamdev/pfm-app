@@ -280,6 +280,12 @@
 }
 
 @layer base {
+  html[data-theme-booting="true"] *,
+  html[data-theme-booting="true"] *::before,
+  html[data-theme-booting="true"] *::after {
+    transition: none !important;
+  }
+
   * {
     scrollbar-width: none;
     -ms-overflow-style: none;
