@@ -287,7 +287,7 @@ def transfer_not_found_error() -> HTTPException:
 def invalid_transfer_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        detail="Transfer accounts or amount are invalid",
+        detail="Transfer accounts or amounts are invalid",
     )
 
 

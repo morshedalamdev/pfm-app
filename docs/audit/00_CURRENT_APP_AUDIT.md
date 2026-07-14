@@ -230,7 +230,7 @@
 - The transaction form stores selected account/source, category, amount, date, note, recurring flag, and recurring period in local component state.
 - Recurring rule creation supports income and expense only, with Daily, Weekly, Monthly, and Yearly UI options mapped to backend frequencies.
 - Recurring rules persist account, category, type, amount, description, frequency, interval, timezone, start/end bounds, next run state, run count, and status.
-- Transfers create paired `transfer_debit` and `transfer_credit` transaction rows plus a transfer link; same-account and cross-currency transfers are rejected.
+- Transfers create paired `transfer_debit` and `transfer_credit` transaction rows plus a transfer link. Cross-currency transfers require a converted destination amount, while same-currency transfers reject that extra value. Account balances subtract transfer debits and add transfer credits in each account's native currency.
 - Savings transfers create an account debit transaction plus a savings contribution.
 
 ## Loan and Debt Data Behavior

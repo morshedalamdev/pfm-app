@@ -332,7 +332,7 @@ No repository-owned production transaction mock-data module was found. Transacti
 
 ## Phase 05.5 Bugs Fixed
 
-- Account `current_balance` now includes income and expense transaction effects for that account.
+- Account `current_balance` includes income and transfer-credit additions plus expense and transfer-debit deductions for that account.
 - Transaction edits that change amount or selected account now adjust both affected account balances through ledger recomputation.
 - Voiding a transaction now removes its effect from the selected account balance.
 

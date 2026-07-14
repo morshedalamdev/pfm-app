@@ -495,6 +495,8 @@ def test_transfer_create_retrieve_and_source_records(
     assert transfer["to_account_id"] == savings["id"]
     assert transfer["amount"] == "25.1250"
     assert transfer["currency"] == "USD"
+    assert transfer["converted_amount"] is None
+    assert transfer["converted_currency"] is None
     assert transfer["description"] == "Move to savings"
     assert transfer["debit_transaction_id"] != transfer["credit_transaction_id"]
 
@@ -533,6 +535,109 @@ def test_transfer_create_retrieve_and_source_records(
         "debit_category_id": None,
         "credit_category_id": None,
     }
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("-25.1250")
+    assert get_account_balance(context, headers, savings["id"]) == Decimal("25.1250")
+
+
+def test_cross_currency_transfer_uses_converted_credit_amount(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "converted-transfer@example.com")
+    cny_account = create_account(
+        context,
+        headers,
+        "CNY Wallet",
+        "wallet",
+        "1000.0000",
+        currency="CNY",
+    )
+    bdt_account = create_account(
+        context,
+        headers,
+        "BDT Bank",
+        "bank",
+        "10000.0000",
+        currency="BDT",
+    )
+
+    cny_to_bdt = create_transfer(
+        context,
+        headers,
+        cny_account["id"],
+        bdt_account["id"],
+        "100.0000",
+        "2026-04-01T00:00:00+00:00",
+        idempotency_key="cny-to-bdt-transfer",
+        converted_amount="1910.0000",
+    )
+    assert cny_to_bdt["amount"] == "100.0000"
+    assert cny_to_bdt["currency"] == "CNY"
+    assert cny_to_bdt["converted_amount"] == "1910.0000"
+    assert cny_to_bdt["converted_currency"] == "BDT"
+    assert get_account_balance(context, headers, cny_account["id"]) == Decimal(
+        "900.0000"
+    )
+    assert get_account_balance(context, headers, bdt_account["id"]) == Decimal(
+        "11910.0000"
+    )
+
+    replay = create_transfer(
+        context,
+        headers,
+        cny_account["id"],
+        bdt_account["id"],
+        "100.0000",
+        "2026-04-01T00:00:00+00:00",
+        idempotency_key="cny-to-bdt-transfer",
+        converted_amount="1910.0000",
+    )
+    assert replay == cny_to_bdt
+    assert get_account_balance(context, headers, cny_account["id"]) == Decimal(
+        "900.0000"
+    )
+    assert get_account_balance(context, headers, bdt_account["id"]) == Decimal(
+        "11910.0000"
+    )
+
+    conflict_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers={**headers, "Idempotency-Key": "cny-to-bdt-transfer"},
+        json={
+            "from_account_id": cny_account["id"],
+            "to_account_id": bdt_account["id"],
+            "amount": "100.0000",
+            "converted_amount": "1900.0000",
+            "transaction_at": "2026-04-01T00:00:00+00:00",
+        },
+    )
+    assert conflict_response.status_code == 409
+
+    bdt_to_cny = create_transfer(
+        context,
+        headers,
+        bdt_account["id"],
+        cny_account["id"],
+        "5000.0000",
+        "2026-04-02T00:00:00+00:00",
+        converted_amount="260.0000",
+    )
+    assert bdt_to_cny["amount"] == "5000.0000"
+    assert bdt_to_cny["currency"] == "BDT"
+    assert bdt_to_cny["converted_amount"] == "260.0000"
+    assert bdt_to_cny["converted_currency"] == "CNY"
+    detail_response = context.client.get(
+        f"/api/v1/transactions/transfers/{bdt_to_cny['id']}",
+        headers=headers,
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json() == bdt_to_cny
+    assert get_account_balance(context, headers, bdt_account["id"]) == Decimal(
+        "6910.0000"
+    )
+    assert get_account_balance(context, headers, cny_account["id"]) == Decimal(
+        "1160.0000"
+    )
 
 
 def test_transfer_validation_and_ownership_rules(
@@ -583,7 +688,7 @@ def test_transfer_validation_and_ownership_rules(
     )
     assert cross_user_response.status_code == 422
 
-    currency_mismatch_response = context.client.post(
+    missing_converted_amount_response = context.client.post(
         "/api/v1/transactions/transfers",
         headers=owner_headers,
         json={
@@ -593,7 +698,34 @@ def test_transfer_validation_and_ownership_rules(
             "transaction_at": "2026-04-02T00:00:00+00:00",
         },
     )
-    assert currency_mismatch_response.status_code == 422
+    assert missing_converted_amount_response.status_code == 422
+
+    unexpected_converted_amount_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": savings["id"],
+            "amount": "1.0000",
+            "converted_amount": "1.0000",
+            "transaction_at": "2026-04-02T00:00:00+00:00",
+        },
+    )
+    assert unexpected_converted_amount_response.status_code == 422
+
+    float_converted_amount_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=owner_headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": eur_wallet["id"],
+            "amount": "1.0000",
+            "converted_amount": 0.9,
+            "transaction_at": "2026-04-02T00:00:00+00:00",
+        },
+    )
+    assert float_converted_amount_response.status_code == 422
+    assert "0.9" in float_converted_amount_response.text
 
     float_amount_response = context.client.post(
         "/api/v1/transactions/transfers",
@@ -708,6 +840,7 @@ def test_savings_transfer_creates_account_debit_and_contribution(
     assert Decimal(goal_response.json()["progress"]["saved_amount"]) == Decimal(
         "25.1250"
     )
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("74.8750")
 
     dashboard_response = context.client.get(
         "/api/v1/reports/dashboard",
@@ -1226,6 +1359,8 @@ def test_transfer_create_idempotency(
         idempotency_key="transfer-create-key",
     )
     assert second == first
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("-15.0000")
+    assert get_account_balance(context, headers, savings["id"]) == Decimal("15.0000")
 
     debit_response = context.client.get(
         "/api/v1/transactions",
@@ -1469,6 +1604,7 @@ def create_transfer(
     transaction_at: str,
     description: str | None = None,
     idempotency_key: str | None = None,
+    converted_amount: str | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "from_account_id": from_account_id,
@@ -1478,6 +1614,8 @@ def create_transfer(
     }
     if description is not None:
         payload["description"] = description
+    if converted_amount is not None:
+        payload["converted_amount"] = converted_amount
 
     request_headers = dict(headers)
     if idempotency_key is not None:

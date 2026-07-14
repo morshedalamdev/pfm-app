@@ -109,10 +109,11 @@ class TransferCreateRequest(BaseModel):
     from_account_id: uuid.UUID
     to_account_id: uuid.UUID
     amount: PositiveMoney
+    converted_amount: PositiveMoney | None = None
     transaction_at: datetime
     description: str | None = Field(default=None, max_length=500)
 
-    @field_validator("amount", mode="before")
+    @field_validator("amount", "converted_amount", mode="before")
     @classmethod
     def reject_float_money(cls, amount: object) -> object:
         if isinstance(amount, float):
@@ -143,6 +144,8 @@ class TransferResponse(BaseModel):
     credit_transaction_id: uuid.UUID
     amount: Decimal
     currency: str
+    converted_amount: Decimal | None = None
+    converted_currency: str | None = None
     transaction_at: datetime
     description: str | None
     created_at: datetime
