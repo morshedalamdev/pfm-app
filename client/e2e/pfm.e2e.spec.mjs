@@ -1528,6 +1528,113 @@ test("savings creation defaults currency and allows another selection", async ({
   await api.dispose();
 });
 
+test("savings add money selects matching account and deducts its balance", async ({
+  page,
+}) => {
+  const email = `pfm-savings-account-transfer-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const defaultAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Default Savings",
+    opening_balance: "5000.00",
+    type: "bank_account",
+  });
+  const selectedAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Savings Wallet",
+    opening_balance: "1000.00",
+    type: "mobile_banking",
+  });
+  const foreignAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "CNY",
+    name: "CNY Hidden Savings",
+    opening_balance: "1000.00",
+    type: "mobile_banking",
+  });
+  await patchJson(api, `/api/v1/accounts/${defaultAccount.id}/default`);
+  const goal = await postJson(api, "/api/v1/savings-goals", {
+    currency: "BDT",
+    monthly_target_amount: "1000.00",
+    name: "Account Transfer Goal",
+    note: null,
+    target_amount: "10000.00",
+    target_date: null,
+  });
+
+  await page.goto("/savings");
+  await page.getByText("Account Transfer Goal", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Savings Details" })).toBeVisible();
+  await page.getByRole("button", { name: "Add Money" }).click();
+  const addMoneyForm = page.locator("form").filter({
+    has: page.getByRole("heading", { name: "Add Money to Account Transfer Goal" }),
+  });
+  const accountSelect = addMoneyForm.getByRole("combobox", {
+    name: "Account for Account Transfer Goal",
+  });
+  await expect(accountSelect).toHaveValue(defaultAccount.id);
+  await expect(accountSelect.locator("option")).toHaveCount(2);
+  await expect(
+    accountSelect.locator(`option[value="${defaultAccount.id}"]`),
+  ).toContainText("BDT Default Savings");
+  await expect(
+    accountSelect.locator(`option[value="${selectedAccount.id}"]`),
+  ).toContainText("BDT Savings Wallet");
+  await expect(
+    accountSelect.locator(`option[value="${foreignAccount.id}"]`),
+  ).toHaveCount(0);
+
+  await accountSelect.selectOption(selectedAccount.id);
+  await addMoneyForm.getByPlaceholder("BDT 0.00").fill("200");
+  const transferResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/transactions/savings-transfers") &&
+      response.request().method() === "POST" &&
+      response.status() === 201,
+  );
+  await addMoneyForm.getByRole("button", { name: "Add Money" }).click();
+  await transferResponse;
+
+  expect(
+    Number(
+      (await getJson(api, `/api/v1/accounts/${selectedAccount.id}`))
+        .current_balance,
+    ),
+  ).toBe(800);
+  expect(
+    Number(
+      (await getJson(api, `/api/v1/accounts/${defaultAccount.id}`))
+        .current_balance,
+    ),
+  ).toBe(5000);
+  expect(
+    Number((await getJson(api, `/api/v1/savings-goals/${goal.id}`)).progress.saved_amount),
+  ).toBe(200);
+  await api.dispose();
+});
+
 test("loan settlement account selection updates balances", async ({ page }) => {
   const email = `pfm-loan-settlement-account-${Date.now()}@example.test`;
   const password = "StrongPass123!";
