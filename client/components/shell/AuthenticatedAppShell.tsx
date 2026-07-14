@@ -4,11 +4,15 @@ import type { ReactNode } from "react";
 type AuthenticatedAppShellProps = {
   children: ReactNode;
   mobileNavigation?: ReactNode;
+  sidebar?: ReactNode;
+  topBar?: ReactNode;
 };
 
 export function AuthenticatedAppShell({
   children,
   mobileNavigation,
+  sidebar,
+  topBar,
 }: AuthenticatedAppShellProps) {
   return (
     <div
@@ -17,15 +21,19 @@ export function AuthenticatedAppShell({
     >
       <aside
         aria-label="Primary navigation"
-        className="hidden shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block lg:w-0"
+        className="hidden w-16 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:block lg:w-64"
         data-shell-region="sidebar"
-      />
+      >
+        {sidebar}
+      </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header
           aria-label="Application header"
-          className="hidden shrink-0 border-b border-border bg-surface-overlay"
+          className="hidden h-16 shrink-0 border-b border-border bg-surface-overlay md:block"
           data-shell-region="top-bar"
-        />
+        >
+          {topBar}
+        </header>
         <main
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
           data-shell-region="main"
@@ -40,7 +48,9 @@ export function AuthenticatedAppShell({
             {children}
           </div>
         </main>
-        <div data-shell-region="mobile-navigation">{mobileNavigation}</div>
+        <div className="md:hidden" data-shell-region="mobile-navigation">
+          {mobileNavigation}
+        </div>
       </div>
     </div>
   );

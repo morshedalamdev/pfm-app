@@ -3,6 +3,8 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { RecurringIncomeAchievementPopup } from "@/components/recurring/RecurringIncomeAchievementPopup";
 import { RecurringReminderProvider } from "@/components/recurring/RecurringReminderProvider";
 import { RecurringExpenseWarningPopup } from "@/components/recurring/RecurringExpenseWarningPopup";
+import { AppSidebar } from "@/components/shell/AppSidebar";
+import { AppTopBar } from "@/components/shell/AppTopBar";
 import { AuthenticatedAppShell } from "@/components/shell/AuthenticatedAppShell";
 import React from "react";
 
@@ -22,7 +24,11 @@ export default function DashboardLayout({
   return (
     <AuthGuard loadingFallback={loadingFallback}>
       <RecurringReminderProvider>
-        <AuthenticatedAppShell mobileNavigation={<Footer />}>
+        <AuthenticatedAppShell
+          mobileNavigation={<Footer />}
+          sidebar={<AppSidebar />}
+          topBar={<AppTopBar />}
+        >
           {children}
         </AuthenticatedAppShell>
         <RecurringIncomeAchievementPopup />

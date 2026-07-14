@@ -353,6 +353,47 @@ Focused browser coverage verified:
 - Horizontal document overflow is not introduced on checked routes.
 - Light and dark saved theme preferences still apply with the shell mounted.
 
+## Phase 02.3 Desktop Sidebar and Top Bar
+
+Phase 02.3 added the shared navigation source of truth and rendered it in the authenticated desktop/tablet shell.
+
+Implemented files:
+
+- `client/lib/navigation.ts`
+- `client/components/shell/AppSidebar.tsx`
+- `client/components/shell/AppTopBar.tsx`
+- `client/components/shell/AuthenticatedAppShell.tsx`
+- `client/app/(dashboard)/layout.tsx`
+- `client/e2e/shell-navigation.e2e.spec.mjs`
+
+The typed navigation configuration now defines the primary, Plan, Insights, and Account groups required by the agent contract:
+
+- Overview
+- Transactions
+- Accounts
+- Budgets
+- Budget Setup
+- Savings Goals
+- Loans & Debt
+- Reports
+- Settings
+
+The route metadata map provides route-aware section labels, top-bar page titles, and safe parent back links for create/detail routes. Dynamic routes under transactions, loans, savings, and accounts resolve to their parent navigation item so active sidebar state remains stable on detail/create screens.
+
+Desktop uses a full sidebar at `lg` and above. Tablet uses the same source of truth as a collapsed navigation rail from `md` to `lg`; labels remain available to assistive technology through screen-reader text while visible labels return on desktop.
+
+The top bar preserves shell-level actions that previously lived only in the mobile footer sheet:
+
+- Notifications unread-count access
+- Profile
+- Settings
+- Reset Password
+- Delete Account
+- Support actions
+- Logout
+
+The existing mobile footer remains the mobile navigation implementation for now. Phase 02.4 is still responsible for the final mobile-browser bottom navigation and add/menu behavior.
+
 ## Changed Files
 
 ### Phase 02.1
@@ -371,6 +412,17 @@ Focused browser coverage verified:
 - `client/components/auth/AuthGuard.tsx`
 - `client/components/shell/AuthenticatedAppShell.tsx`
 - `client/e2e/shell-foundation.e2e.spec.mjs`
+- `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
+
+### Phase 02.3
+
+- `PFM_PROJECT_STATE.md`
+- `client/app/(dashboard)/layout.tsx`
+- `client/components/shell/AppSidebar.tsx`
+- `client/components/shell/AppTopBar.tsx`
+- `client/components/shell/AuthenticatedAppShell.tsx`
+- `client/e2e/shell-navigation.e2e.spec.mjs`
+- `client/lib/navigation.ts`
 - `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
 
 ## Deferred Page-Level Work
