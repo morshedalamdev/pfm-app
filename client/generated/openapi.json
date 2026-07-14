@@ -3926,6 +3926,22 @@
             "title": "Amount",
             "type": "string"
           },
+          "converted_amount": {
+            "anyOf": [
+              {
+                "description": "Decimal string with up to 18 digits and 4 decimal places.",
+                "examples": [
+                  "12.3400"
+                ],
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Converted Amount"
+          },
           "description": {
             "anyOf": [
               {
@@ -3969,6 +3985,29 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount",
             "type": "string"
+          },
+          "converted_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Converted Amount"
+          },
+          "converted_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Converted Currency"
           },
           "created_at": {
             "format": "date-time",

@@ -111,7 +111,10 @@ class Account(Base):
             func.coalesce(
                 func.sum(
                     case(
-                        (Transaction.type == "income", Transaction.amount),
+                        (
+                            Transaction.type.in_(("income", "transfer_credit")),
+                            Transaction.amount,
+                        ),
                         else_=-Transaction.amount,
                     )
                 ),
@@ -122,7 +125,9 @@ class Account(Base):
             Transaction.account_id == id,
             Transaction.user_id == user_id,
             Transaction.voided_at.is_(None),
-            Transaction.type.in_(("income", "expense")),
+            Transaction.type.in_(
+                ("income", "expense", "transfer_debit", "transfer_credit")
+            ),
         )
         .correlate_except(Transaction)
         .scalar_subquery()

@@ -2298,6 +2298,8 @@ export interface components {
              * @example 12.3400
              */
             amount: string;
+            /** Converted Amount */
+            converted_amount?: string | null;
             /** Description */
             description?: string | null;
             /**
@@ -2320,6 +2322,10 @@ export interface components {
         TransferResponse: {
             /** Amount */
             amount: string;
+            /** Converted Amount */
+            converted_amount?: string | null;
+            /** Converted Currency */
+            converted_currency?: string | null;
             /**
              * Created At
              * Format: date-time

@@ -20,9 +20,11 @@ import {
 import BudgetItem from "@/components/items/BudgetItem";
 import {
   deleteBudget,
+  listAccounts,
   listBudgets,
   type Budget,
 } from "@/lib/finance/api";
+import { getDefaultAccount } from "@/lib/finance/accounts";
 import { useAuthStore } from "@/lib/auth/store";
 import { formatMoney, formatPercent, monthKey } from "@/lib/finance/format";
 
@@ -45,15 +47,22 @@ export default function BudgetPage() {
   const [month, setMonth] = useState(monthKey());
   const [open, setOpen] = useState(false);
   const userCurrency = useAuthStore((state) => state.user?.base_currency ?? "USD");
+  const [budgetCurrency, setBudgetCurrency] = useState(userCurrency);
   const months = useMemo(monthOptions, []);
 
   const loadBudgets = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
-      const budgetItems = await listBudgets(month, { signal });
+      const [budgetItems, accountItems] = await Promise.all([
+        listBudgets(month, { signal }),
+        listAccounts({ signal }),
+      ]);
       if (!signal?.aborted) {
         setBudgets(budgetItems);
+        setBudgetCurrency(
+          getDefaultAccount(accountItems)?.currency ?? userCurrency,
+        );
       }
     } catch (loadError) {
       if (signal?.aborted) {
@@ -69,7 +78,7 @@ export default function BudgetPage() {
         setIsLoading(false);
       }
     }
-  }, [month]);
+  }, [month, userCurrency]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,11 +87,13 @@ export default function BudgetPage() {
   }, [loadBudgets]);
 
   const totals = useMemo(() => {
-    const limit = budgets.reduce(
+    const monthlyBudget = budgets.find((budget) => budget.category_id === null);
+    const summaryBudgets = monthlyBudget ? [monthlyBudget] : budgets;
+    const limit = summaryBudgets.reduce(
       (total, budget) => total + Number(budget.limit_amount),
       0,
     );
-    const spent = budgets.reduce(
+    const spent = summaryBudgets.reduce(
       (total, budget) => total + Number(budget.progress.spent_amount),
       0,
     );
@@ -165,19 +176,19 @@ export default function BudgetPage() {
           Monthly Budget
         </h2>
         <h3 className="text-5xl font-bold">
-          {formatMoney(totals.limit, userCurrency)}
+          {formatMoney(totals.limit, budgetCurrency)}
         </h3>
         <div className="flex flex-wrap items-center justify-between gap-1.5 mt-3">
           <div>
             <span className="text-input">Spent</span>
             <h4 className="font-bold text-2xl">
-              {formatMoney(totals.spent, userCurrency)}
+              {formatMoney(totals.spent, budgetCurrency)}
             </h4>
           </div>
           <div>
             <span className="text-input">Remaining</span>
             <h4 className="font-bold text-2xl">
-              {formatMoney(totals.remaining, userCurrency)}
+              {formatMoney(totals.remaining, budgetCurrency)}
             </h4>
           </div>
           <Progress value={Math.min(totals.percent, 100)} className="h-2" />

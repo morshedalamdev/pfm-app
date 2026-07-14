@@ -296,7 +296,14 @@ class TransactionService:
         )
         if from_account.id == to_account.id:
             raise InvalidTransferRequestError
-        if from_account.currency != to_account.currency:
+        currencies_differ = from_account.currency != to_account.currency
+        if currencies_differ != (request.converted_amount is not None):
+            raise InvalidTransferRequestError
+
+        credit_amount = (
+            request.converted_amount if currencies_differ else request.amount
+        )
+        if credit_amount is None:
             raise InvalidTransferRequestError
 
         debit_transaction = Transaction(
@@ -314,7 +321,7 @@ class TransactionService:
             account_id=to_account.id,
             category_id=None,
             type="transfer_credit",
-            amount=request.amount,
+            amount=credit_amount,
             currency=to_account.currency,
             transaction_at=request.transaction_at,
             description=request.description,
@@ -577,6 +584,16 @@ class TransactionService:
             credit_transaction_id=credit_transaction.id,
             amount=transfer_link.amount,
             currency=transfer_link.currency,
+            converted_amount=(
+                credit_transaction.amount
+                if debit_transaction.currency != credit_transaction.currency
+                else None
+            ),
+            converted_currency=(
+                credit_transaction.currency
+                if debit_transaction.currency != credit_transaction.currency
+                else None
+            ),
             transaction_at=debit_transaction.transaction_at,
             description=debit_transaction.description,
             created_at=transfer_link.created_at,

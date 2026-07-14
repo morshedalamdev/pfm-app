@@ -17,7 +17,9 @@ def test_finance_openapi_money_fields_are_decimal_strings() -> None:
         ("TransactionUpdateRequest", "amount"),
         ("TransactionResponse", "amount"),
         ("TransferCreateRequest", "amount"),
+        ("TransferCreateRequest", "converted_amount"),
         ("TransferResponse", "amount"),
+        ("TransferResponse", "converted_amount"),
         ("SavingsTransferCreateRequest", "amount"),
         ("SavingsTransferResponse", "amount"),
     ]:

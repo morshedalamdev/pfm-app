@@ -40,6 +40,23 @@ class CategoryRepository:
         )
         return bool(result.scalar())
 
+    async def has_owned_kind_name(
+        self,
+        user_id: uuid.UUID,
+        kind: str,
+        name: str,
+    ) -> bool:
+        result = await self._session.execute(
+            select(
+                exists().where(
+                    Category.user_id == user_id,
+                    Category.kind == kind,
+                    Category.name == name,
+                )
+            )
+        )
+        return bool(result.scalar())
+
     async def list_owned(
         self,
         user_id: uuid.UUID,

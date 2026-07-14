@@ -8,15 +8,19 @@ import { DotIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import SavingsItem from "@/components/items/SavingsItem";
 import {
-  createSavingsContribution,
+  createSavingsTransfer,
   deleteSavingsGoal,
+  listAccounts,
   listSavingsGoals,
+  type Account,
   type SavingsGoal,
 } from "@/lib/finance/api";
+import { getActiveAccounts } from "@/lib/finance/accounts";
 import { useAuthStore } from "@/lib/auth/store";
 import { decimalInput, formatMoney } from "@/lib/finance/format";
 
 export default function SavingsPage() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [contributionError, setContributionError] = useState<string | null>(null);
   const [contributingId, setContributingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -32,7 +36,12 @@ export default function SavingsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      setGoals(await listSavingsGoals(filter));
+      const [goalItems, accountItems] = await Promise.all([
+        listSavingsGoals(filter),
+        listAccounts(),
+      ]);
+      setGoals(goalItems);
+      setAccounts(getActiveAccounts(accountItems));
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -68,6 +77,7 @@ export default function SavingsPage() {
 
   async function handleContribution(
     goalId: string,
+    accountId: string,
     amount: string,
     date: Date,
     note: string,
@@ -75,10 +85,12 @@ export default function SavingsPage() {
     setContributionError(null);
     setContributingId(goalId);
     try {
-      await createSavingsContribution(goalId, {
+      await createSavingsTransfer({
         amount: decimalInput(amount),
-        contributed_at: date.toISOString(),
-        note: note || null,
+        description: note || null,
+        from_account_id: accountId,
+        savings_goal_id: goalId,
+        transaction_at: date.toISOString(),
       });
       await loadGoals();
     } catch (saveError) {
@@ -180,6 +192,7 @@ export default function SavingsPage() {
           goals.map((goal) => (
             <SavingsItem
               key={goal.id}
+              accounts={accounts}
               contributionError={
                 contributingId === goal.id ? contributionError : null
               }
@@ -193,8 +206,8 @@ export default function SavingsPage() {
               )}
               name={goal.name}
               note={goal.note}
-              onAddContribution={(amount, date, note) =>
-                handleContribution(goal.id, amount, date, note)
+              onAddContribution={(accountId, amount, date, note) =>
+                handleContribution(goal.id, accountId, amount, date, note)
               }
               onDelete={() => void handleDelete(goal.id)}
               percentComplete={Number(goal.progress.percent_complete)}
@@ -204,6 +217,7 @@ export default function SavingsPage() {
               )}
               targetAmount={formatMoney(goal.target_amount, goal.currency)}
               targetDate={goal.target_date ?? "No target date"}
+              currency={goal.currency}
             />
           ))}
       </section>

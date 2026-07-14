@@ -102,7 +102,7 @@
   - `/budget`: budget planning page from `client/app/(dashboard)/budget/page.tsx`.
   - `/budget/setup`: budget setup page from `client/app/(dashboard)/budget/setup/page.tsx`.
   - `/savings`: savings goals page from `client/app/(dashboard)/savings/page.tsx`.
-  - `/savings/[id]`: savings goal create/edit form from `client/app/(dashboard)/savings/[id]/page.tsx`; `/savings/create` is handled as a pseudo-id.
+  - `/savings/[id]`: savings goal create/edit form from `client/app/(dashboard)/savings/[id]/page.tsx`; `/savings/create` is handled as a pseudo-id and defaults its selectable currency to the active default account currency.
   - `/settings`: settings page from `client/app/(dashboard)/settings/page.tsx`.
   - `/profile`: profile page from `client/app/(dashboard)/profile/page.tsx`.
 - Auth routes exist under `client/app/auth`: `/auth`, `/auth/login`, `/auth/register`, `/auth/forgot-password`, and `/auth/recover-password`.
@@ -151,7 +151,7 @@
 ## Existing Settings UI
 
 - `/settings` shows the current currency and a currency selector.
-- Currency options currently include USD, EUR, GBP, BDT, INR, CAD, AUD, JPY, and CNY.
+- Currency options currently include USD, EUR, GBP, BDT, INR, PKR, MYR, CAD, AUD, JPY, and CNY.
 - Saving settings patches `/api/v1/users/me` with `base_currency` and updates the auth store user.
 - A conflict response is shown as `Currency can only be changed once per month.`
 - Settings currently does not expose controls for dashboard balance source, dashboard account selection, or budget selection.
@@ -163,7 +163,7 @@
 - The transaction form has Expense, Income, and Transfer tabs.
 - Expense loads accounts, expense categories, and current-month budgets. The displayed Account / Source options include account labels, a monthly budget label, and budget labels; saving still requires an account-backed source.
 - Income uses account-only account options and income categories.
-- Transfer uses account source options and destination options that include Budget labels plus account labels; saving requires an account destination and rejects same-account transfers.
+- Transfer uses active account source options and destination options that exclude the selected source account. When the two selected accounts have different currencies, saving requires a Converted Amount in the destination currency.
 - Expense and income create paths can create recurring rules when the Recurring toggle is enabled, with Daily, Weekly, Monthly, and Yearly frequency options.
 - Edit mode disables the Transfer tab and updates existing non-transfer transaction records.
 
@@ -172,6 +172,7 @@
 - Savings Goals route exists at `/savings`.
 - Budget Planning route exists at `/budget`.
 - Budget Setup route exists at `/budget/setup`.
+- Budget setup uses the active default account currency. The planning summary uses the overall monthly budget when one exists, so category allocations and their spending are not counted twice.
 - Standalone Accounts route is missing; account management currently exists only inside the footer sheet menu through `AccountBoard`.
 - No desktop-specific sidebar route shell was found; navigation is implemented as a mobile-width fixed footer plus sheet menu.
 
@@ -225,13 +226,13 @@
 - Transaction create uses account currency as the transaction currency.
 - Transaction create/update validates active account and category ownership; archived accounts/categories are rejected.
 - Expense categories and income categories are separate category records with `kind` values of `expense` and `income`.
-- Default income categories include Salary, Business, Freelance, Investments, and Other.
+- Default income categories include Salary, Business, Freelance, Investments, Refund, and Other. Refund is also provisioned idempotently for users who already have income categories.
 - Default expense categories include Groceries, Dining, Transport, Housing, Utilities, Entertainment, Health, Shopping, Bills & Fees, and Other.
 - The transaction form stores selected account/source, category, amount, date, note, recurring flag, and recurring period in local component state.
 - Recurring rule creation supports income and expense only, with Daily, Weekly, Monthly, and Yearly UI options mapped to backend frequencies.
 - Recurring rules persist account, category, type, amount, description, frequency, interval, timezone, start/end bounds, next run state, run count, and status.
-- Transfers create paired `transfer_debit` and `transfer_credit` transaction rows plus a transfer link; same-account and cross-currency transfers are rejected.
-- Savings transfers create an account debit transaction plus a savings contribution.
+- Transfers create paired `transfer_debit` and `transfer_credit` transaction rows plus a transfer link. Cross-currency transfers require a converted destination amount, while same-currency transfers reject that extra value. Account balances subtract transfer debits and add transfer credits in each account's native currency.
+- Savings Add Money loads active accounts, shows only accounts matching the goal currency, prefers the matching default account, and creates an atomic account debit plus savings contribution through the savings-transfer endpoint.
 
 ## Loan and Debt Data Behavior
 

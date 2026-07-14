@@ -1069,6 +1069,49 @@ test("dedicated account creation page stores the selected type", async ({
   ).toBeVisible();
 });
 
+test("PKR and MYR currencies and Refund income source are available", async ({
+  page,
+}) => {
+  const email = `pfm-currency-refund-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  await page.goto("/accounts/create");
+  const currencySelect = page.getByRole("combobox", {
+    name: "Account currency",
+  });
+  await expect(currencySelect.locator('option[value="PKR"]')).toHaveText(
+    "PKR - Pakistani Rupee",
+  );
+  await expect(currencySelect.locator('option[value="MYR"]')).toHaveText(
+    "MYR - Malaysian Ringgit",
+  );
+
+  await page.getByPlaceholder("Account name").fill("Pakistan Wallet");
+  await currencySelect.selectOption("PKR");
+  await page.getByPlaceholder("0.00").fill("1000.00");
+  await page.getByRole("button", { name: "Add Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/accounts`);
+  await expect(
+    page.getByRole("button", { name: /Pakistan Wallet.*PKR/ }),
+  ).toBeVisible();
+
+  await page.goto("/transaction/create");
+  const form = page.locator("form");
+  await expect(form).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "Income" }).click();
+  await form.getByText("Source", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Refund" })).toBeVisible();
+});
+
 test("Home uses the default account and Settings is unavailable", async ({
   page,
 }) => {
@@ -1185,10 +1228,10 @@ test("transaction selectors contain only active accounts", async ({ page }) => {
 
   await form.getByText("Account", { exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Account: Everyday Account" }),
+    page.getByRole("button", { name: "Everyday Account", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Account: Cash Reserve" }),
+    page.getByRole("button", { name: "Cash Reserve", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
   await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
@@ -1209,14 +1252,386 @@ test("transaction selectors contain only active accounts", async ({ page }) => {
   await page.getByRole("tab", { name: "Transfer" }).click();
   await form.getByText("To", { exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Account: Everyday Account" }),
+    page.getByRole("button", { name: "Everyday Account", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Account: Cash Reserve" }),
+    page.getByRole("button", { name: "Cash Reserve", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cash", exact: true })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
   await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
 
+  await api.dispose();
+});
+
+test("transfer form excludes the source and requires converted amounts", async ({
+  page,
+}) => {
+  const email = `pfm-transfer-conversion-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const cnyAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "CNY",
+    name: "CNY Wallet",
+    opening_balance: "1000.00",
+    type: "mobile_banking",
+  });
+  const bdtAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Bank",
+    opening_balance: "10000.00",
+    type: "bank_account",
+  });
+  await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Wallet",
+    opening_balance: "0.00",
+    type: "cash",
+  });
+
+  await page.goto("/transaction/create");
+  const form = page.locator("form");
+  await expect(form).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "Transfer" }).click();
+
+  await form.getByText("From Account", { exact: true }).click();
+  await page.getByRole("button", { name: "BDT Bank", exact: true }).click();
+  await form.getByText("To", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "BDT Bank", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "BDT Wallet", exact: true }).click();
+  await expect(page.getByLabel("Converted Amount")).toHaveCount(0);
+
+  await form.getByText("From Account", { exact: true }).click();
+  await page.getByRole("button", { name: "CNY Wallet", exact: true }).click();
+  await form.getByText("To", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "CNY Wallet", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "BDT Bank", exact: true }).click();
+
+  const convertedAmount = page.getByLabel("Converted Amount");
+  await expect(convertedAmount).toBeVisible();
+  await expect(convertedAmount).toHaveAttribute("required", "");
+  await form.locator('input[type="number"]').first().fill("100");
+  await convertedAmount.fill("1910");
+  await Promise.all([
+    page.waitForURL(/\/transaction$/),
+    form.getByRole("button", { name: "Add Transfer" }).click(),
+  ]);
+
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${cnyAccount.id}`)).current_balance),
+  ).toBe(900);
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${bdtAccount.id}`)).current_balance),
+  ).toBe(11910);
+
+  await page.goto("/transaction/create");
+  const reverseForm = page.locator("form");
+  await expect(reverseForm).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "Transfer" }).click();
+  await reverseForm.getByText("From Account", { exact: true }).click();
+  await page.getByRole("button", { name: "BDT Bank", exact: true }).click();
+  await reverseForm.getByText("To", { exact: true }).click();
+  await page.getByRole("button", { name: "CNY Wallet", exact: true }).click();
+  await reverseForm.locator('input[type="number"]').first().fill("5000");
+  await page.getByLabel("Converted Amount").fill("260");
+  await Promise.all([
+    page.waitForURL(/\/transaction$/),
+    reverseForm.getByRole("button", { name: "Add Transfer" }).click(),
+  ]);
+
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${bdtAccount.id}`)).current_balance),
+  ).toBe(6910);
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${cnyAccount.id}`)).current_balance),
+  ).toBe(1160);
+  await api.dispose();
+});
+
+test("budget uses the default account currency without double counting", async ({
+  page,
+}) => {
+  const email = `pfm-budget-default-currency-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const myrAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "MYR",
+    name: "MYR Default",
+    opening_balance: "5000.00",
+    type: "bank_account",
+  });
+  await patchJson(api, `/api/v1/accounts/${myrAccount.id}/default`);
+
+  await page.goto("/budget/setup");
+  await expect(page.getByRole("tab", { name: "Custom" })).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(page.getByText("MYR", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Custom" }).click();
+  await page.locator('input[type="number"]').first().fill("2000");
+  const setupForm = page.locator("form");
+  await setupForm.locator('input[type="number"]').first().fill("2000");
+  await Promise.all([
+    page.waitForURL(/\/budget$/),
+    setupForm.getByRole("button", { name: "Save Budget" }).click(),
+  ]);
+
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const budgetList = await getJson(
+    api,
+    `/api/v1/budgets?month=${month}&include_archived=false&limit=100`,
+  );
+  expect(budgetList.items).toHaveLength(2);
+  expect(budgetList.items.every((budget) => budget.currency === "MYR")).toBe(true);
+  const categoryBudget = budgetList.items.find(
+    (budget) => budget.category_id !== null,
+  );
+  expect(categoryBudget).toBeTruthy();
+
+  await postJson(api, "/api/v1/transactions", {
+    account_id: myrAccount.id,
+    amount: "200.00",
+    category_id: categoryBudget.category_id,
+    description: "MYR budget expense",
+    transaction_at: now.toISOString(),
+    type: "expense",
+  });
+  await page.reload();
+
+  const summary = page.locator("section").filter({
+    has: page.getByRole("heading", { level: 2, name: "Monthly Budget" }),
+  });
+  await expect(summary.locator("h3")).toHaveText(/MYR\s*2,000\.00/);
+  await expect(
+    summary.getByText("Spent", { exact: true }).locator("..").locator("h4"),
+  ).toHaveText(/MYR\s*200\.00/);
+  await expect(
+    summary.getByText("Remaining", { exact: true }).locator("..").locator("h4"),
+  ).toHaveText(/MYR\s*1,800\.00/);
+  await expect(summary.getByText(/10% used/)).toBeVisible();
+  await api.dispose();
+});
+
+test("savings creation defaults currency and allows another selection", async ({
+  page,
+}) => {
+  const email = `pfm-savings-currency-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const myrAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "MYR",
+    name: "MYR Savings Default",
+    opening_balance: "5000.00",
+    type: "bank_account",
+  });
+  await patchJson(api, `/api/v1/accounts/${myrAccount.id}/default`);
+
+  await page.goto("/savings/create");
+  const currencySelect = page.getByRole("combobox", {
+    name: "Savings plan currency",
+  });
+  await expect(currencySelect).toBeVisible({ timeout: 60_000 });
+  await expect(currencySelect).toHaveValue("MYR");
+  await expect(currencySelect.locator('option[value="PKR"]')).toHaveText(
+    "PKR - Pakistani Rupee",
+  );
+  await currencySelect.selectOption("PKR");
+  await page.locator('input[type="number"]').first().fill("1200");
+  await page.getByPlaceholder("Goal name").fill("Pakistan Trip");
+  await Promise.all([
+    page.waitForURL(/\/savings$/),
+    page.getByRole("button", { name: "Add Goal" }).click(),
+  ]);
+
+  const goals = await getJson(
+    api,
+    "/api/v1/savings-goals?status=all&limit=100",
+  );
+  const goal = goals.items.find((item) => item.name === "Pakistan Trip");
+  expect(goal).toBeTruthy();
+  expect(goal.currency).toBe("PKR");
+  expect(Number(goal.target_amount)).toBe(1200);
+  expect(Number(goal.monthly_target_amount)).toBe(400);
+  await api.dispose();
+});
+
+test("savings add money selects matching account and deducts its balance", async ({
+  page,
+}) => {
+  const email = `pfm-savings-account-transfer-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const defaultAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Default Savings",
+    opening_balance: "5000.00",
+    type: "bank_account",
+  });
+  const selectedAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Savings Wallet",
+    opening_balance: "1000.00",
+    type: "mobile_banking",
+  });
+  const foreignAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "CNY",
+    name: "CNY Hidden Savings",
+    opening_balance: "1000.00",
+    type: "mobile_banking",
+  });
+  await patchJson(api, `/api/v1/accounts/${defaultAccount.id}/default`);
+  const goal = await postJson(api, "/api/v1/savings-goals", {
+    currency: "BDT",
+    monthly_target_amount: "1000.00",
+    name: "Account Transfer Goal",
+    note: null,
+    target_amount: "10000.00",
+    target_date: null,
+  });
+
+  await page.goto("/savings");
+  await page.getByText("Account Transfer Goal", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Savings Details" })).toBeVisible();
+  await page.getByRole("button", { name: "Add Money" }).click();
+  const addMoneyForm = page.locator("form").filter({
+    has: page.getByRole("heading", { name: "Add Money to Account Transfer Goal" }),
+  });
+  const accountSelect = addMoneyForm.getByRole("combobox", {
+    name: "Account for Account Transfer Goal",
+  });
+  await expect(accountSelect).toHaveValue(defaultAccount.id);
+  await expect(accountSelect.locator("option")).toHaveCount(2);
+  await expect(
+    accountSelect.locator(`option[value="${defaultAccount.id}"]`),
+  ).toContainText("BDT Default Savings");
+  await expect(
+    accountSelect.locator(`option[value="${selectedAccount.id}"]`),
+  ).toContainText("BDT Savings Wallet");
+  await expect(
+    accountSelect.locator(`option[value="${foreignAccount.id}"]`),
+  ).toHaveCount(0);
+
+  await accountSelect.selectOption(selectedAccount.id);
+  await addMoneyForm.getByPlaceholder("BDT 0.00").fill("200");
+  const transferResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/transactions/savings-transfers") &&
+      response.request().method() === "POST" &&
+      response.status() === 201,
+  );
+  await addMoneyForm.getByRole("button", { name: "Add Money" }).click();
+  await transferResponse;
+
+  expect(
+    Number(
+      (await getJson(api, `/api/v1/accounts/${selectedAccount.id}`))
+        .current_balance,
+    ),
+  ).toBe(800);
+  expect(
+    Number(
+      (await getJson(api, `/api/v1/accounts/${defaultAccount.id}`))
+        .current_balance,
+    ),
+  ).toBe(5000);
+  expect(
+    Number((await getJson(api, `/api/v1/savings-goals/${goal.id}`)).progress.saved_amount),
+  ).toBe(200);
   await api.dispose();
 });
 

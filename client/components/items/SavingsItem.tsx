@@ -28,10 +28,21 @@ import {
   InputGroupTextarea,
 } from "../ui/input-group";
 import { Calendar } from "../ui/calendar";
-import { FormEvent, useState } from "react";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../ui/native-select";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  getAccountSelectOptions,
+  resolveAccountSelectValue,
+} from "@/lib/finance/accounts";
+import type { Account } from "@/lib/finance/api";
 
 type SavingsItemProps = {
+  accounts: Account[];
   contributionError?: string | null;
+  currency: string;
   editHref: string;
   id: string;
   isContributing?: boolean;
@@ -39,7 +50,12 @@ type SavingsItemProps = {
   monthlyTarget: string;
   name: string;
   note?: string | null;
-  onAddContribution?: (amount: string, date: Date, note: string) => Promise<void>;
+  onAddContribution?: (
+    accountId: string,
+    amount: string,
+    date: Date,
+    note: string,
+  ) => Promise<void>;
   onDelete?: () => void;
   percentComplete: number;
   savedAmount: string;
@@ -48,7 +64,9 @@ type SavingsItemProps = {
 };
 
 export default function SavingsItem({
+  accounts,
   contributionError,
+  currency,
   editHref,
   isContributing = false,
   isDeleting = false,
@@ -62,16 +80,37 @@ export default function SavingsItem({
   targetAmount,
   targetDate,
 }: SavingsItemProps) {
+  const matchingAccounts = useMemo(
+    () => accounts.filter((account) => account.currency === currency),
+    [accounts, currency],
+  );
+  const accountOptions = useMemo(
+    () => getAccountSelectOptions(matchingAccounts),
+    [matchingAccounts],
+  );
+  const preferredAccountId = useMemo(
+    () => resolveAccountSelectValue(matchingAccounts),
+    [matchingAccounts],
+  );
+  const [accountId, setAccountId] = useState(preferredAccountId);
   const [amount, setAmount] = useState("");
   const [contributedAt, setContributedAt] = useState<Date | undefined>(
     new Date(),
   );
   const [contributionNote, setContributionNote] = useState("");
 
+  useEffect(() => {
+    setAccountId((current) =>
+      accountOptions.some((option) => option.id === current)
+        ? current
+        : preferredAccountId,
+    );
+  }, [accountOptions, preferredAccountId]);
+
   async function handleContribution(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!onAddContribution || !contributedAt) return;
-    await onAddContribution(amount, contributedAt, contributionNote);
+    if (!onAddContribution || !accountId || !contributedAt) return;
+    await onAddContribution(accountId, amount, contributedAt, contributionNote);
     setAmount("");
     setContributionNote("");
   }
@@ -152,6 +191,36 @@ export default function SavingsItem({
                       <FieldError />
                     </Field>
                     <Field>
+                      <label className="block space-y-1">
+                        <span className="text-primary-foreground font-bold">
+                          Account
+                        </span>
+                        <NativeSelect
+                          aria-label={`Account for ${name}`}
+                          className="w-full border border-border"
+                          value={accountId}
+                          onChange={(event) => setAccountId(event.target.value)}
+                          disabled={isContributing || accountOptions.length === 0}
+                          required
+                        >
+                          {accountOptions.length === 0 && (
+                            <NativeSelectOption value="">
+                              No {currency} account available
+                            </NativeSelectOption>
+                          )}
+                          {accountOptions.map((option) => (
+                            <NativeSelectOption
+                              key={option.id}
+                              value={option.id}
+                            >
+                              {option.label}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                      </label>
+                      <FieldError />
+                    </Field>
+                    <Field>
                       <InputGroup className="border-border">
                         <InputGroupInput
                           type="number"
@@ -159,7 +228,7 @@ export default function SavingsItem({
                           step="0.01"
                           value={amount}
                           onChange={(event) => setAmount(event.target.value)}
-                          placeholder="$0.00"
+                          placeholder={`${currency} 0.00`}
                           required
                         />
                         <InputGroupAddon className="text-primary-foreground">
@@ -193,7 +262,11 @@ export default function SavingsItem({
                 </div>
                 <DrawerFooter>
                   <DrawerClose asChild>
-                    <Button type="submit" variant="reverse">
+                    <Button
+                      type="submit"
+                      variant="reverse"
+                      disabled={isContributing || !accountId}
+                    >
                       {isContributing ? "Adding..." : "Add Money"}
                     </Button>
                   </DrawerClose>

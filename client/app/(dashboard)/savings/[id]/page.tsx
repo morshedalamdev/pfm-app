@@ -12,7 +12,13 @@ import BackBtn from "@/components/BackBtn";
 import Header from "@/components/Header";
 import TransactionInput from "@/components/inputs/TransactionInput";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+} from "@/components/ui/field";
 import {
   InputGroup,
   InputGroupAddon,
@@ -21,13 +27,19 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
+import {
   createSavingsGoal,
   getSavingsGoal,
+  listAccounts,
   updateSavingsGoal,
 } from "@/lib/finance/api";
+import { getDefaultAccount } from "@/lib/finance/accounts";
 import { useAuthStore } from "@/lib/auth/store";
+import { CURRENCY_OPTIONS } from "@/lib/finance/currencies";
 import { decimalInput } from "@/lib/finance/format";
-import { DollarSignIcon } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 
 const DEFAULT_TARGET_MONTHS = 3;
@@ -78,16 +90,17 @@ export default function CreateSavingsPage() {
   const goalId = params.id;
   const isCreate = goalId === "create" || goalId === "edit";
 
+  const userCurrency = useAuthStore(
+    (state) => state.user?.base_currency ?? "USD",
+  );
+  const [currency, setCurrency] = useState(userCurrency);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(!isCreate);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [targetMonths, setTargetMonths] = useState(DEFAULT_TARGET_MONTHS);
-  const userCurrency = useAuthStore(
-    (state) => state.user?.base_currency ?? "USD",
-  );
 
   const targetMonthOptions = useMemo(
     () =>
@@ -106,11 +119,16 @@ export default function CreateSavingsPage() {
   }, [targetAmount, targetMonths]);
 
   const loadGoal = useCallback(async () => {
-    if (isCreate) return;
     setIsLoading(true);
     setError(null);
     try {
+      if (isCreate) {
+        const accounts = await listAccounts();
+        setCurrency(getDefaultAccount(accounts)?.currency ?? userCurrency);
+        return;
+      }
       const goal = await getSavingsGoal(goalId);
+      setCurrency(goal.currency);
       setName(goal.name);
       setNote(goal.note ?? "");
       setTargetAmount(goal.target_amount);
@@ -124,7 +142,7 @@ export default function CreateSavingsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [goalId, isCreate]);
+  }, [goalId, isCreate, userCurrency]);
 
   useEffect(() => {
     void loadGoal();
@@ -136,7 +154,7 @@ export default function CreateSavingsPage() {
     setIsSaving(true);
     try {
       const body = {
-        currency: userCurrency,
+        currency,
         monthly_target_amount: decimalInput(calculatedMonthlyTarget),
         name,
         note: note || null,
@@ -182,9 +200,7 @@ export default function CreateSavingsPage() {
             <FieldSet>
               <InputGroup className="border-0 border-b rounded-none h-12">
                 <InputGroupAddon>
-                  <InputGroupText>
-                    <DollarSignIcon />
-                  </InputGroupText>
+                  <InputGroupText>{currency}</InputGroupText>
                 </InputGroupAddon>
                 <InputGroupInput
                   type="number"
@@ -212,6 +228,30 @@ export default function CreateSavingsPage() {
                   </InputGroup>
                   <FieldError />
                 </Field>
+                {isCreate && (
+                  <Field>
+                    <FieldLabel htmlFor="savings-currency">Currency</FieldLabel>
+                    <NativeSelect
+                      id="savings-currency"
+                      aria-label="Savings plan currency"
+                      className="w-full border border-input bg-transparent"
+                      value={currency}
+                      onChange={(event) => setCurrency(event.target.value)}
+                      disabled={isSaving}
+                      required
+                    >
+                      {CURRENCY_OPTIONS.map((option) => (
+                        <NativeSelectOption
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <FieldError />
+                  </Field>
+                )}
                 <Field>
                   <InputGroup>
                     <InputGroupInput

@@ -69,7 +69,7 @@ No repository-owned production transaction mock-data module was found. Transacti
 - Categories are user-owned backend records, not frontend constants or production mock data.
 - Categories have `income` or `expense` kind, icon key, default flag, and archive state. The backend rejects an archived category or a category whose kind does not match the transaction type.
 - Empty category sets are bootstrapped by `DEFAULT_CATEGORIES` in `server/app/modules/finance_defaults.py`.
-- Current default income categories are Salary, Business, Freelance, Investments, and Other.
+- Current default income categories are Salary, Business, Freelance, Investments, Refund, and Other. Refund is also provisioned idempotently for existing users.
 - Current default expense categories are Groceries, Dining, Transport, Housing, Utilities, Entertainment, Health, Shopping, Bills & Fees, and Other.
 - The transaction form loads income and expense categories separately from the API and displays their names in the select UI.
 - `client/lib/categoryIcons.ts` maps known category names to Lucide icons and falls back to Other. Hangout, Vacation, and Party are not present in backend defaults or the icon map.
@@ -246,6 +246,8 @@ No repository-owned production transaction mock-data module was found. Transacti
 
 - Disabled and archived accounts are excluded from all new transaction account option lists, including transfer source and account destinations.
 - Transfer source defaults to the active default account and its initial destination uses another active account when available.
+- The Transfer destination selector excludes the selected source account and resets to an eligible account if the source changes.
+- When transfer account currencies differ, the form shows a required Converted Amount field in the destination account currency; same-currency transfers do not show that field.
 - Historical transaction records remain readable; an edit must reference an active account before it can be saved.
 
 ## Selected Account Persistence
@@ -332,7 +334,7 @@ No repository-owned production transaction mock-data module was found. Transacti
 
 ## Phase 05.5 Bugs Fixed
 
-- Account `current_balance` now includes income and expense transaction effects for that account.
+- Account `current_balance` includes income and transfer-credit additions plus expense and transfer-debit deductions for that account.
 - Transaction edits that change amount or selected account now adjust both affected account balances through ledger recomputation.
 - Voiding a transaction now removes its effect from the selected account balance.
 

@@ -231,6 +231,7 @@
 
 - Account balances use the selected account currency.
 - Budget remaining balances use the selected budget currency.
+- Budget planning and setup use the active default account currency; expenses in other currencies are excluded from budget progress because no exchange rate is available.
 - No currency conversion is performed.
 
 ## Fallback Rule

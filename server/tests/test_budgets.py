@@ -76,6 +76,14 @@ def test_budget_crud_progress_and_period_boundaries(
     context = budget_context
     headers = auth_headers(context, "budget-progress@example.com")
     account = create_account(context, headers, "Budget Checking", "bank", "0")
+    foreign_account = create_account(
+        context,
+        headers,
+        "Foreign Budget Account",
+        "bank",
+        "0",
+        currency="BDT",
+    )
     food_category = create_category(context, headers, "Food", "expense", "utensils")
     rent_category = create_category(context, headers, "Rent", "expense", "home")
     income_category = create_category(context, headers, "Salary", "income", "briefcase")
@@ -138,6 +146,15 @@ def test_budget_crud_progress_and_period_boundaries(
         "income",
         "500.0000",
         "2026-01-15T00:00:00+00:00",
+    )
+    create_transaction(
+        context,
+        headers,
+        foreign_account["id"],
+        food_category["id"],
+        "expense",
+        "99.0000",
+        "2026-01-20T00:00:00+00:00",
     )
 
     detail_response = context.client.get(
@@ -561,6 +578,7 @@ def create_account(
     name: str,
     account_type: str,
     opening_balance: str,
+    currency: str = "USD",
 ) -> dict[str, object]:
     response = context.client.post(
         "/api/v1/accounts",
@@ -568,6 +586,7 @@ def create_account(
         json={
             "name": name,
             "type": account_type,
+            "currency": currency,
             "opening_balance": opening_balance,
         },
     )

@@ -41,6 +41,7 @@ DEFAULT_CATEGORIES: dict[CategoryKind, tuple[DefaultCategory, ...]] = {
         DefaultCategory(icon_key="building", name="Business"),
         DefaultCategory(icon_key="laptop", name="Freelance"),
         DefaultCategory(icon_key="trending-up", name="Investments"),
+        DefaultCategory(icon_key="rotate-ccw", name="Refund"),
         DefaultCategory(icon_key="more-horizontal", name="Other"),
     ),
     "expense": (
@@ -58,6 +59,11 @@ DEFAULT_CATEGORIES: dict[CategoryKind, tuple[DefaultCategory, ...]] = {
         DefaultCategory(icon_key="credit-card", name="Bills & Fees"),
         DefaultCategory(icon_key="more-horizontal", name="Other"),
     ),
+}
+
+REQUIRED_DEFAULT_CATEGORIES: dict[CategoryKind, tuple[DefaultCategory, ...]] = {
+    "income": (DefaultCategory(icon_key="rotate-ccw", name="Refund"),),
+    "expense": (),
 }
 
 
@@ -91,9 +97,19 @@ async def ensure_default_categories(
 ) -> bool:
     created = False
     for category_kind in default_category_kinds(kind):
-        if await categories.has_any_owned_kind(user_id, category_kind):
-            continue
-        for default_category in DEFAULT_CATEGORIES[category_kind]:
+        has_categories = await categories.has_any_owned_kind(user_id, category_kind)
+        default_categories = (
+            REQUIRED_DEFAULT_CATEGORIES[category_kind]
+            if has_categories
+            else DEFAULT_CATEGORIES[category_kind]
+        )
+        for default_category in default_categories:
+            if await categories.has_owned_kind_name(
+                user_id,
+                category_kind,
+                default_category.name,
+            ):
+                continue
             await categories.create(
                 Category(
                     user_id=user_id,
