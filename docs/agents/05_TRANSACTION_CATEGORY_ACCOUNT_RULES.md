@@ -246,6 +246,8 @@ No repository-owned production transaction mock-data module was found. Transacti
 
 - Disabled and archived accounts are excluded from all new transaction account option lists, including transfer source and account destinations.
 - Transfer source defaults to the active default account and its initial destination uses another active account when available.
+- The Transfer destination selector excludes the selected source account and resets to an eligible account if the source changes.
+- When transfer account currencies differ, the form shows a required Converted Amount field in the destination account currency; same-currency transfers do not show that field.
 - Historical transaction records remain readable; an edit must reference an active account before it can be saved.
 
 ## Selected Account Persistence

@@ -1228,10 +1228,10 @@ test("transaction selectors contain only active accounts", async ({ page }) => {
 
   await form.getByText("Account", { exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Account: Everyday Account" }),
+    page.getByRole("button", { name: "Everyday Account", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Account: Cash Reserve" }),
+    page.getByRole("button", { name: "Cash Reserve", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
   await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
@@ -1252,14 +1252,127 @@ test("transaction selectors contain only active accounts", async ({ page }) => {
   await page.getByRole("tab", { name: "Transfer" }).click();
   await form.getByText("To", { exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Account: Everyday Account" }),
+    page.getByRole("button", { name: "Everyday Account", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Account: Cash Reserve" }),
+    page.getByRole("button", { name: "Cash Reserve", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cash", exact: true })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("button", { name: /^Budget:/ })).toHaveCount(0);
   await expect(page.getByText("Disabled Account", { exact: true })).toHaveCount(0);
 
+  await api.dispose();
+});
+
+test("transfer form excludes the source and requires converted amounts", async ({
+  page,
+}) => {
+  const email = `pfm-transfer-conversion-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const cnyAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "CNY",
+    name: "CNY Wallet",
+    opening_balance: "1000.00",
+    type: "mobile_banking",
+  });
+  const bdtAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Bank",
+    opening_balance: "10000.00",
+    type: "bank_account",
+  });
+  await postJson(api, "/api/v1/accounts", {
+    currency: "BDT",
+    name: "BDT Wallet",
+    opening_balance: "0.00",
+    type: "cash",
+  });
+
+  await page.goto("/transaction/create");
+  const form = page.locator("form");
+  await expect(form).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "Transfer" }).click();
+
+  await form.getByText("From Account", { exact: true }).click();
+  await page.getByRole("button", { name: "BDT Bank", exact: true }).click();
+  await form.getByText("To", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "BDT Bank", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "BDT Wallet", exact: true }).click();
+  await expect(page.getByLabel("Converted Amount")).toHaveCount(0);
+
+  await form.getByText("From Account", { exact: true }).click();
+  await page.getByRole("button", { name: "CNY Wallet", exact: true }).click();
+  await form.getByText("To", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "CNY Wallet", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "BDT Bank", exact: true }).click();
+
+  const convertedAmount = page.getByLabel("Converted Amount");
+  await expect(convertedAmount).toBeVisible();
+  await expect(convertedAmount).toHaveAttribute("required", "");
+  await form.locator('input[type="number"]').first().fill("100");
+  await convertedAmount.fill("1910");
+  await Promise.all([
+    page.waitForURL(/\/transaction$/),
+    form.getByRole("button", { name: "Add Transfer" }).click(),
+  ]);
+
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${cnyAccount.id}`)).current_balance),
+  ).toBe(900);
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${bdtAccount.id}`)).current_balance),
+  ).toBe(11910);
+
+  await page.goto("/transaction/create");
+  const reverseForm = page.locator("form");
+  await expect(reverseForm).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "Transfer" }).click();
+  await reverseForm.getByText("From Account", { exact: true }).click();
+  await page.getByRole("button", { name: "BDT Bank", exact: true }).click();
+  await reverseForm.getByText("To", { exact: true }).click();
+  await page.getByRole("button", { name: "CNY Wallet", exact: true }).click();
+  await reverseForm.locator('input[type="number"]').first().fill("5000");
+  await page.getByLabel("Converted Amount").fill("260");
+  await Promise.all([
+    page.waitForURL(/\/transaction$/),
+    reverseForm.getByRole("button", { name: "Add Transfer" }).click(),
+  ]);
+
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${bdtAccount.id}`)).current_balance),
+  ).toBe(6910);
+  expect(
+    Number((await getJson(api, `/api/v1/accounts/${cnyAccount.id}`)).current_balance),
+  ).toBe(1160);
   await api.dispose();
 });
 

@@ -9,7 +9,7 @@ Phase 08.5 reviewed the implemented finance, budget, savings, report, and fronte
 - Accounts: `POST /api/v1/accounts`, `GET /api/v1/accounts`, `GET /api/v1/accounts/{account_id}`, `PATCH /api/v1/accounts/{account_id}`, and `DELETE /api/v1/accounts/{account_id}`. List responses use `items`, `next_cursor`, and `has_more`.
 - Categories: `POST /api/v1/categories`, `GET /api/v1/categories`, `PATCH /api/v1/categories/{category_id}`, and `DELETE /api/v1/categories/{category_id}`. Category list supports `kind=income|expense` and the same pagination envelope.
 - Transactions: `POST /api/v1/transactions`, `GET /api/v1/transactions`, `GET /api/v1/transactions/{transaction_id}`, `PATCH /api/v1/transactions/{transaction_id}`, and `DELETE /api/v1/transactions/{transaction_id}`. Transaction list supports `limit`, `cursor`, `date_from`, `date_to`, `account_id`, `category_id`, `type=income|expense|transfer_debit|transfer_credit`, and `search`.
-- Transfers: `POST /api/v1/transactions/transfers` and `GET /api/v1/transactions/transfers/{transfer_id}`. Transfer creation returns linked debit/credit source transaction ids for auditability.
+- Transfers: `POST /api/v1/transactions/transfers` and `GET /api/v1/transactions/transfers/{transfer_id}`. Cross-currency creation requires `converted_amount`; responses return the linked debit/credit source transaction ids and destination converted currency for auditability.
 - Money fields are documented in OpenAPI as decimal strings and are persisted as PostgreSQL `NUMERIC` through Python `Decimal`. Retryable transaction and transfer creates accept `Idempotency-Key`.
 
 ## Budget And Savings API Contract Status

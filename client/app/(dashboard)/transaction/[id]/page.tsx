@@ -2,7 +2,13 @@
 
 import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
-import { Field, FieldError, FieldGroup, FieldSet } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+} from "@/components/ui/field";
 import {
   InputGroup,
   InputGroupAddon,
@@ -65,6 +71,7 @@ export default function CreateTransactionPage() {
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [amount, setAmount] = useState("");
+  const [convertedAmount, setConvertedAmount] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [error, setError] = useState<string | null>(null);
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
@@ -108,17 +115,42 @@ export default function CreateTransactionPage() {
     () => expenseSources.map((source) => source.label),
     [expenseSources],
   );
+  const transferSource = useMemo(
+    () => selectByName(activeAccounts, fromAccountName),
+    [activeAccounts, fromAccountName],
+  );
   const transferDestinations = useMemo<AccountOption[]>(
     () =>
-      activeAccounts.map((account) => ({
-        id: account.id,
-        label: accountDestinationLabel(account),
-      })),
-    [activeAccounts],
+      activeAccounts
+        .filter((account) => account.id !== transferSource?.id)
+        .map((account) => ({
+          id: account.id,
+          label: accountDestinationLabel(account),
+        })),
+    [activeAccounts, transferSource?.id],
   );
   const transferDestinationNames = useMemo(
     () => transferDestinations.map((destination) => destination.label),
     [transferDestinations],
+  );
+  const transferDestination = useMemo(
+    () =>
+      transferDestinations.find(
+        (destination) => destination.label === toDestinationName,
+      ),
+    [toDestinationName, transferDestinations],
+  );
+  const transferDestinationAccount = useMemo(
+    () =>
+      activeAccounts.find(
+        (account) => account.id === transferDestination?.id,
+      ),
+    [activeAccounts, transferDestination?.id],
+  );
+  const transferUsesConversion = Boolean(
+    transferSource &&
+      transferDestinationAccount &&
+      transferSource.currency !== transferDestinationAccount.currency,
   );
 
   const loadData = useCallback(async (config?: { signal?: AbortSignal }) => {
@@ -226,6 +258,16 @@ export default function CreateTransactionPage() {
     }
   }, [expenseCategories, incomeCategories, selectedCategoryName, type]);
 
+  useEffect(() => {
+    if (type !== "transfer") return;
+    if (transferDestinationNames.includes(toDestinationName)) return;
+    setToDestinationName(transferDestinationNames[0] ?? "");
+  }, [toDestinationName, transferDestinationNames, type]);
+
+  useEffect(() => {
+    setConvertedAmount("");
+  }, [transferDestinationAccount?.id, transferSource?.id]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -245,13 +287,8 @@ export default function CreateTransactionPage() {
           ? selectByName(incomeAccounts, selectedAccountName)
           : selectByName(activeAccounts, selectedAccountName);
     const selectedCategory = selectByName(activeCategories, selectedCategoryName);
-    const fromAccount = selectByName(activeAccounts, fromAccountName);
-    const transferDestination = transferDestinations.find(
-      (destination) => destination.label === toDestinationName,
-    );
-    const toAccount = activeAccounts.find(
-      (account) => account.id === transferDestination?.id,
-    );
+    const fromAccount = transferSource;
+    const toAccount = transferDestinationAccount;
 
     if (type === "transfer") {
       if (!fromAccount || !toAccount) {
@@ -260,6 +297,16 @@ export default function CreateTransactionPage() {
       }
       if (fromAccount.id === toAccount.id) {
         setError("Choose two different accounts for the transfer.");
+        return;
+      }
+      const convertedValue = Number(convertedAmount);
+      if (
+        transferUsesConversion &&
+        (!convertedAmount.trim() ||
+          !Number.isFinite(convertedValue) ||
+          convertedValue <= 0)
+      ) {
+        setError("Enter the converted amount received in the destination account.");
         return;
       }
     } else if (!selectedAccount || !selectedCategory) {
@@ -276,6 +323,9 @@ export default function CreateTransactionPage() {
           from_account_id: fromAccount.id,
           to_account_id: toAccount.id,
           transaction_at: transactionAt,
+          ...(transferUsesConversion
+            ? { converted_amount: decimalInput(convertedAmount) }
+            : {}),
         });
       } else if (isCreate && isRecurring && selectedAccount && selectedCategory) {
         const transactionType = type === "income" ? "income" : "expense";
@@ -435,6 +485,34 @@ export default function CreateTransactionPage() {
                       />
                       <FieldError />
                     </Field>
+                    {transferUsesConversion && transferDestinationAccount && (
+                      <Field>
+                        <FieldLabel htmlFor="converted-amount">
+                          Converted Amount
+                        </FieldLabel>
+                        <InputGroup>
+                          <InputGroupInput
+                            id="converted-amount"
+                            aria-label="Converted Amount"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={convertedAmount}
+                            onChange={(event) =>
+                              setConvertedAmount(event.target.value)
+                            }
+                            placeholder="0.00"
+                            required
+                          />
+                          <InputGroupAddon align="inline-end">
+                            <InputGroupText>
+                              {transferDestinationAccount.currency}
+                            </InputGroupText>
+                          </InputGroupAddon>
+                        </InputGroup>
+                        <FieldError />
+                      </Field>
+                    )}
                     <Field>
                       <TransactionInput
                         type="select"

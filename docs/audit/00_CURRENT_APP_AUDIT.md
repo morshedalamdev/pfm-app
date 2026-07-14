@@ -163,7 +163,7 @@
 - The transaction form has Expense, Income, and Transfer tabs.
 - Expense loads accounts, expense categories, and current-month budgets. The displayed Account / Source options include account labels, a monthly budget label, and budget labels; saving still requires an account-backed source.
 - Income uses account-only account options and income categories.
-- Transfer uses account source options and destination options that include Budget labels plus account labels; saving requires an account destination and rejects same-account transfers.
+- Transfer uses active account source options and destination options that exclude the selected source account. When the two selected accounts have different currencies, saving requires a Converted Amount in the destination currency.
 - Expense and income create paths can create recurring rules when the Recurring toggle is enabled, with Daily, Weekly, Monthly, and Yearly frequency options.
 - Edit mode disables the Transfer tab and updates existing non-transfer transaction records.
 
