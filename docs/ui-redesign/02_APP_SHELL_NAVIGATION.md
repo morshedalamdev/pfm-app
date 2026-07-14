@@ -419,6 +419,22 @@ The shell content wrapper now adds mobile bottom padding when a mobile navigatio
 
 Focused browser coverage for this phase verifies mobile bottom navigation visibility, active state, Add/Plan/More menus, keyboard Escape focus restoration, safe route navigation, hidden nav on create routes, safe-area placement, dark theme, and logout access.
 
+## Phase 02.5 Verification
+
+Phase 02.5 reviewed the completed Agent 02 shell/navigation work without adding new product behavior.
+
+Confirmed shell architecture:
+
+- One authenticated shell remains mounted from `client/app/(dashboard)/layout.tsx` through `client/components/shell/AuthenticatedAppShell.tsx`.
+- One shared navigation source remains `client/lib/navigation.ts`.
+- The old standalone mobile footer sheet behavior is retired; `client/components/Footer.tsx` now delegates mobile navigation to the shared configuration.
+- Auth routes remain outside the authenticated shell.
+- No backend, generated API contract, business-domain behavior, or React Native source changes were made for this verification phase.
+
+Added focused regression coverage in `client/e2e/shell-regression.e2e.spec.mjs` for the required shell viewports, browser zoom levels, theme modes, auth boundary, desktop/tablet shell landmarks, mobile bottom navigation visibility, and horizontal overflow guard.
+
+Detailed results and deferred page-level findings are recorded in `docs/ui-redesign/02_APP_SHELL_NAVIGATION_TEST_REPORT.md`.
+
 ## Changed Files
 
 ### Phase 02.1
@@ -458,6 +474,13 @@ Focused browser coverage for this phase verifies mobile bottom navigation visibi
 - `client/e2e/mobile-navigation.e2e.spec.mjs`
 - `client/lib/navigation.ts`
 - `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
+
+### Phase 02.5
+
+- `PFM_PROJECT_STATE.md`
+- `client/e2e/shell-regression.e2e.spec.mjs`
+- `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
+- `docs/ui-redesign/02_APP_SHELL_NAVIGATION_TEST_REPORT.md`
 
 ## Deferred Page-Level Work
 
