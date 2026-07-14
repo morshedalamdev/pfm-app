@@ -105,14 +105,178 @@ Existing spacing/radius/shadow patterns are mostly direct Tailwind utilities:
 - Frequent `p-3`, `px-3`, `py-1.5`, `gap-1.5`, `gap-3`, `rounded-md`, `rounded-xl`, `rounded-3xl`, `shadow-sm`, `shadow-xs`.
 - No semantic spacing, shadow, or motion token layer exists yet.
 
+## Token Architecture
+
+Phase 01.2 replaced the dark-first root palette with a true light default theme and an intentional `.dark` override while preserving the existing Tailwind CSS 4 and shadcn/Radix-compatible token names.
+
+Core compatibility tokens retained:
+
+- `--background`, `--foreground`
+- `--card`, `--card-foreground`
+- `--popover`, `--popover-foreground`
+- `--primary`, `--primary-foreground`
+- `--secondary`, `--secondary-foreground`
+- `--muted`, `--muted-foreground`
+- `--accent`, `--accent-foreground`
+- `--destructive`
+- `--border`, `--input`, `--ring`
+- `--chart-1` through `--chart-5`
+- `--sidebar-*`
+
+New semantic tokens added:
+
+- Surfaces: `--surface`, `--surface-subtle`, `--surface-elevated`, `--surface-overlay`
+- Borders and controls: `--border-strong`, `--input-background`, `--focus`
+- Brand states: `--primary-hover`, `--primary-active`, `--primary-soft`, `--primary-soft-foreground`, `--primary-border`, `--primary-glow`
+- Finance semantics: `--income`, `--expense`, `--saving`, `--debt`, `--success`, `--warning`, `--info` plus soft and foreground companions
+- Destructive support: `--destructive-soft`, `--destructive-foreground`
+- Charts: `--chart-muted`, `--chart-track`, `--chart-grid`, `--chart-axis`, `--chart-tooltip`, `--chart-tooltip-foreground`
+- Navigation: `--navigation-background`, `--navigation-foreground`, `--navigation-active`, `--navigation-muted`
+- Elevation/motion/typography foundations: `--shadow-floating`, `--shadow-primary-glow`, `--duration-fast`, `--duration-normal`, `--duration-slow`, `--ease-standard`, `--ease-emphasized`, and semantic typography size variables
+
+The `@theme inline` map now exposes the new color families to Tailwind as `--color-*` variables. Existing `bg-icon` usage remains compatible and now resolves to the primary brand token.
+
+## Light Theme
+
+The default `:root` theme is now a light theme:
+
+- Page background: near-white with a subtle cool tint.
+- Foreground: dark neutral with enough contrast for body text.
+- Cards/popovers: white elevated surfaces.
+- Brand: purple primary with hover, active, soft, border, and glow states.
+- Borders/inputs: visible neutral boundaries that remain soft against white cards.
+- Financial semantics: income/success green, expense/destructive coral-red, saving blue, debt amber, warning amber, info blue.
+- Chart palette: purple, blue, green, orange, and coral-red with separate muted, track, grid, axis, and tooltip tokens.
+
+## Dark Theme
+
+The `.dark` theme remains compatible with Tailwind dark variants and now has intentionally designed values:
+
+- Page background: deep neutral-purple, not pure black.
+- Cards/popovers: elevated dark surfaces with border contrast.
+- Brand: brighter purple for dark-surface contrast.
+- Soft semantic states: darker tinted surfaces with readable foreground companions.
+- Chart colors: lifted chroma and lightness so slices remain visible on dark cards.
+- Shadows: stronger neutral floating shadow with controlled purple glow only for branded emphasis.
+
+Phase 01.2 does not add runtime theme selection, so `.dark` still requires Phase 01.3 to be applied to `<html>`.
+
+## Financial Semantic Colors
+
+Token meanings:
+
+- `income`: positive incoming money.
+- `expense`: outgoing spending.
+- `saving`: savings progress or contribution.
+- `debt`: loan/debt responsibility.
+- `success`: completed action.
+- `warning`: approaching limit or schedule risk.
+- `destructive`: error, deletion, overdue, or severe overspending.
+- `info`: neutral guidance.
+
+Each semantic group has a base color, a soft surface, and a foreground color. Later page agents should migrate hardcoded `text-green-*`, `text-red-*`, `text-blue-*`, and emerald popup styling to these semantic tokens.
+
+## Chart Colors
+
+Chart foundations now include:
+
+- `chart-1`: purple
+- `chart-2`: blue
+- `chart-3`: green
+- `chart-4`: orange
+- `chart-5`: coral/red-orange
+- `chart-muted`: unallocated or secondary segment
+- `chart-track`: progress or donut track
+- `chart-grid`: chart grid lines
+- `chart-axis`: axis text/marks
+- `chart-tooltip` and `chart-tooltip-foreground`: tooltip surface/text
+
+The current report components were not redesigned in this phase. Later chart work should use these tokens and preserve non-color cues such as labels, tooltips, and legends.
+
+## Typography
+
+The existing Urbanist integration is preserved. Phase 01.2 adds semantic size variables for:
+
+- Display balance
+- Page title
+- Section title
+- Card title
+- Body
+- Supporting text
+- Label
+- Caption
+
+Later phases should add a shared financial-number utility with tabular numerals when applying typography to components. No component font sizes were mass-changed in this phase.
+
+## Spacing
+
+The existing Tailwind spacing foundation remains intact. Phase 01.2 does not alter page spacing or route layouts.
+
+Recommended later usage:
+
+- Page padding should stay compact in the current mobile-width shell.
+- Repeated financial cards should use consistent internal padding and list row gaps.
+- Inline actions should keep small predictable gaps.
+- Desktop expansion, if introduced by later agents, should be handled by shell/page redesign phases, not by this token phase.
+
+## Radius
+
+The root radius increased from `0.625rem` to `0.75rem`, preserving the existing derived Tailwind radius scale:
+
+- `--radius-sm`
+- `--radius-md`
+- `--radius-lg`
+- `--radius-xl`
+- `--radius-2xl`
+- `--radius-3xl`
+- `--radius-4xl`
+
+This keeps buttons and inputs moderately rounded while allowing cards and financial sections to feel closer to the references.
+
+## Shadows
+
+Phase 01.2 adds:
+
+- `--shadow-floating`: neutral elevated surface shadow.
+- `--shadow-primary-glow`: controlled purple emphasis shadow.
+
+These tokens are not applied broadly yet. Ordinary cards should avoid glow; purple glow is reserved for branded selected states, primary floating actions, or high-emphasis interactions in later phases.
+
+## Motion
+
+Phase 01.2 adds motion foundations:
+
+- `--duration-fast`
+- `--duration-normal`
+- `--duration-slow`
+- `--ease-standard`
+- `--ease-emphasized`
+
+The existing `x-animation` utility remains unchanged. Reduced-motion handling and theme-transition suppression belong to later global foundation/runtime phases.
+
+## Token Validation
+
+Validated conceptually against the Phase 01.2 requirements:
+
+- Page background and foreground now form a real light theme.
+- Card and card foreground remain readable in both themes.
+- Muted text has stronger contrast than the prior white/70-on-dark default.
+- Primary/primary foreground pair is designed for readable buttons in both themes.
+- Income, expense, warning, destructive, and info each have base, soft, and foreground pairs.
+- Focus/ring tokens are distinct purple values in both themes.
+- Chart colors have separate light and dark values and do not depend on opacity alone.
+- Borders are visible in both themes through `--border` and `--border-strong`.
+
+Further visual validation with actual route screenshots is deferred until the theme runtime and selector exist.
+
 ## Hardcoded Style Migration Inventory
 
 ### Global Blockers
 
-- `client/app/globals.css`: default `:root` is dark-first rather than a true light theme.
+- `client/app/globals.css`: default `:root` dark-first palette was fixed in Phase 01.2.
 - `client/app/layout.tsx`: `suppressHydrationWarning` is applied to `<body>` before any theme runtime exists.
 - `client/components/ui/chart.tsx`: chart wrapper hardcodes Recharts axis tick text to white.
-- `client/components/charts/IncomeVsExpenseChart.tsx`: rendered line colors reference undefined `--color-income` and `--color-expense`.
+- `client/components/charts/IncomeVsExpenseChart.tsx`: rendered line colors now resolve because Phase 01.2 adds `--color-income` and `--color-expense`.
 
 ### Shared Component Blockers
 
@@ -141,8 +305,7 @@ Existing spacing/radius/shadow patterns are mostly direct Tailwind utilities:
 - No persistent theme preference exists.
 - No pre-paint theme boot exists.
 - No `color-scheme` handling exists.
-- Default `:root` tokens are not a production light theme.
-- Undefined finance semantic CSS variables are referenced by `IncomeVsExpenseChart`.
+- Default `:root` tokens are now a production light-theme foundation.
 - `client/app/(dashboard)/settings` exists as an empty directory in this worktree; the phase brief's expected `client/app/(dashboard)/settings/page.tsx` was not found.
 
 ## Shared Component Blockers
