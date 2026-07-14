@@ -1463,6 +1463,71 @@ test("budget uses the default account currency without double counting", async (
   await api.dispose();
 });
 
+test("savings creation defaults currency and allows another selection", async ({
+  page,
+}) => {
+  const email = `pfm-savings-currency-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const myrAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "MYR",
+    name: "MYR Savings Default",
+    opening_balance: "5000.00",
+    type: "bank_account",
+  });
+  await patchJson(api, `/api/v1/accounts/${myrAccount.id}/default`);
+
+  await page.goto("/savings/create");
+  const currencySelect = page.getByRole("combobox", {
+    name: "Savings plan currency",
+  });
+  await expect(currencySelect).toBeVisible({ timeout: 60_000 });
+  await expect(currencySelect).toHaveValue("MYR");
+  await expect(currencySelect.locator('option[value="PKR"]')).toHaveText(
+    "PKR - Pakistani Rupee",
+  );
+  await currencySelect.selectOption("PKR");
+  await page.locator('input[type="number"]').first().fill("1200");
+  await page.getByPlaceholder("Goal name").fill("Pakistan Trip");
+  await Promise.all([
+    page.waitForURL(/\/savings$/),
+    page.getByRole("button", { name: "Add Goal" }).click(),
+  ]);
+
+  const goals = await getJson(
+    api,
+    "/api/v1/savings-goals?status=all&limit=100",
+  );
+  const goal = goals.items.find((item) => item.name === "Pakistan Trip");
+  expect(goal).toBeTruthy();
+  expect(goal.currency).toBe("PKR");
+  expect(Number(goal.target_amount)).toBe(1200);
+  expect(Number(goal.monthly_target_amount)).toBe(400);
+  await api.dispose();
+});
+
 test("loan settlement account selection updates balances", async ({ page }) => {
   const email = `pfm-loan-settlement-account-${Date.now()}@example.test`;
   const password = "StrongPass123!";

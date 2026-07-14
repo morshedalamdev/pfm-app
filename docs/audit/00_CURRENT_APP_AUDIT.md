@@ -102,7 +102,7 @@
   - `/budget`: budget planning page from `client/app/(dashboard)/budget/page.tsx`.
   - `/budget/setup`: budget setup page from `client/app/(dashboard)/budget/setup/page.tsx`.
   - `/savings`: savings goals page from `client/app/(dashboard)/savings/page.tsx`.
-  - `/savings/[id]`: savings goal create/edit form from `client/app/(dashboard)/savings/[id]/page.tsx`; `/savings/create` is handled as a pseudo-id.
+  - `/savings/[id]`: savings goal create/edit form from `client/app/(dashboard)/savings/[id]/page.tsx`; `/savings/create` is handled as a pseudo-id and defaults its selectable currency to the active default account currency.
   - `/settings`: settings page from `client/app/(dashboard)/settings/page.tsx`.
   - `/profile`: profile page from `client/app/(dashboard)/profile/page.tsx`.
 - Auth routes exist under `client/app/auth`: `/auth`, `/auth/login`, `/auth/register`, `/auth/forgot-password`, and `/auth/recover-password`.
