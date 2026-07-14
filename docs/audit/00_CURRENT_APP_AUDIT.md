@@ -172,6 +172,7 @@
 - Savings Goals route exists at `/savings`.
 - Budget Planning route exists at `/budget`.
 - Budget Setup route exists at `/budget/setup`.
+- Budget setup uses the active default account currency. The planning summary uses the overall monthly budget when one exists, so category allocations and their spending are not counted twice.
 - Standalone Accounts route is missing; account management currently exists only inside the footer sheet menu through `AccountBoard`.
 - No desktop-specific sidebar route shell was found; navigation is implemented as a mobile-width fixed footer plus sheet menu.
 

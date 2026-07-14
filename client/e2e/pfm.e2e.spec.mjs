@@ -1376,6 +1376,93 @@ test("transfer form excludes the source and requires converted amounts", async (
   await api.dispose();
 });
 
+test("budget uses the default account currency without double counting", async ({
+  page,
+}) => {
+  const email = `pfm-budget-default-currency-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  const tokens = await page.evaluate(() => {
+    const value = window.localStorage.getItem("pfm.auth.tokens");
+    return value ? JSON.parse(value) : null;
+  });
+  expect(tokens?.accessToken).toBeTruthy();
+  const api = await playwrightRequest.newContext({
+    baseURL: apiBaseUrl,
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const myrAccount = await postJson(api, "/api/v1/accounts", {
+    currency: "MYR",
+    name: "MYR Default",
+    opening_balance: "5000.00",
+    type: "bank_account",
+  });
+  await patchJson(api, `/api/v1/accounts/${myrAccount.id}/default`);
+
+  await page.goto("/budget/setup");
+  await expect(page.getByRole("tab", { name: "Custom" })).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(page.getByText("MYR", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Custom" }).click();
+  await page.locator('input[type="number"]').first().fill("2000");
+  const setupForm = page.locator("form");
+  await setupForm.locator('input[type="number"]').first().fill("2000");
+  await Promise.all([
+    page.waitForURL(/\/budget$/),
+    setupForm.getByRole("button", { name: "Save Budget" }).click(),
+  ]);
+
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const budgetList = await getJson(
+    api,
+    `/api/v1/budgets?month=${month}&include_archived=false&limit=100`,
+  );
+  expect(budgetList.items).toHaveLength(2);
+  expect(budgetList.items.every((budget) => budget.currency === "MYR")).toBe(true);
+  const categoryBudget = budgetList.items.find(
+    (budget) => budget.category_id !== null,
+  );
+  expect(categoryBudget).toBeTruthy();
+
+  await postJson(api, "/api/v1/transactions", {
+    account_id: myrAccount.id,
+    amount: "200.00",
+    category_id: categoryBudget.category_id,
+    description: "MYR budget expense",
+    transaction_at: now.toISOString(),
+    type: "expense",
+  });
+  await page.reload();
+
+  const summary = page.locator("section").filter({
+    has: page.getByRole("heading", { level: 2, name: "Monthly Budget" }),
+  });
+  await expect(summary.locator("h3")).toHaveText(/MYR\s*2,000\.00/);
+  await expect(
+    summary.getByText("Spent", { exact: true }).locator("..").locator("h4"),
+  ).toHaveText(/MYR\s*200\.00/);
+  await expect(
+    summary.getByText("Remaining", { exact: true }).locator("..").locator("h4"),
+  ).toHaveText(/MYR\s*1,800\.00/);
+  await expect(summary.getByText(/10% used/)).toBeVisible();
+  await api.dispose();
+});
+
 test("loan settlement account selection updates balances", async ({ page }) => {
   const email = `pfm-loan-settlement-account-${Date.now()}@example.test`;
   const password = "StrongPass123!";

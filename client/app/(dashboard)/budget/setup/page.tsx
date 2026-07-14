@@ -23,12 +23,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   createBudget,
   deleteBudget,
+  listAccounts,
   listBudgets,
   listCategories,
   updateBudget,
   type Budget,
   type Category,
 } from "@/lib/finance/api";
+import { getDefaultAccount } from "@/lib/finance/accounts";
 import { useAuthStore } from "@/lib/auth/store";
 import {
   decimalInput,
@@ -37,7 +39,6 @@ import {
   monthBounds,
   monthKey,
 } from "@/lib/finance/format";
-import { DollarSignIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -60,6 +61,7 @@ export default function SetupBudgetPage() {
   const userCurrency = useAuthStore(
     (state) => state.user?.base_currency ?? "USD",
   );
+  const [budgetCurrency, setBudgetCurrency] = useState(userCurrency);
   const currentMonth = monthKey();
 
   useEffect(() => {
@@ -67,10 +69,15 @@ export default function SetupBudgetPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [expenseCategories, currentBudgets] = await Promise.all([
-          listCategories("expense"),
-          listBudgets(currentMonth),
-        ]);
+        const [expenseCategories, currentBudgets, accountItems] =
+          await Promise.all([
+            listCategories("expense"),
+            listBudgets(currentMonth),
+            listAccounts(),
+          ]);
+        setBudgetCurrency(
+          getDefaultAccount(accountItems)?.currency ?? userCurrency,
+        );
         const budgetLookup = currentBudgets.reduce<BudgetLookup>(
           (lookup, budget) => {
             if (budget.category_id) {
@@ -108,7 +115,7 @@ export default function SetupBudgetPage() {
       }
     }
     void loadBudgetSetup();
-  }, [currentMonth]);
+  }, [currentMonth, userCurrency]);
 
   const allocated = useMemo(
     () =>
@@ -134,7 +141,7 @@ export default function SetupBudgetPage() {
 
     if (monthlyBudgetValue > 0) {
       const body = {
-        currency: userCurrency,
+        currency: budgetCurrency,
         limit_amount: decimalInput(monthlyBudget),
       };
       operations.push(
@@ -159,7 +166,7 @@ export default function SetupBudgetPage() {
 
       if (hasAmount) {
         const body = {
-          currency: userCurrency,
+          currency: budgetCurrency,
           limit_amount: decimalInput(value),
         };
         operations.push(
@@ -216,13 +223,13 @@ export default function SetupBudgetPage() {
           <div>
             <span className="text-input">Monthly Budget</span>
             <h4 className="font-bold text-xl">
-              {formatMoney(monthlyBudgetAmount, userCurrency)}
+              {formatMoney(monthlyBudgetAmount, budgetCurrency)}
             </h4>
           </div>
           <div>
             <span className="text-input">Allocated</span>
             <h4 className="font-bold text-xl">
-              {formatMoney(allocated, userCurrency)}
+              {formatMoney(allocated, budgetCurrency)}
             </h4>
           </div>
           <div>
@@ -232,7 +239,7 @@ export default function SetupBudgetPage() {
                 remaining < 0 ? "text-red-500" : "text-green-500"
               }`}
             >
-              {formatMoney(remaining, userCurrency)}
+              {formatMoney(remaining, budgetCurrency)}
             </h4>
           </div>
         </div>
@@ -263,7 +270,7 @@ export default function SetupBudgetPage() {
                   </p>
                 </div>
                 <p className="font-bold text-base">
-                  {formatMoney(amountNumber, userCurrency)}
+                  {formatMoney(amountNumber, budgetCurrency)}
                 </p>
               </div>
             );
@@ -286,13 +293,13 @@ export default function SetupBudgetPage() {
                 <div>
                   <span className="text-input">Monthly Budget</span>
                   <h4 className="font-bold text-xl">
-                    {formatMoney(monthlyBudgetAmount, userCurrency)}
+                    {formatMoney(monthlyBudgetAmount, budgetCurrency)}
                   </h4>
                 </div>
                 <div>
                   <span className="text-input">Allocated</span>
                   <h4 className="font-bold text-xl">
-                    {formatMoney(allocated, userCurrency)}
+                    {formatMoney(allocated, budgetCurrency)}
                   </h4>
                 </div>
                 <div>
@@ -302,7 +309,7 @@ export default function SetupBudgetPage() {
                       remaining < 0 ? "text-red-500" : "text-green-500"
                     }`}
                   >
-                    {formatMoney(remaining, userCurrency)}
+                    {formatMoney(remaining, budgetCurrency)}
                   </h4>
                 </div>
               </div>
@@ -367,9 +374,7 @@ export default function SetupBudgetPage() {
           </FieldDescription>
           <InputGroup className="border-0 border-b rounded-none h-12">
             <InputGroupAddon>
-              <InputGroupText>
-                <DollarSignIcon />
-              </InputGroupText>
+              <InputGroupText>{budgetCurrency}</InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
               type="number"

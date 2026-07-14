@@ -261,6 +261,7 @@ class ReportRepository:
         ).where(
             Transaction.user_id == budget.user_id,
             Transaction.type == "expense",
+            Transaction.currency == budget.currency,
             Transaction.voided_at.is_(None),
             Transaction.transaction_at >= start_at,
             Transaction.transaction_at < end_at,
