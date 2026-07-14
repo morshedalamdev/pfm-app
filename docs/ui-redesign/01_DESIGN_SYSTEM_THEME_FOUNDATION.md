@@ -425,9 +425,24 @@ Expected future Agent 01 phases may change or add:
 
 ## Blockers
 
-- Full E2E has a baseline blocker in `e2e/pfm.e2e.spec.mjs` test `integrated finance journeys render across breakpoints`: repeated approved runs timed out on seeded `POST /api/v1/transactions` or `POST /api/v1/transactions/transfers` calls, unrelated to Phase 01.4 theme code. Focused theme browser coverage passed.
+- Full E2E has a baseline blocker in `e2e/pfm.e2e.spec.mjs` test `integrated finance journeys render across breakpoints`: repeated approved runs timed out on seeded `POST /api/v1/transactions` or `POST /api/v1/transactions/transfers` calls, unrelated to Agent 01 theme code. Focused theme browser coverage passed.
 - Production build may require network approval because `next/font/google` fetches the existing Urbanist font.
 - Optional `lint` and unit `test` scripts are not defined in `client/package.json`.
+
+## Final Handoff
+
+Agent 01 is complete with a documented full-E2E baseline blocker. Later UI agents can build on:
+
+- Semantic light and dark tokens.
+- System/Light/Dark runtime and local persistence.
+- Pre-paint theme boot and root `.dark` compatibility.
+- Reusable theme selector.
+- Settings route access to theme preference and preserved currency behavior.
+- Finance semantic colors and chart token foundations.
+- Reduced-motion, focus-ring, selection-color, and financial-number utilities.
+- Hardcoded style migration inventory for page-level redesign phases.
+
+Do not introduce a second theme system in later agents. Continue using `client/lib/theme.ts`, `client/lib/theme-script.ts`, `ThemeProvider`, `useTheme`, and `ThemeSelector`.
 
 ## Changed Files
 
@@ -461,3 +476,9 @@ Expected future Agent 01 phases may change or add:
 - `client/components/theme/ThemeSelector.tsx`
 - `client/e2e/theme.e2e.spec.mjs`
 - `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_FOUNDATION.md`
+
+### Phase 01.5
+
+- `PFM_PROJECT_STATE.md`
+- `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_FOUNDATION.md`
+- `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_TEST_REPORT.md`
