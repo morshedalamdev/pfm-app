@@ -1069,6 +1069,49 @@ test("dedicated account creation page stores the selected type", async ({
   ).toBeVisible();
 });
 
+test("PKR and MYR currencies and Refund income source are available", async ({
+  page,
+}) => {
+  const email = `pfm-currency-refund-${Date.now()}@example.test`;
+  const password = "StrongPass123!";
+
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth/register");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.locator('input[placeholder="Password"]').fill(password);
+  await page.getByPlaceholder("Confirm Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/`);
+  await waitForHomeBootstrap(page);
+
+  await page.goto("/accounts/create");
+  const currencySelect = page.getByRole("combobox", {
+    name: "Account currency",
+  });
+  await expect(currencySelect.locator('option[value="PKR"]')).toHaveText(
+    "PKR - Pakistani Rupee",
+  );
+  await expect(currencySelect.locator('option[value="MYR"]')).toHaveText(
+    "MYR - Malaysian Ringgit",
+  );
+
+  await page.getByPlaceholder("Account name").fill("Pakistan Wallet");
+  await currencySelect.selectOption("PKR");
+  await page.getByPlaceholder("0.00").fill("1000.00");
+  await page.getByRole("button", { name: "Add Account" }).click();
+  await expect(page).toHaveURL(`${appBaseUrl}/accounts`);
+  await expect(
+    page.getByRole("button", { name: /Pakistan Wallet.*PKR/ }),
+  ).toBeVisible();
+
+  await page.goto("/transaction/create");
+  const form = page.locator("form");
+  await expect(form).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("tab", { name: "Income" }).click();
+  await form.getByText("Source", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Refund" })).toBeVisible();
+});
+
 test("Home uses the default account and Settings is unavailable", async ({
   page,
 }) => {

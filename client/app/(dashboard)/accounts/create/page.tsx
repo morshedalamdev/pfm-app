@@ -17,19 +17,8 @@ import {
   type CanonicalAccountType,
 } from "@/lib/finance/accountTypes";
 import { createAccount, type AccountCreate } from "@/lib/finance/api";
+import { CURRENCY_OPTIONS } from "@/lib/finance/currencies";
 import { decimalInput } from "@/lib/finance/format";
-
-const CURRENCY_OPTIONS = [
-  { value: "USD", label: "USD - US Dollar" },
-  { value: "EUR", label: "EUR - Euro" },
-  { value: "GBP", label: "GBP - British Pound" },
-  { value: "BDT", label: "BDT - Bangladeshi Taka" },
-  { value: "INR", label: "INR - Indian Rupee" },
-  { value: "CAD", label: "CAD - Canadian Dollar" },
-  { value: "AUD", label: "AUD - Australian Dollar" },
-  { value: "JPY", label: "JPY - Japanese Yen" },
-  { value: "CNY", label: "CNY - Chinese RMB" },
-];
 
 export default function CreateAccountPage() {
   const router = useRouter();

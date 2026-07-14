@@ -20,6 +20,7 @@ import {
   Coffee,
   MoreHorizontal,
   PartyPopper,
+  RotateCcw,
 } from "lucide-react";
 
 export const categoryIcons = [
@@ -38,6 +39,10 @@ export const categoryIcons = [
   {
     name: "Freelance",
     icon: Laptop,
+  },
+  {
+    name: "Refund",
+    icon: RotateCcw,
   },
   {
     name: "Rental",

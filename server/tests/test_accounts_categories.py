@@ -128,11 +128,41 @@ def test_default_dropdown_data_bootstraps_for_empty_user(
 
     assert income_response.status_code == 200
     income_items = income_response.json()["items"]
-    assert {"Salary", "Business", "Freelance"}.issubset(
+    assert {"Salary", "Business", "Freelance", "Refund"}.issubset(
         {item["name"] for item in income_items}
     )
+    refund = next(item for item in income_items if item["name"] == "Refund")
+    assert refund["icon_key"] == "rotate-ccw"
     assert all(item["kind"] == "income" for item in income_items)
     assert all(item["is_default"] is True for item in income_items)
+
+
+def test_refund_default_is_added_once_for_existing_income_categories(
+    finance_context: FinanceApiContext,
+) -> None:
+    context = finance_context
+    headers = auth_headers(context, "refund-default@example.com")
+    salary = create_category(context, headers, "Salary", "income", "briefcase")
+
+    first_response = context.client.get(
+        "/api/v1/categories?kind=income",
+        headers=headers,
+    )
+    second_response = context.client.get(
+        "/api/v1/categories?kind=income",
+        headers=headers,
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    first_items = first_response.json()["items"]
+    second_items = second_response.json()["items"]
+    assert {item["name"] for item in first_items} == {"Salary", "Refund"}
+    assert [item["id"] for item in first_items if item["name"] == "Salary"] == [
+        salary["id"]
+    ]
+    assert len([item for item in first_items if item["name"] == "Refund"]) == 1
+    assert len([item for item in second_items if item["name"] == "Refund"]) == 1
 
 
 def test_account_crud_pagination_and_archive(
@@ -407,9 +437,7 @@ def test_used_accounts_cannot_be_removed(
         )
         assert eligibility_response.status_code == 200
         assert eligibility_response.json()["can_delete"] is False
-        assert expected_reasons[account["id"]] in eligibility_response.json()[
-            "reasons"
-        ]
+        assert expected_reasons[account["id"]] in eligibility_response.json()["reasons"]
         delete_response = context.client.delete(
             f"/api/v1/accounts/{account['id']}",
             headers=headers,

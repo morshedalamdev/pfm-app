@@ -69,7 +69,7 @@ No repository-owned production transaction mock-data module was found. Transacti
 - Categories are user-owned backend records, not frontend constants or production mock data.
 - Categories have `income` or `expense` kind, icon key, default flag, and archive state. The backend rejects an archived category or a category whose kind does not match the transaction type.
 - Empty category sets are bootstrapped by `DEFAULT_CATEGORIES` in `server/app/modules/finance_defaults.py`.
-- Current default income categories are Salary, Business, Freelance, Investments, and Other.
+- Current default income categories are Salary, Business, Freelance, Investments, Refund, and Other. Refund is also provisioned idempotently for existing users.
 - Current default expense categories are Groceries, Dining, Transport, Housing, Utilities, Entertainment, Health, Shopping, Bills & Fees, and Other.
 - The transaction form loads income and expense categories separately from the API and displays their names in the select UI.
 - `client/lib/categoryIcons.ts` maps known category names to Lucide icons and falls back to Other. Hangout, Vacation, and Party are not present in backend defaults or the icon map.

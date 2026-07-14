@@ -151,7 +151,7 @@
 ## Existing Settings UI
 
 - `/settings` shows the current currency and a currency selector.
-- Currency options currently include USD, EUR, GBP, BDT, INR, CAD, AUD, JPY, and CNY.
+- Currency options currently include USD, EUR, GBP, BDT, INR, PKR, MYR, CAD, AUD, JPY, and CNY.
 - Saving settings patches `/api/v1/users/me` with `base_currency` and updates the auth store user.
 - A conflict response is shown as `Currency can only be changed once per month.`
 - Settings currently does not expose controls for dashboard balance source, dashboard account selection, or budget selection.
@@ -225,7 +225,7 @@
 - Transaction create uses account currency as the transaction currency.
 - Transaction create/update validates active account and category ownership; archived accounts/categories are rejected.
 - Expense categories and income categories are separate category records with `kind` values of `expense` and `income`.
-- Default income categories include Salary, Business, Freelance, Investments, and Other.
+- Default income categories include Salary, Business, Freelance, Investments, Refund, and Other. Refund is also provisioned idempotently for users who already have income categories.
 - Default expense categories include Groceries, Dining, Transport, Housing, Utilities, Entertainment, Health, Shopping, Bills & Fees, and Other.
 - The transaction form stores selected account/source, category, amount, date, note, recurring flag, and recurring period in local component state.
 - Recurring rule creation supports income and expense only, with Daily, Weekly, Monthly, and Yearly UI options mapped to backend frequencies.
