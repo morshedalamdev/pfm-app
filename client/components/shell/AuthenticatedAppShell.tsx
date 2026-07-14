@@ -41,6 +41,8 @@ export function AuthenticatedAppShell({
           <div
             className={cn(
               "mx-auto h-full min-h-full w-full max-w-md",
+              mobileNavigation &&
+                "pb-[calc(5.5rem+var(--pfm-shell-safe-bottom))] md:pb-0",
               "px-[var(--pfm-shell-safe-left)] pr-[var(--pfm-shell-safe-right)]",
             )}
             data-content-mode="legacy-constrained"

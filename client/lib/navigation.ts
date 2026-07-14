@@ -32,6 +32,7 @@ export type RouteMetadata = {
   section: string;
   parentHref?: string;
   showBack?: boolean;
+  mobileNavigation?: "visible" | "hidden" | "reduced";
 };
 
 export const navigationItems = [
@@ -123,6 +124,7 @@ export const routeMetadata: Record<string, RouteMetadata> = {
     section: "Transactions",
     parentHref: "/transaction",
     showBack: true,
+    mobileNavigation: "hidden",
   },
   "/accounts": { title: "Accounts", section: "Accounts" },
   "/accounts/create": {
@@ -130,6 +132,7 @@ export const routeMetadata: Record<string, RouteMetadata> = {
     section: "Accounts",
     parentHref: "/accounts",
     showBack: true,
+    mobileNavigation: "hidden",
   },
   "/analytics": { title: "Reports", section: "Insights" },
   "/budget": { title: "Budgets", section: "Plan" },
@@ -138,6 +141,7 @@ export const routeMetadata: Record<string, RouteMetadata> = {
     section: "Plan",
     parentHref: "/budget",
     showBack: true,
+    mobileNavigation: "reduced",
   },
   "/loan": { title: "Loans & Debt", section: "Plan" },
   "/loan/create": {
@@ -145,16 +149,26 @@ export const routeMetadata: Record<string, RouteMetadata> = {
     section: "Plan",
     parentHref: "/loan",
     showBack: true,
+    mobileNavigation: "hidden",
   },
-  "/profile": { title: "Profile", section: "Account" },
+  "/profile": {
+    title: "Profile",
+    section: "Account",
+    mobileNavigation: "reduced",
+  },
   "/savings": { title: "Savings Goals", section: "Plan" },
   "/savings/create": {
     title: "Add Savings Goal",
     section: "Plan",
     parentHref: "/savings",
     showBack: true,
+    mobileNavigation: "hidden",
   },
-  "/settings": { title: "Settings", section: "Account" },
+  "/settings": {
+    title: "Settings",
+    section: "Account",
+    mobileNavigation: "reduced",
+  },
 };
 
 export function getActiveNavigationItem(pathname: string): NavigationItem {
@@ -189,6 +203,7 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
       section: "Transactions",
       parentHref: "/transaction",
       showBack: true,
+      mobileNavigation: "hidden",
     };
   }
 
@@ -198,6 +213,7 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
       section: "Plan",
       parentHref: "/loan",
       showBack: true,
+      mobileNavigation: "hidden",
     };
   }
 
@@ -207,6 +223,7 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
       section: "Plan",
       parentHref: "/savings",
       showBack: true,
+      mobileNavigation: "hidden",
     };
   }
 
@@ -216,8 +233,15 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
       section: "Accounts",
       parentHref: "/accounts",
       showBack: true,
+      mobileNavigation: "hidden",
     };
   }
 
   return routeMetadata["/"];
+}
+
+export function getMobileNavigationMode(
+  pathname: string,
+): NonNullable<RouteMetadata["mobileNavigation"]> {
+  return getRouteMetadata(pathname).mobileNavigation ?? "visible";
 }

@@ -183,6 +183,7 @@ Use one of: `NOT_STARTED`, `IN_PROGRESS`, `PASSED`, `BLOCKED`.
 | UI Agent 02 | 02.1 Existing Shell and Navigation Audit | PASSED | phase commit created after this state update | Audited the current authenticated shell, route tree, footer/menu behavior, responsive constraints, safe-area gaps, overflow, z-index, Agent 01 dependencies, and planned shell/navigation architecture without production UI behavior changes. |
 | UI Agent 02 | 02.2 Responsive Application Shell Foundation | PASSED | phase commit created after this state update | Added the authenticated shell foundation, public auth layout separation, full-width body, legacy content wrapper, safe-area and z-index foundations, shell-safe auth loading fallback, and focused shell browser coverage. |
 | UI Agent 02 | 02.3 Desktop Sidebar, Top Bar, and Route Metadata | PASSED | phase commit created after this state update | Added typed navigation and route metadata, desktop sidebar, tablet navigation rail, route-aware top bar titles/back links, preserved user-menu actions, and focused shell navigation coverage. |
+| UI Agent 02 | 02.4 Mobile Bottom Navigation and Primary Add Menu | PASSED | phase commit created after this state update | Replaced the old mobile footer with shared-config Home, Reports, Add, Plan, and More navigation, preserved menu actions, added route visibility modes and safe-area padding, and covered mobile menu behavior in focused E2E. |
 
 ## 6. Architecture Decision Log
 

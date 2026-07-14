@@ -394,6 +394,31 @@ The top bar preserves shell-level actions that previously lived only in the mobi
 
 The existing mobile footer remains the mobile navigation implementation for now. Phase 02.4 is still responsible for the final mobile-browser bottom navigation and add/menu behavior.
 
+## Phase 02.4 Mobile Bottom Navigation
+
+Phase 02.4 replaced the old mobile footer sheet with the responsive mobile bottom navigation while preserving the shell slot and desktop/tablet behavior.
+
+Implemented mobile navigation:
+
+- Home: `/`
+- Reports: `/analytics`
+- Add: menu for Add Transaction, Add Account, Add Savings Goal, and Add Loan or Debt
+- Plan: menu for Budgets, Budget Setup, Savings Goals, and Loans & Debt
+- More: menu for notifications, Profile, Accounts, Settings, Reset Password, Delete Account, support actions, and Logout
+
+The mobile navigation now uses the shared navigation configuration for route labels, icons, Plan links, Reports, Accounts, and Settings. Add links reuse existing routes only and do not introduce new business workflows.
+
+Mobile route behavior:
+
+- Default authenticated routes use the full bottom navigation.
+- `/budget/setup`, `/profile`, and `/settings` use a reduced center Add treatment.
+- Create/detail routes for transactions, accounts, savings, and loans hide bottom navigation so full-screen forms are not covered.
+- Auth routes remain outside the authenticated shell, so mobile navigation is not mounted on public login/register/recovery pages.
+
+The shell content wrapper now adds mobile bottom padding when a mobile navigation slot is present, then removes that padding at `md` and above. The bottom navigation also respects `--pfm-shell-safe-bottom`.
+
+Focused browser coverage for this phase verifies mobile bottom navigation visibility, active state, Add/Plan/More menus, keyboard Escape focus restoration, safe route navigation, hidden nav on create routes, safe-area placement, dark theme, and logout access.
+
 ## Changed Files
 
 ### Phase 02.1
@@ -422,6 +447,15 @@ The existing mobile footer remains the mobile navigation implementation for now.
 - `client/components/shell/AppTopBar.tsx`
 - `client/components/shell/AuthenticatedAppShell.tsx`
 - `client/e2e/shell-navigation.e2e.spec.mjs`
+- `client/lib/navigation.ts`
+- `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
+
+### Phase 02.4
+
+- `PFM_PROJECT_STATE.md`
+- `client/components/Footer.tsx`
+- `client/components/shell/AuthenticatedAppShell.tsx`
+- `client/e2e/mobile-navigation.e2e.spec.mjs`
 - `client/lib/navigation.ts`
 - `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
 
