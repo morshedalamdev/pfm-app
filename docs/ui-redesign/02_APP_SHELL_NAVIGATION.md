@@ -243,12 +243,135 @@ Later Agent 02 phases are expected to modify or create shell-level files such as
 
 Production behavior was not changed in Phase 02.1.
 
+## Phase 02.2 Shell Foundation
+
+Phase 02.2 added a reusable authenticated shell without replacing the final navigation system.
+
+Implemented shell structure:
+
+- `client/components/shell/AuthenticatedAppShell.tsx`
+- Shell root with `data-shell="authenticated"`
+- Placeholder sidebar region with `data-shell-region="sidebar"`
+- Placeholder top-bar region with `data-shell-region="top-bar"`
+- Primary main region with `data-shell-region="main"`
+- Mobile navigation region with `data-shell-region="mobile-navigation"`
+- Migration-safe content wrapper with `data-content-mode="legacy-constrained"`
+
+The shell owns authenticated viewport structure with `h-full`, `min-h-svh`, full-width background, one primary main scroll container, and overflow-x protection. The legacy page content remains constrained to `max-w-md` inside the shell until later page agents migrate content layouts.
+
+Public auth routes are kept outside the authenticated shell through `client/app/auth/layout.tsx`, which preserves the prior auth-page mobile-width constraint.
+
+The existing `Footer` remains the temporary mobile-navigation content in this phase. Final desktop sidebar, top bar, mobile bottom navigation, Add menu, Plan menu, and More menu are deferred to later phases.
+
+## Authentication Boundary
+
+Authenticated routes now use `AuthenticatedAppShell` after auth resolves. During auth hydration, `AuthGuard` renders a shell-safe loading fallback without mounting the footer, unread-count fetch, recurring popups, or protected navigation actions.
+
+Public auth routes under `/auth` do not render `data-shell="authenticated"`.
+
+## Responsive Rules
+
+Global `body` is no longer restricted to `max-w-md`. The global root is full-width, while the authenticated shell uses an internal `legacy-constrained` wrapper so unfinished feature pages do not stretch across desktop viewports.
+
+This preserves the current mobile-first feature-page layouts while allowing later phases to add desktop/sidebar structure around them.
+
+## Safe Area
+
+The shell defines safe-area variables:
+
+- `--pfm-shell-safe-top`
+- `--pfm-shell-safe-right`
+- `--pfm-shell-safe-bottom`
+- `--pfm-shell-safe-left`
+
+The shell applies top and bottom safe-area padding. The temporary footer also accounts for `--pfm-shell-safe-bottom` while retaining its existing fixed mobile behavior.
+
+## Overflow Strategy
+
+The authenticated shell establishes the main region as the primary shell scroll container with vertical scrolling and horizontal overflow hidden. Existing legacy pages may still contain internal scroll regions; those are documented as deferred page-level migration work.
+
+## Z-Index Strategy
+
+Phase 02.2 introduced shell z-index tokens in `client/app/globals.css`:
+
+- `--z-shell-content`
+- `--z-shell-sticky`
+- `--z-shell-navigation`
+- `--z-shell-overlay`
+- `--z-shell-dialog`
+- `--z-shell-toast`
+
+The temporary footer now uses `--z-shell-navigation` instead of the previous `z-999`, allowing existing Radix/Vaul overlays at `z-50` to render above shell navigation.
+
+## Theme Integration
+
+The shell uses Agent 01 semantic tokens:
+
+- `bg-background`
+- `text-foreground`
+- `bg-sidebar`
+- `text-sidebar-foreground`
+- `border-sidebar-border`
+- `bg-surface-overlay`
+- `border-border`
+
+No new theme provider, theme storage key, or theme runtime was added.
+
+## Accessibility
+
+Phase 02.2 adds semantic shell regions without final navigation interactions:
+
+- `aside` with `aria-label="Primary navigation"`
+- `header` with `aria-label="Application header"`
+- `main` for the authenticated content region
+
+The protected navigation footer remains hidden until auth resolves.
+
 ## Blockers
 
 - Full E2E has an existing baseline blocker from Agent 01 and was reproduced in Phase 02.1: the isolated suite passed the first three E2E tests, then `integrated finance journeys render across breakpoints` timed out on `POST /api/v1/transactions/transfers`.
 - Sandboxed production builds may fail without network access because `next/font/google` fetches the existing Urbanist font.
 - `npm run e2e` requires local PostgreSQL, API, Next.js, and browser processes that may need approval outside the sandbox.
 - There is no current centralized navigation/route metadata layer; this is planned for later Agent 02 phases.
+
+## Phase 02.2 Verification
+
+Commands and checks:
+
+- `cd client && npx tsc --noEmit` passed.
+- `cd client && npm run api:check` passed.
+- `cd client && npm run build` passed after approved network rerun for the existing Google-hosted Urbanist font.
+- `cd client && npm run lint --if-present` passed as a no-op because no lint script exists.
+- `cd client && npm run test --if-present` passed as a no-op because no unit test script exists.
+- `cd client && npm run e2e -- e2e/shell-foundation.e2e.spec.mjs` passed after approved local server/browser permissions.
+
+Focused browser coverage verified:
+
+- `/auth/login` does not use the authenticated shell.
+- `/`, `/analytics`, `/transaction`, `/accounts`, `/loan`, `/budget`, `/savings`, and `/settings` render the authenticated shell structure.
+- Shell main and legacy constrained content regions exist.
+- Horizontal document overflow is not introduced on checked routes.
+- Light and dark saved theme preferences still apply with the shell mounted.
+
+## Changed Files
+
+### Phase 02.1
+
+- `PFM_PROJECT_STATE.md`
+- `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
+
+### Phase 02.2
+
+- `PFM_PROJECT_STATE.md`
+- `client/app/(dashboard)/layout.tsx`
+- `client/app/auth/layout.tsx`
+- `client/app/globals.css`
+- `client/app/layout.tsx`
+- `client/components/Footer.tsx`
+- `client/components/auth/AuthGuard.tsx`
+- `client/components/shell/AuthenticatedAppShell.tsx`
+- `client/e2e/shell-foundation.e2e.spec.mjs`
+- `docs/ui-redesign/02_APP_SHELL_NAVIGATION.md`
 
 ## Deferred Page-Level Work
 

@@ -184,6 +184,12 @@
   --typography-supporting: 0.8125rem;
   --typography-label: 0.75rem;
   --typography-caption: 0.6875rem;
+  --z-shell-content: 0;
+  --z-shell-sticky: 20;
+  --z-shell-navigation: 40;
+  --z-shell-overlay: 50;
+  --z-shell-dialog: 60;
+  --z-shell-toast: 70;
 }
 
 .dark {
@@ -300,7 +306,7 @@
   }
 
   body {
-    @apply relative max-w-md w-full mx-auto text-sm bg-background text-foreground;
+    @apply relative min-h-svh w-full text-sm bg-background text-foreground;
   }
 
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -338,4 +344,15 @@
 
 @utility finance-number {
   font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .pfm-app-shell {
+    --pfm-shell-safe-top: env(safe-area-inset-top, 0px);
+    --pfm-shell-safe-right: env(safe-area-inset-right, 0px);
+    --pfm-shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --pfm-shell-safe-left: env(safe-area-inset-left, 0px);
+    padding-top: var(--pfm-shell-safe-top);
+    padding-bottom: var(--pfm-shell-safe-bottom);
+  }
 }

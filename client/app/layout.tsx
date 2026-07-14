@@ -46,7 +46,7 @@ export default function RootLayout({
           />
         </div>
         <ThemeProvider>
-          <main className="relative h-svh mx-auto z-10">{children}</main>
+          <main className="relative h-svh w-full z-10">{children}</main>
         </ThemeProvider>
       </body>
     </html>

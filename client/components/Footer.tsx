@@ -101,7 +101,7 @@ export default function Footer() {
     return null;
   }
   return (
-    <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md h-[70px] p-1.5 bg-linear-to-t from-black from-50% to-black/0 z-999">
+    <footer className="fixed bottom-0 left-1/2 z-[var(--z-shell-navigation)] h-[calc(70px+var(--pfm-shell-safe-bottom))] w-full max-w-md -translate-x-1/2 bg-linear-to-t from-black from-50% to-black/0 p-1.5 pb-[calc(0.375rem+var(--pfm-shell-safe-bottom))]">
       <nav className="w-full flex items-end justify-evenly flex-wrap">
         {LIST.map((i) => (
           <Link key={i.label} href={i.href}>

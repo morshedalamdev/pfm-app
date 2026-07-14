@@ -5,7 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { useAuthStore } from "@/lib/auth/store";
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+export function AuthGuard({
+  children,
+  loadingFallback,
+}: {
+  children: React.ReactNode;
+  loadingFallback?: React.ReactNode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -22,7 +28,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [pathname, router, status]);
 
   if (status === "idle" || status === "loading") {
-    return (
+    return loadingFallback ?? (
       <section className="flex h-full items-center justify-center px-3 pb-9">
         <p className="text-sm text-input">Loading...</p>
       </section>
