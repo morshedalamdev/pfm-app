@@ -16,6 +16,7 @@ import {
   KeyRoundIcon,
   LockIcon,
   MessageCircleMoreIcon,
+  SettingsIcon,
   SquarePenIcon,
   TargetIcon,
   Trash2Icon,
@@ -220,6 +221,15 @@ export default function Footer() {
                 <p className="text-xs font-black tracking-wide text-input uppercase mt-5">
                   preferences
                 </p>
+                <Link href="/settings">
+                  <Button
+                    variant="ghost"
+                    className="border-b border-input/50 rounded-none justify-start gap-1.5 px-0!"
+                  >
+                    <SettingsIcon />
+                    Settings
+                  </Button>
+                </Link>
                 <Link href="/auth/forgot-password">
                   <Button
                     variant="ghost"

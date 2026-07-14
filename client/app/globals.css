@@ -280,6 +280,10 @@
 }
 
 @layer base {
+  ::selection {
+    @apply bg-primary-soft text-primary-soft-foreground;
+  }
+
   html[data-theme-booting="true"] *,
   html[data-theme-booting="true"] *::before,
   html[data-theme-booting="true"] *::after {
@@ -299,6 +303,10 @@
     @apply relative max-w-md w-full mx-auto text-sm bg-background text-foreground;
   }
 
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
   input,
   textarea {
     @apply focus:border-0 focus:ring-0
@@ -311,8 +319,23 @@
       font-size: 16px;
     }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @utility x-animation{
   @apply transition-all duration-300 ease-in-out;
+}
+
+@utility finance-number {
+  font-variant-numeric: tabular-nums;
 }

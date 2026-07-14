@@ -301,11 +301,32 @@ Theme preference is not stored in auth tokens, finance state, URL parameters, co
 
 ## Theme Selector
 
-No selector was added in Phase 01.3. The reusable selector and Settings integration belong to Phase 01.4.
+Phase 01.4 adds `client/components/theme/ThemeSelector.tsx`.
+
+Selector behavior:
+
+- Supports exactly `system`, `light`, and `dark`.
+- Displays the stored preference rather than only the resolved theme.
+- Updates the interface immediately through `useTheme()`.
+- Persists through the existing `pfm.ui.theme` runtime.
+- Uses native radio controls so selected state and keyboard behavior are programmatically exposed.
+- Does not submit forms and does not call any API.
+- Works independently of authentication state.
+
+Phase 01.4 also adds the selector minimally to `client/app/(dashboard)/settings/page.tsx`. The settings page keeps the existing base-currency behavior: it reads the authenticated user, patches only `base_currency`, updates the auth store after save, and preserves the monthly currency-change conflict message.
 
 ## Accessibility
 
-Phase 01.3 adds browser `color-scheme` synchronization so native controls can match the resolved theme. Focus, reduced motion, and selector-specific accessibility work remain assigned to Phase 01.4 and later verification.
+Phase 01.3 adds browser `color-scheme` synchronization so native controls can match the resolved theme.
+
+Phase 01.4 adds:
+
+- A labeled `fieldset`/`legend` for the theme selector.
+- Native radio inputs for keyboard and screen-reader selected-state semantics.
+- Theme-safe global selection colors.
+- Theme-safe global `focus-visible` defaults for common interactive elements.
+- A global reduced-motion media query that minimizes animations, transitions, and smooth scrolling when requested.
+- A `finance-number` utility that enables tabular numerals for later financial amount migrations.
 
 ## Token Validation
 
@@ -327,13 +348,14 @@ Further visual validation with actual route screenshots is deferred until the th
 ### Global Blockers
 
 - `client/app/globals.css`: default `:root` dark-first palette was fixed in Phase 01.2.
-- `client/app/layout.tsx`: `suppressHydrationWarning` is applied to `<body>` before any theme runtime exists.
+- `client/app/layout.tsx`: root theme mutation and hydration handling were fixed in Phase 01.3.
 - `client/components/ui/chart.tsx`: chart wrapper hardcodes Recharts axis tick text to white.
 - `client/components/charts/IncomeVsExpenseChart.tsx`: rendered line colors now resolve because Phase 01.2 adds `--color-income` and `--color-expense`.
+- `client/app/(dashboard)/settings/page.tsx`: the missing settings page was restored in Phase 01.4 so the selector and currency setting have a route.
 
 ### Shared Component Blockers
 
-- `client/components/Footer.tsx`: footer uses `from-black`, active `text-white`, `bg-icon`, and board active `text-white bg-icon/20`.
+- `client/components/Footer.tsx`: footer still uses `from-black`, active `text-white`, `bg-icon`, and board active `text-white bg-icon/20`; Phase 01.4 only added a minimal `/settings` link so the selector is reachable.
 - `client/components/charts/RootChart.tsx`: chart panel uses `from-black`, `border-white`, `fill-white`, hardcoded OKLCH fills, and muted text through `text-input`.
 - `client/components/recurring/RecurringIncomeAchievementPopup.tsx`: success styling is emerald-specific and should later move to success/income semantic tokens while preserving its income achievement behavior.
 - `client/components/items/TransactionItem.tsx`: income and transfer amounts use `text-green-500` and `text-blue-500`.
@@ -358,8 +380,10 @@ Further visual validation with actual route screenshots is deferred until the th
 - Persistent theme preference was added in Phase 01.3.
 - Pre-paint theme boot was added in Phase 01.3.
 - `color-scheme` handling was added in Phase 01.3.
+- Theme selector access was added in Phase 01.4.
+- Focus-visible, reduced-motion, selection-color, and financial-number foundations were added in Phase 01.4.
 - Default `:root` tokens are now a production light-theme foundation.
-- `client/app/(dashboard)/settings` exists as an empty directory in this worktree; the phase brief's expected `client/app/(dashboard)/settings/page.tsx` was not found.
+- `client/app/(dashboard)/settings/page.tsx` now exists and preserves currency behavior while adding theme control.
 
 ## Shared Component Blockers
 
@@ -382,7 +406,7 @@ Later page agents should migrate:
 - Authentication pages.
 - Profile page.
 
-No page redesign was performed in Phase 01.1.
+No page redesign was performed in Phase 01.1 through Phase 01.4.
 
 ## Planned Files to Change
 
@@ -401,7 +425,7 @@ Expected future Agent 01 phases may change or add:
 
 ## Blockers
 
-- `/settings` implementation mismatch: `client/app/(dashboard)/settings` exists but has no `page.tsx` in this worktree, while required docs and Agent 01 later phases expect a Settings page for the theme selector.
+- Full E2E has a baseline blocker in `e2e/pfm.e2e.spec.mjs` test `integrated finance journeys render across breakpoints`: repeated approved runs timed out on seeded `POST /api/v1/transactions` or `POST /api/v1/transactions/transfers` calls, unrelated to Phase 01.4 theme code. Focused theme browser coverage passed.
 - Production build may require network approval because `next/font/google` fetches the existing Urbanist font.
 - Optional `lint` and unit `test` scripts are not defined in `client/package.json`.
 
@@ -426,4 +450,14 @@ Expected future Agent 01 phases may change or add:
 - `client/components/theme/ThemeProvider.tsx`
 - `client/lib/theme.ts`
 - `client/lib/theme-script.ts`
+- `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_FOUNDATION.md`
+
+### Phase 01.4
+
+- `PFM_PROJECT_STATE.md`
+- `client/app/(dashboard)/settings/page.tsx`
+- `client/app/globals.css`
+- `client/components/Footer.tsx`
+- `client/components/theme/ThemeSelector.tsx`
+- `client/e2e/theme.e2e.spec.mjs`
 - `docs/ui-redesign/01_DESIGN_SYSTEM_THEME_FOUNDATION.md`
