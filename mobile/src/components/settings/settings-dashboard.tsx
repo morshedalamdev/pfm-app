@@ -161,8 +161,18 @@ function NotificationsSection() {
   return <SectionCard eyebrow={`${unread} UNREAD`} title="Notifications"><div className="notification-toolbar"><button aria-pressed={unreadOnly} onClick={() => setUnreadOnly((value) => !value)} type="button">Unread only</button><button disabled={!unread || readAll.isPending} onClick={() => void readAll.mutateAsync().then(refresh)} type="button">Mark all read</button></div><div className="notification-list">{notifications.data.items.length ? notifications.data.items.map((item) => <article className={item.read_at ? "notification-row" : "notification-row notification-row--unread"} key={item.id}><span className="category-icon accent-purple"><Bell aria-hidden="true" size={18} /></span><div><strong>{item.title}</strong><p>{item.message}</p><small>{new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.created_at))}</small></div>{!item.read_at ? <button aria-label={`Mark ${item.title} read`} disabled={read.isPending} onClick={() => void read.mutateAsync(item.id).then(refresh)} type="button">Read</button> : null}</article>) : <p className="management-empty">You’re all caught up.</p>}</div></SectionCard>;
 }
 
-export function SettingsDashboard({ initialSection }: { initialSection: SettingsSection }) {
+type SettingsDashboardProps = Readonly<{
+  initialSection: SettingsSection;
+  standalone?: boolean;
+  title?: string;
+}>;
+
+export function SettingsDashboard({
+  initialSection,
+  standalone = false,
+  title = "Settings",
+}: SettingsDashboardProps) {
   const router = useRouter(); const [section, setSection] = useState(initialSection);
   function choose(value: SettingsSection) { setSection(value); router.replace(`/settings?section=${value}` as Route, { scroll: false }); }
-  return <MobileShell><div className="standard-page settings-page"><PageHeader title="Settings" trailing={<span className="settings-avatar"><UserRound aria-hidden="true" size={18} /></span>} /><nav aria-label="Settings sections" className="settings-tabs">{sectionItems.map(({ icon: Icon, label, value }) => <button aria-current={section === value ? "page" : undefined} key={value} onClick={() => choose(value)} type="button"><Icon aria-hidden="true" size={17} /><span>{label}</span></button>)}</nav><div className="settings-content">{section === "overview" ? <OverviewSection /> : null}{section === "profile" ? <ProfileSection /> : null}{section === "accounts" ? <AccountsSection /> : null}{section === "categories" ? <CategoriesSection /> : null}{section === "loans" ? <LoansSection /> : null}{section === "recurring" ? <RecurringSection /> : null}{section === "notifications" ? <NotificationsSection /> : null}</div></div></MobileShell>;
+  return <MobileShell><div className="standard-page settings-page"><PageHeader backHref={standalone ? "/" : undefined} title={title} trailing={<span className="settings-avatar"><UserRound aria-hidden="true" size={18} /></span>} />{!standalone ? <nav aria-label="Settings sections" className="settings-tabs">{sectionItems.map(({ icon: Icon, label, value }) => <button aria-current={section === value ? "page" : undefined} key={value} onClick={() => choose(value)} type="button"><Icon aria-hidden="true" size={17} /><span>{label}</span></button>)}</nav> : null}<div className="settings-content">{section === "overview" ? <OverviewSection /> : null}{section === "profile" ? <ProfileSection /> : null}{section === "accounts" ? <AccountsSection /> : null}{section === "categories" ? <CategoriesSection /> : null}{section === "loans" ? <LoansSection /> : null}{section === "recurring" ? <RecurringSection /> : null}{section === "notifications" ? <NotificationsSection /> : null}</div></div></MobileShell>;
 }

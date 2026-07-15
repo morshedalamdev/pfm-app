@@ -28,14 +28,14 @@ test("signs in and returns to the requested protected page", async ({ page }) =>
   await page.route("**/api/auth/login", async (route) => {
     await route.fulfill({ contentType: "application/json", json: { user }, status: 200 });
   });
-  await page.goto("/auth/login?next=/report");
+  await page.goto("/auth/login?next=/analytics");
   await page.getByLabel("Email address").fill("mobile@example.com");
   await page.getByLabel("Password", { exact: true }).fill("CorrectHorse42");
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL(/\/report$/);
+  await expect(page).toHaveURL(/\/analytics$/);
   await expect(
-    page.getByRole("heading", { exact: true, name: "Report" }),
+    page.getByRole("heading", { exact: true, name: "Analytics" }),
   ).toBeVisible();
 });
 

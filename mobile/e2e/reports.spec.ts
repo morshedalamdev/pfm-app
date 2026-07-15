@@ -43,7 +43,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("renders live expense and income report modes", async ({ page }) => {
-  await page.goto("/report");
+  await page.goto("/analytics");
   await expect(page.getByText("$8,145.78").first()).toBeVisible();
   await expect(page.getByText("Dining")).toBeVisible();
   await page.getByRole("button", { name: "Income" }).click();
@@ -54,7 +54,7 @@ test("renders live expense and income report modes", async ({ page }) => {
 test("shows a clean report empty state", async ({ page }) => {
   await page.route("**/api/backend/reports/cash-flow**", async (route) => route.fulfill({ contentType: "application/json", json: { ...cashFlow, buckets: [] } }));
   await page.route("**/api/backend/reports/spending-by-category**", async (route) => route.fulfill({ contentType: "application/json", json: { ...spending, items: [] } }));
-  await page.goto("/report");
+  await page.goto("/analytics");
   await expect(page.getByText("No expense categories for this month.")).toBeVisible();
   await expect(page.getByText("No daily activity for this month.")).toBeVisible();
 });
@@ -69,14 +69,14 @@ test("retries a failed report request", async ({ page }) => {
     }
     await route.fulfill({ contentType: "application/json", json: summary });
   });
-  await page.goto("/report");
+  await page.goto("/analytics");
   await expect(page.getByText("Couldn’t load this report")).toBeVisible();
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByText("Dining")).toBeVisible();
 });
 
 test("report stays accessible and inside the phone viewport", async ({ page }) => {
-  await page.goto("/report");
+  await page.goto("/analytics");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

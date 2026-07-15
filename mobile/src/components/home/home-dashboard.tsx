@@ -57,7 +57,7 @@ export function HomeDashboard() {
         balance={dashboard ? formatMoney(dashboard.available_balance, dashboard.currency) : undefined}
         change={dashboard ? `${formatSignedMoney(dashboard.net_flow_amount, dashboard.currency)} net flow this month` : undefined}
         monthLabel={dashboard ? formatMonthLabel(dashboard.range.start_at) : "This month"}
-        actions={<><ThemeToggle compact /><Link aria-label="Notifications" className="icon-button" href="/settings?section=notifications"><Bell aria-hidden="true" size={19} strokeWidth={2.3} /><span className="notification-dot" /></Link></>}
+        actions={<><ThemeToggle compact /><Link aria-label="Notifications" className="icon-button" href={"/notifications" as Route}><Bell aria-hidden="true" size={19} strokeWidth={2.3} /><span className="notification-dot" /></Link></>}
       />
 
       {home.isPending ? <HomeSheetSkeleton /> : null}
@@ -66,7 +66,7 @@ export function HomeDashboard() {
         <section className="home-sheet">
           <div className="section-heading">
             <div><p className="eyebrow">OVERVIEW</p><h2>Your Money</h2></div>
-            <Link className="soft-button" href="/report">Details <span aria-hidden="true">›</span></Link>
+            <Link className="soft-button" href={"/analytics" as Route}>Details <span aria-hidden="true">›</span></Link>
           </div>
 
           <div className="money-grid">
@@ -87,7 +87,7 @@ export function HomeDashboard() {
                 {transactions.map((transaction) => {
                   const view = mapTransaction(transaction);
                   const Icon = view.accent === "blue" ? CircleArrowDown : view.accent === "purple" ? WalletCards : Coffee;
-                  const href = transaction.type === "income" || transaction.type === "expense" ? `/transactions/${transaction.id}/edit` as Route : undefined;
+                  const href = transaction.type === "income" || transaction.type === "expense" ? `/transaction/${transaction.id}/edit` as Route : undefined;
                   return <TransactionRow key={transaction.id} accent={view.accent} amount={view.amount} href={href} icon={Icon} name={view.name} negative={view.isNegative} subtitle={`${view.subtitle} · ${view.dateLabel}`} />;
                 })}
               </div>

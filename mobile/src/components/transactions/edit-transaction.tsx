@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Camera, FileText, Landmark, NotebookPen, Tags, Trash2 } from "lucide-react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -90,7 +91,7 @@ function EditForm({ accounts, categories, receiptWarning, receipts, transaction 
         transaction_at: new Date(values.transactionAt).toISOString(),
       });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
-      router.replace("/");
+      router.replace("/transaction" as Route);
     } catch (error) {
       setError("root", { message: error instanceof Error ? error.message : "Unable to update this transaction" });
     }
@@ -164,7 +165,7 @@ export function EditTransaction({ receiptWarning, transactionId }: { receiptWarn
   return (
     <MobileShell>
       <div className="standard-page transaction-page">
-        <PageHeader title="Edit transaction" trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={"/transaction" as Route} title="Edit transaction" trailing={<ThemeToggle compact />} />
         {edit.isPending ? <div aria-busy="true" className="transaction-form-skeleton" /> : null}
         {edit.isError ? <div className="form-load-error" role="alert"><strong>{edit.error.message}</strong><button onClick={() => void edit.refetch()} type="button">Try again</button></div> : null}
         {edit.data ? <EditForm accounts={edit.data.accounts} categories={edit.data.categories} receiptWarning={receiptWarning} receipts={edit.data.receipts} transaction={edit.data.transaction} /> : null}

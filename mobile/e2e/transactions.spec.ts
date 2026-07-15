@@ -71,13 +71,13 @@ test("creates an expense with an attached receipt", async ({ page }) => {
     await route.fulfill({ contentType: "application/json", json: existingReceipt, status: 201 });
   });
 
-  await page.goto("/transactions/new?type=expense");
+  await page.goto("/transaction/new?type=expense");
   await page.getByLabel("Amount").fill("45.25");
   await page.getByLabel("Note").fill("Lunch");
   await page.getByLabel("Receipt file").setInputFiles({ buffer: Buffer.from("receipt"), mimeType: "application/pdf", name: "lunch.pdf" });
   await page.getByRole("button", { name: "Save expense" }).click();
 
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/transaction$/);
   expect(createdPayload).toMatchObject({ account_id: accountOne.id, amount: "45.25", category_id: category.id, type: "expense" });
   expect(receiptUploaded).toBe(true);
 });
@@ -101,12 +101,12 @@ test("creates a cross-currency transfer with the received amount", async ({ page
     }, status: 201 });
   });
 
-  await page.goto("/transactions/new?type=transfer");
+  await page.goto("/transaction/new?type=transfer");
   await page.getByLabel("Amount", { exact: true }).fill("100");
   await page.getByLabel("Amount received in EUR").fill("92.50");
   await page.getByRole("button", { name: "Transfer money" }).click();
 
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/transaction$/);
   expect(transferPayload).toMatchObject({ amount: "100", converted_amount: "92.50", from_account_id: accountOne.id, to_account_id: accountTwo.id });
 });
 
@@ -135,7 +135,7 @@ test("edits a transaction and manages its receipts", async ({ page }) => {
   });
   page.on("dialog", (dialog) => void dialog.accept());
 
-  await page.goto(`/transactions/${transactionId}/edit`);
+  await page.goto(`/transaction/${transactionId}/edit`);
   await expect(page.getByText("lunch.pdf")).toBeVisible();
   await page.getByRole("button", { name: "Remove lunch.pdf" }).click();
   await expect(page.getByText("No receipts attached yet.")).toBeVisible();
@@ -144,7 +144,7 @@ test("edits a transaction and manages its receipts", async ({ page }) => {
   await page.getByLabel("Amount").fill("48.75");
   await page.getByRole("button", { name: "Save changes" }).click();
 
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/transaction$/);
   expect(updatedPayload).toMatchObject({ amount: "48.75", category_id: category.id });
 });
 
@@ -152,7 +152,7 @@ test("transaction forms are mobile-safe and accessible", async ({ page }) => {
   await page.route(`**/api/backend/transactions/${transactionId}`, async (route) => route.fulfill({ contentType: "application/json", json: transaction }));
   await page.route("**/api/backend/receipts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [], next_cursor: null } }));
 
-  for (const route of ["/transactions/new", `/transactions/${transactionId}/edit`]) {
+  for (const route of ["/transaction/new", `/transaction/${transactionId}/edit`]) {
     await page.goto(route);
     await expect(page.getByRole("heading", { name: route.includes("edit") ? "Edit transaction" : "Add transaction" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

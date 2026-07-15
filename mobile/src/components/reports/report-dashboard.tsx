@@ -51,7 +51,7 @@ function ReportLoading() {
   return <div aria-busy="true" aria-label="Loading report" className="report-loading" role="status"><div /><div /><div /></div>;
 }
 
-export function ReportDashboard() {
+export function ReportDashboard({ title = "Report" }: { title?: string }) {
   const [month, setMonth] = useState(() => currentMonthKey());
   const [kind, setKind] = useState<ReportKind>("expense");
   const report = useQuery({ queryFn: () => getReportData(month), queryKey: ["report", month] });
@@ -64,7 +64,7 @@ export function ReportDashboard() {
   return (
     <MobileShell>
       <div className="standard-page report-page">
-        <PageHeader title="Report" trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={null} title={title} trailing={<ThemeToggle compact />} />
         <div className="report-month-picker">
           <button aria-label="Previous month" onClick={() => setMonth((value) => moveMonth(value, -1))} type="button"><ChevronLeft aria-hidden="true" size={18} /></button>
           <label><CalendarDays aria-hidden="true" size={16} /><input aria-label="Report month" max={currentMonthKey()} onChange={(event) => setMonth(event.target.value)} type="month" value={month} /></label>

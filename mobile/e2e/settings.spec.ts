@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
 test("updates the authenticated profile", async ({ page }) => {
   let payload: Record<string, unknown> | null = null;
   await page.route("**/api/backend/users/me", async (route) => { if (route.request().method() === "PATCH") payload = route.request().postDataJSON() as Record<string, unknown>; await route.fulfill({ contentType: "application/json", json: payload ? { ...profile, ...payload } : profile }); });
-  await page.goto("/settings?section=profile");
+  await page.goto("/profile");
   await page.getByLabel("Full name").fill("Morgan Park");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByText("Profile updated.")).toBeVisible();
@@ -44,11 +44,11 @@ test("creates accounts and categories with backend-shaped payloads", async ({ pa
   const payloads: Record<string, unknown>[] = [];
   await page.route("**/api/backend/accounts", async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: account, status: 201 }); });
   await page.route("**/api/backend/categories", async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: category, status: 201 }); });
-  await page.goto("/settings?section=accounts");
+  await page.goto("/accounts");
   await page.getByLabel("Account name").fill("Travel cash");
   await page.getByLabel("Opening balance").fill("350");
   await page.getByRole("button", { name: "Add account" }).click();
-  await page.getByRole("button", { name: "Categories" }).click();
+  await page.goto("/settings/categories");
   await page.getByLabel("Name").fill("Books");
   await page.getByRole("button", { name: "Add category" }).click();
   expect(payloads[0]).toMatchObject({ name: "Travel cash", opening_balance: "350", type: "bank_account" });
@@ -60,7 +60,7 @@ test("creates a loan contact, loan record, and settlement", async ({ page }) => 
   await page.route("**/api/backend/loans/people", async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: person, status: 201 }); });
   await page.route("**/api/backend/loans/records", async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: record, status: 201 }); });
   await page.route(`**/api/backend/loans/records/${ids.record}/settlements`, async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: { account_id: ids.account, amount: "50.0000", created_at: "2026-07-15T00:00:00Z", currency: "USD", id: "99999999-9999-9999-9999-999999999999", note: null, record_id: ids.record, settled_at: "2026-07-15T00:00:00Z" }, status: 201 }); });
-  await page.goto("/settings?section=loans");
+  await page.goto("/loan");
   await page.getByLabel("Name").fill("Jamie Doe"); await page.getByLabel("Phone").fill("+12025550155"); await page.getByRole("button", { name: "Add person" }).click();
   await page.getByLabel("Amount").fill("500"); await page.getByRole("button", { name: "Create loan" }).click();
   await page.getByLabel("Settlement for Alex Morgan").fill("50"); await page.getByRole("button", { name: "Record" }).click();
@@ -73,7 +73,7 @@ test("creates and pauses a recurring transaction", async ({ page }) => {
   const payloads: Record<string, unknown>[] = [];
   await page.route("**/api/backend/recurring-rules", async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: rule, status: 201 }); });
   await page.route(`**/api/backend/recurring-rules/${ids.rule}/pause`, async (route) => { await route.fulfill({ contentType: "application/json", json: { ...rule, paused_at: "2026-07-15T00:00:00Z", status: "paused" } }); });
-  await page.goto("/settings?section=recurring");
+  await page.goto("/transaction/recurring");
   await page.getByRole("button", { name: "Pause" }).click();
   await page.getByLabel("Amount").fill("85"); await page.getByLabel("Description").fill("Internet bill"); await page.getByRole("button", { name: "Create schedule" }).click();
   expect(payloads[0]).toMatchObject({ account_id: ids.account, amount: "85", category_id: ids.category, frequency: "monthly", transaction_type: "expense" });
@@ -81,7 +81,7 @@ test("creates and pauses a recurring transaction", async ({ page }) => {
 
 test("manages notifications in an accessible, overflow-free mobile view", async ({ page }) => {
   await page.route(`**/api/backend/notifications/${ids.notification}/read`, async (route) => route.fulfill({ contentType: "application/json", json: { ...notification, read_at: "2026-07-15T09:00:00Z" } }));
-  await page.goto("/settings?section=notifications");
+  await page.goto("/notifications");
   await expect(page.getByText("Budget alert")).toBeVisible();
   await page.getByRole("button", { name: "Mark Budget alert read" }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

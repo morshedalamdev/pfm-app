@@ -12,25 +12,27 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("renders live savings goals and monthly budgets", async ({ page }) => {
-  await page.goto("/plan");
+  await page.goto("/goal");
   await expect(page.getByText("House fund")).toBeVisible();
-  await expect(page.getByText("Dining").last()).toBeVisible();
   await expect(page.getByText("$3,500.00")).toBeVisible();
   await expect(page.getByRole("progressbar", { name: "House fund progress" })).toHaveAttribute("aria-valuenow", "35");
+
+  await page.goto("/budget");
+  await expect(page.getByText("Dining").last()).toBeVisible();
 });
 
 test("creates a savings goal and a monthly budget", async ({ page }) => {
   const created: Record<string, unknown>[] = [];
   await page.route("**/api/backend/savings-goals", async (route) => { created.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: goal, status: 201 }); });
   await page.route("**/api/backend/budgets", async (route) => { created.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: budget, status: 201 }); });
-  await page.goto("/plan");
-  await page.getByRole("button", { name: "Create a plan" }).click();
+  await page.goto("/goal");
+  await page.getByRole("button", { name: "Create a goal" }).click();
   await page.getByLabel("Goal name").fill("Emergency fund");
   await page.getByLabel("Target amount").fill("5000");
   await page.getByRole("button", { name: "Create goal" }).click();
-  await expect(page.getByRole("heading", { name: "Goals" })).toBeVisible();
-  await page.getByRole("button", { name: "Create a plan" }).click();
-  await page.getByRole("button", { name: "Budget" }).click();
+  await expect(page.getByRole("heading", { exact: true, level: 1, name: "Goals" })).toBeVisible();
+  await page.goto("/budget");
+  await page.getByRole("button", { name: "Create a budget" }).click();
   await page.getByLabel("Budget limit").fill("800");
   await page.getByLabel("Budget category").selectOption(category.id);
   await page.getByRole("button", { name: "Create budget" }).click();
@@ -42,7 +44,7 @@ test("creates a savings goal and a monthly budget", async ({ page }) => {
 test("adds a savings contribution", async ({ page }) => {
   let payload: Record<string, unknown> | null = null;
   await page.route(`**/api/backend/savings-goals/${goal.id}/contributions`, async (route) => { payload = route.request().postDataJSON() as Record<string, unknown>; await route.fulfill({ contentType: "application/json", json: { amount: "125.0000", contributed_at: "2026-07-15T00:00:00Z", created_at: "2026-07-15T00:00:00Z", currency: "USD", goal_id: goal.id, id: "44444444-4444-4444-4444-444444444444", note: null }, status: 201 }); });
-  await page.goto("/plan");
+  await page.goto("/goal");
   await page.getByRole("button", { name: "Add" }).click();
   await page.getByLabel("Contribution amount for House fund").fill("125");
   await page.getByRole("button", { name: "Add money" }).click();
@@ -54,10 +56,12 @@ test("handles empty, retryable, accessible mobile plans", async ({ page }) => {
   let attempts = 0;
   await page.route("**/api/backend/budgets?**", async (route) => { attempts += 1; if (attempts === 1) { await route.fulfill({ contentType: "application/json", json: { error: { message: "Unavailable" } }, status: 503 }); return; } await route.fulfill({ contentType: "application/json", json: { has_more: false, items: [], next_cursor: null } }); });
   await page.route("**/api/backend/savings-goals?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [], next_cursor: null } }));
-  await page.goto("/plan");
+  await page.goto("/goal");
   await expect(page.getByText("Couldn’t load your plans")).toBeVisible();
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByText("No active savings goals yet. Create one to start tracking progress.")).toBeVisible();
+
+  await page.goto("/budget");
   await expect(page.getByText("No budgets for this month. Create one to set a spending limit.")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);

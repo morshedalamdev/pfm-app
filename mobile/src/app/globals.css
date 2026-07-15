@@ -543,12 +543,15 @@ a {
 
 .nav-item {
   display: flex;
+  width: 100%;
   min-width: 0;
   min-height: 54px;
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
   padding: 4px;
+  border-radius: 14px;
+  background: transparent;
   flex-direction: column;
   color: var(--text-soft);
   font-size: 0.62rem;
@@ -572,6 +575,139 @@ a {
   box-shadow: 0 9px 25px rgb(123 75 229 / 40%);
 }
 
+.drawer-overlay {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  background: rgb(10 8 14 / 58%);
+  backdrop-filter: blur(3px);
+}
+
+.drawer-content {
+  position: fixed;
+  z-index: 51;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  width: min(100%, 480px);
+  max-height: min(88svh, 760px);
+  padding: 8px 18px max(22px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 30px 30px 0 0;
+  outline: none;
+  background: var(--app);
+  color: var(--text);
+  box-shadow: 0 -24px 64px rgb(17 12 24 / 26%);
+  translate: -50% 0;
+  flex-direction: column;
+}
+
+.drawer-content:focus-visible {
+  box-shadow:
+    0 -24px 64px rgb(17 12 24 / 26%),
+    inset 0 0 0 2px var(--brand);
+}
+
+.drawer-handle {
+  width: 52px;
+  height: 5px;
+  flex: 0 0 auto;
+  margin: 2px auto 12px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.drawer-header > div {
+  min-width: 0;
+}
+
+.drawer-title {
+  margin: 3px 0 0;
+  font-size: 1.45rem;
+  letter-spacing: -0.04em;
+}
+
+.drawer-description {
+  max-width: 340px;
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.drawer-footer {
+  display: grid;
+  margin-top: auto;
+  gap: 10px;
+}
+
+.drawer-close-button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+}
+
+.more-drawer-section {
+  margin-top: 22px;
+}
+
+.more-drawer-section h2 {
+  margin: 0 0 9px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.more-drawer-links {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.more-drawer-links > a {
+  display: grid;
+  min-height: 62px;
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.more-drawer-links > a:last-child {
+  border-bottom: 0;
+}
+
+.more-drawer-links > a[aria-current="page"] {
+  background: var(--surface-tint);
+  color: var(--brand-active);
+}
+
+.more-drawer-links > a > :last-child {
+  color: var(--text-soft);
+  font-size: 1.1rem;
+}
+
 .standard-page {
   min-height: 100dvh;
   padding: max(18px, env(safe-area-inset-top)) 18px 30px;
@@ -581,7 +717,162 @@ a {
 .page-header h1 { margin: 0; font-size: 1.16rem; letter-spacing: -0.03em; }
 .page-header-trailing { display: flex; margin-left: auto; }
 
+.page-state {
+  display: flex;
+  min-height: 70dvh;
+  align-items: center;
+  justify-content: center;
+  padding: 34px 24px;
+  text-align: center;
+  flex-direction: column;
+}
+
+.page-state-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--brand-soft);
+  color: var(--brand-active);
+}
+
+.page-state--error .page-state-icon {
+  background: var(--coral-soft);
+  color: var(--red);
+}
+
+.page-state--loading .page-state-icon svg {
+  animation: page-state-spin 0.9s linear infinite;
+}
+
+.page-state h1 {
+  margin: 16px 0 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+
+.page-state p {
+  max-width: 330px;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.page-state-action {
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 13px 17px;
+  border-radius: 15px;
+  background: var(--brand);
+  color: white;
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
+@keyframes page-state-spin {
+  to { rotate: 360deg; }
+}
+
 .transaction-page { padding-bottom: 132px; }
+
+.transaction-hub-page {
+  padding-bottom: 132px;
+}
+
+.transaction-hub-intro {
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 25px;
+  background:
+    radial-gradient(circle at 90% 0%, rgb(255 255 255 / 18%), transparent 38%),
+    linear-gradient(140deg, #9d68ff, #7441de);
+  color: white;
+  box-shadow: 0 18px 34px rgb(112 62 214 / 20%);
+}
+
+.transaction-hub-intro .eyebrow {
+  color: rgb(255 255 255 / 74%);
+}
+
+.transaction-hub-intro h2 {
+  max-width: 300px;
+  margin: 7px 0 0;
+  font-size: 1.42rem;
+  letter-spacing: -0.04em;
+}
+
+.transaction-hub-intro > p:last-child {
+  max-width: 310px;
+  margin: 9px 0 0;
+  color: rgb(255 255 255 / 78%);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.transaction-action-grid {
+  display: grid;
+  margin-top: 16px;
+  gap: 10px;
+}
+
+.transaction-action-card {
+  display: grid;
+  min-height: 78px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 21px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.transaction-action-card > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.transaction-action-card strong {
+  font-size: 0.86rem;
+}
+
+.transaction-action-card small {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.69rem;
+}
+
+.transaction-action-card > svg {
+  color: var(--text-soft);
+}
+
+.transaction-routine-card {
+  display: grid;
+  align-items: center;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 23px;
+  background: var(--surface-tint);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.transaction-routine-card h2 {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+.transaction-routine-card div > p:last-child {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
 
 .report-page { padding-bottom: 124px; }
 .plan-page { padding-bottom: 126px; }

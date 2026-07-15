@@ -85,7 +85,7 @@ for (const theme of ["light", "dark"] as const) {
       localStorage.setItem("pfm-mobile-theme", selectedTheme);
     }, theme);
 
-    for (const route of ["/", "/report", "/plan", "/settings"]) {
+    for (const route of ["/", "/analytics", "/budget", "/goal", "/transaction", "/settings"]) {
       await page.goto(route);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 

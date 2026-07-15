@@ -109,11 +109,11 @@ function ComposerForm({ accounts, categories, kind }: ComposerFormProps) {
         try {
           await uploadReceipt(receiptTransactionId, receipt);
         } catch {
-          router.replace(`/transactions/${receiptTransactionId}/edit?receipt=failed` as Route);
+          router.replace(`/transaction/${receiptTransactionId}/edit?receipt=failed` as Route);
           return;
         }
       }
-      router.replace("/");
+      router.replace("/transaction" as Route);
     } catch (error) {
       setError("root", { message: error instanceof Error ? error.message : "Unable to save this transaction" });
     }
@@ -199,7 +199,7 @@ export function TransactionComposer({ initialKind }: { initialKind: TransactionK
   return (
     <MobileShell>
       <div className="standard-page transaction-page">
-        <PageHeader title="Add transaction" trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={"/transaction" as Route} title="Add transaction" trailing={<ThemeToggle compact />} />
         <div aria-label="Transaction type" className="transaction-kind-tabs" role="group">
           {(["expense", "income", "transfer"] as const).map((option) => <button aria-pressed={kind === option} key={option} onClick={() => setKind(option)} type="button">{option}</button>)}
         </div>

@@ -14,14 +14,15 @@ import { formatMoney } from "@/lib/home/view-model";
 import { currentMonthKey, reportMonthLabel } from "@/lib/reports/utils";
 
 type CreatorMode = "budget" | "goal";
+type PlanFocus = "all" | CreatorMode;
 
 function FormError({ message }: { message: string | null }) {
   return message ? <p className="form-error" role="alert">{message}</p> : null;
 }
 
-function PlanCreator({ categories, month, onClose }: { categories: { id: string; name: string }[]; month: string; onClose: () => void }) {
+function PlanCreator({ allowModeSwitch, categories, initialMode, month, onClose }: { allowModeSwitch: boolean; categories: { id: string; name: string }[]; initialMode: CreatorMode; month: string; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [mode, setMode] = useState<CreatorMode>("goal");
+  const [mode, setMode] = useState<CreatorMode>(initialMode);
   const [error, setError] = useState<string | null>(null);
   const [goalName, setGoalName] = useState("");
   const [goalAmount, setGoalAmount] = useState("");
@@ -65,7 +66,7 @@ function PlanCreator({ categories, month, onClose }: { categories: { id: string;
 
   return <section aria-labelledby="create-plan-heading" className="plan-form-sheet">
     <div className="section-heading"><div><p className="eyebrow">NEW PLAN</p><h2 id="create-plan-heading">Create a plan</h2></div><button aria-label="Close plan form" className="icon-button icon-button--plain" onClick={onClose} type="button"><X aria-hidden="true" size={20} /></button></div>
-    <div aria-label="Plan type" className="transaction-kind-tabs plan-kind-tabs" role="group"><button aria-pressed={mode === "goal"} onClick={() => setMode("goal")} type="button">Goal</button><button aria-pressed={mode === "budget"} onClick={() => setMode("budget")} type="button">Budget</button></div>
+    {allowModeSwitch ? <div aria-label="Plan type" className="transaction-kind-tabs plan-kind-tabs" role="group"><button aria-pressed={mode === "goal"} onClick={() => setMode("goal")} type="button">Goal</button><button aria-pressed={mode === "budget"} onClick={() => setMode("budget")} type="button">Budget</button></div> : null}
     {mode === "goal" ? <div className="plan-form-fields"><label><span>Goal name</span><input aria-label="Goal name" onChange={(event) => setGoalName(event.target.value)} value={goalName} /></label><label><span>Target amount</span><input aria-label="Target amount" inputMode="decimal" onChange={(event) => setGoalAmount(event.target.value)} value={goalAmount} /></label><label><span>Monthly target</span><input aria-label="Monthly target" inputMode="decimal" onChange={(event) => setMonthlyTarget(event.target.value)} value={monthlyTarget} /></label><label><span>Target date</span><input aria-label="Target date" min={new Date().toISOString().slice(0, 10)} onChange={(event) => setTargetDate(event.target.value)} type="date" value={targetDate} /></label><label><span>Currency</span><input aria-label="Goal currency" maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} value={currency} /></label></div> : <div className="plan-form-fields"><label><span>Budget limit</span><input aria-label="Budget limit" inputMode="decimal" onChange={(event) => setBudgetAmount(event.target.value)} value={budgetAmount} /></label><label><span>Category</span><select aria-label="Budget category" onChange={(event) => setCategoryId(event.target.value)} value={categoryId}><option value="">Overall spending</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label><span>Month</span><input aria-label="Budget month" disabled value={reportMonthLabel(month)} /></label><label><span>Currency</span><input aria-label="Budget currency" maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} value={currency} /></label></div>}
     <FormError message={error} /><button className="save-transaction-button" disabled={busy} onClick={() => void submit()} type="button">{busy ? "Saving…" : `Create ${mode}`}</button>
   </section>;
@@ -95,17 +96,26 @@ function BudgetRow({ budget, index }: { budget: Budget; index: number }) {
   return <article className="budget-row"><span className={`category-icon accent-${accent}`}><WalletCards aria-hidden="true" size={20} /></span><div><strong>{budget.category_name ?? "Overall spending"}</strong><span>{formatMoney(budget.progress.spent_amount, budget.currency)} of {formatMoney(budget.limit_amount, budget.currency)}</span><ProgressBar accent={accent} label={`${budget.category_name ?? "Overall"} budget progress`} value={percent} /></div><strong className={`budget-percent accent-text-${accent}`}>{Math.round(percent)}%</strong></article>;
 }
 
-export function PlanDashboard() {
+export function PlanDashboard({
+  focus = "all",
+  title = "My Plan",
+}: {
+  focus?: PlanFocus;
+  title?: string;
+}) {
   const [month, setMonth] = useState(() => currentMonthKey());
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [contributionGoal, setContributionGoal] = useState<SavingsGoal | null>(null);
   const plans = useQuery({ queryFn: () => getPlanData(month), queryKey: ["plans", month] });
 
-  return <MobileShell><div className="standard-page plan-page"><PageHeader title="My Plan" trailing={<><label className="plan-month"><input aria-label="Plan month" max={currentMonthKey()} onChange={(event) => setMonth(event.target.value)} type="month" value={month} /></label><button aria-label="Create a plan" className="icon-button icon-button--dark" onClick={() => setCreatorOpen(true)} type="button"><Plus aria-hidden="true" size={20} /></button></>} />
-    {creatorOpen && plans.data ? <PlanCreator categories={plans.data.categories} month={month} onClose={() => setCreatorOpen(false)} /> : null}
+  const creatorMode: CreatorMode = focus === "budget" ? "budget" : "goal";
+  const creatorLabel = focus === "budget" ? "Create a budget" : focus === "goal" ? "Create a goal" : "Create a plan";
+
+  return <MobileShell><div className="standard-page plan-page"><PageHeader backHref={null} title={title} trailing={<><label className="plan-month"><input aria-label="Plan month" max={currentMonthKey()} onChange={(event) => setMonth(event.target.value)} type="month" value={month} /></label><button aria-label={creatorLabel} className="icon-button icon-button--dark" onClick={() => setCreatorOpen(true)} type="button"><Plus aria-hidden="true" size={20} /></button></>} />
+    {creatorOpen && plans.data ? <PlanCreator allowModeSwitch={focus === "all"} categories={plans.data.categories} initialMode={creatorMode} month={month} onClose={() => setCreatorOpen(false)} /> : null}
     {plans.isPending ? <div aria-busy="true" aria-label="Loading plans" className="plan-loading" role="status"><div /><div /></div> : null}
     {plans.isError ? <div className="report-error" role="alert"><strong>Couldn’t load your plans</strong><p>Try again to refresh budgets and goals.</p><button onClick={() => void plans.refetch()} type="button">Try again</button></div> : null}
-    {plans.data ? <><section className="plan-section"><div className="section-heading section-heading--compact"><div><p className="eyebrow">SAVINGS</p><h2>Goals</h2></div><PiggyBank aria-hidden="true" size={20} /></div>{plans.data.goals.length ? <div className="plan-goal-list">{plans.data.goals.map((goal) => <div key={goal.id}><GoalCard goal={goal} onContribute={() => setContributionGoal(goal)} />{contributionGoal?.id === goal.id ? <ContributionForm goal={goal} onClose={() => setContributionGoal(null)} /> : null}</div>)}</div> : <p className="plan-empty">No active savings goals yet. Create one to start tracking progress.</p>}</section>
-      <section className="plan-section budget-heading"><div className="section-heading section-heading--compact"><div><p className="eyebrow">{reportMonthLabel(month)}</p><h2>Budgets</h2></div><CircleDollarSign aria-hidden="true" size={20} /></div>{plans.data.budgets.length ? <div className="stack-list">{plans.data.budgets.map((budget, index) => <BudgetRow budget={budget} index={index} key={budget.id} />)}</div> : <p className="plan-empty">No budgets for this month. Create one to set a spending limit.</p>}</section></> : null}
+    {plans.data ? <>{focus !== "budget" ? <section className="plan-section"><div className="section-heading section-heading--compact"><div><p className="eyebrow">SAVINGS</p><h2>Goals</h2></div><PiggyBank aria-hidden="true" size={20} /></div>{plans.data.goals.length ? <div className="plan-goal-list">{plans.data.goals.map((goal) => <div key={goal.id}><GoalCard goal={goal} onContribute={() => setContributionGoal(goal)} />{contributionGoal?.id === goal.id ? <ContributionForm goal={goal} onClose={() => setContributionGoal(null)} /> : null}</div>)}</div> : <p className="plan-empty">No active savings goals yet. Create one to start tracking progress.</p>}</section> : null}
+      {focus !== "goal" ? <section className="plan-section budget-heading"><div className="section-heading section-heading--compact"><div><p className="eyebrow">{reportMonthLabel(month)}</p><h2>Budgets</h2></div><CircleDollarSign aria-hidden="true" size={20} /></div>{plans.data.budgets.length ? <div className="stack-list">{plans.data.budgets.map((budget, index) => <BudgetRow budget={budget} index={index} key={budget.id} />)}</div> : <p className="plan-empty">No budgets for this month. Create one to set a spending limit.</p>}</section> : null}</> : null}
   </div></MobileShell>;
 }

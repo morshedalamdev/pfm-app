@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ExpenseRow } from "@/components/finance/expense-row";
+import { PageState } from "@/components/layout/page-state";
 import { MoneyStatCard } from "@/components/finance/money-stat-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 
@@ -39,5 +40,20 @@ describe("mobile design system", () => {
 
     expect(screen.getByText("Groceries")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "31");
+  });
+
+  it("renders reusable page states with an accessible action", () => {
+    render(
+      <PageState
+        actionHref="/"
+        actionLabel="Return home"
+        description="This route is unavailable."
+        title="Page not found"
+        variant="empty"
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Page not found");
+    expect(screen.getByRole("link", { name: "Return home" })).toHaveAttribute("href", "/");
   });
 });
