@@ -22,14 +22,16 @@ function moveMonth(month: string, offset: number): string {
 }
 
 function Donut({ data }: { data: { amount: string; category_name: string; percent: string }[] }) {
-  let cursor = 0;
-  const segments = data.slice(0, 5).map((item, index) => {
-    const end = Math.min(100, cursor + reportPercent(item.percent));
-    const segment = `${chartColors[index]} ${cursor}% ${end}%`;
-    cursor = end;
-    return segment;
-  });
-  if (cursor < 100) segments.push(`var(--surface-soft) ${cursor}% 100%`);
+  const donut = data.slice(0, 5).reduce<{ cursor: number; segments: string[] }>((state, item, index) => {
+    const end = Math.min(100, state.cursor + reportPercent(item.percent));
+    return {
+      cursor: end,
+      segments: [...state.segments, `${chartColors[index]} ${state.cursor}% ${end}%`],
+    };
+  }, { cursor: 0, segments: [] });
+  const segments = donut.cursor < 100
+    ? [...donut.segments, `var(--surface-soft) ${donut.cursor}% 100%`]
+    : donut.segments;
 
   return <div aria-label="Spending by category chart" className="live-donut" role="img" style={{ background: `conic-gradient(${segments.join(",")})` }}><div /></div>;
 }
@@ -46,7 +48,7 @@ function CashFlowBars({ data }: { data: { amount: string; label: string }[] }) {
 }
 
 function ReportLoading() {
-  return <div aria-busy="true" aria-label="Loading report" className="report-loading"><div /><div /><div /></div>;
+  return <div aria-busy="true" aria-label="Loading report" className="report-loading" role="status"><div /><div /><div /></div>;
 }
 
 export function ReportDashboard() {
