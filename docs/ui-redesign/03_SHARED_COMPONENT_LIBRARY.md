@@ -200,3 +200,77 @@ Do not redesign complete feature pages in Agent 03. Defer full migration of:
 - Settings, profile, and auth page content.
 
 Phase 03.1 changed documentation only and did not change production UI behavior.
+
+## Phase 03.2 Component Contracts
+
+Phase 03.2 adds reusable financial primitives under `client/components/finance/`.
+They are presentation-only components: they do not fetch data, mutate state,
+convert currencies, or encode page-specific business rules.
+
+### Surface and Layout
+
+- `CardSurface`: token-aware card wrapper with `default`, `subtle`, `elevated`,
+  and `outline` variants. Supports `selected`, `disabled`, `interactive`, and
+  `asChild` composition for callers that need a real button or link. Keyboard
+  focus styles only apply when the caller provides an interactive child.
+- `SectionHeader`: compact responsive heading block with optional eyebrow,
+  description, and action slot. Long titles and descriptions wrap safely.
+- `IconContainer`: fixed-size semantic icon surface using Agent 01 tone tokens.
+  Icons are decorative by default unless an `aria-label` is supplied.
+
+### Financial Values
+
+- `MoneyValue`: renders existing `formatMoney` output by default and keeps the
+  existing CNY `¥` behavior. It adds compact display, sign-display policy,
+  tabular numerals, semantic tone, and optional accessible labels. It does not
+  convert currencies.
+- `PercentageValue`: renders existing `formatPercent` output with tabular
+  numerals, sign-display policy, semantic tone, and optional accessible labels.
+- `ChangeIndicator`: displays positive, negative, and zero change with an icon,
+  text value, and semantic tone.
+- `ChangeBadge`: wraps `ChangeIndicator` in a semantic soft badge.
+
+### Status and Progress
+
+- `StatusBadge`: covers common neutral, active, disabled, pending, on-track,
+  near-limit, over-budget, overdue, behind, completed, and archived statuses
+  with text plus icon so meaning is not color-only.
+- `LinearProgress`: uses accessible `role="progressbar"` semantics, clamps the
+  visual fill between 0 and 100, and preserves true over-limit or zero-target
+  values through visible text and `aria-valuetext`.
+- `CircularProgress`: mirrors the linear progress contract for compact radial
+  displays, including visual clamping and true value text.
+- `ProgressLegend`: provides reusable semantic swatches and optional values for
+  chart or progress explanations.
+
+### Edge-Case Handling
+
+Verified or covered by implementation contracts:
+
+- Negative, zero, positive, very large, compact, and CNY money values.
+- `0%`, `100%`, and values above `100%`.
+- Zero-target and disabled progress states through labels and reduced opacity.
+- Long labels through truncation or wrapping at component boundaries.
+- Theme-safe light/dark styles through Agent 01 tokens.
+- Reduced-motion behavior through `motion-reduce:transition-none`.
+- Keyboard focus only through `CardSurface asChild` when an interactive child is
+  supplied by the caller.
+
+### Preview Strategy
+
+`client/app/component-preview/page.tsx` is a development-only route for
+focused component verification. It calls `notFound()` in production and does
+not expose a public component gallery. The route renders the edge cases needed
+by `client/e2e/shared-components.e2e.spec.mjs` across light/dark and
+mobile/desktop viewports.
+
+## Phase 03.2 Changed Files
+
+- `client/components/finance/tokens.ts`
+- `client/components/finance/layout.tsx`
+- `client/components/finance/values.tsx`
+- `client/components/finance/status.tsx`
+- `client/components/finance/progress.tsx`
+- `client/components/finance/index.ts`
+- `client/app/component-preview/page.tsx`
+- `client/e2e/shared-components.e2e.spec.mjs`
