@@ -72,6 +72,9 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/backend/accounts?**", async (route) => {
     await route.fulfill({ contentType: "application/json", json: { has_more: false, items: [account], next_cursor: null } });
   });
+  await page.route("**/api/backend/notifications/unread-count", async (route) => {
+    await route.fulfill({ contentType: "application/json", json: { unread_count: 1 } });
+  });
   await page.goto("/");
   await expect(page.getByText("Cash withdrawal")).toBeVisible();
 });

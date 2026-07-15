@@ -1,5 +1,5 @@
-import { SettingsDashboard } from "@/components/settings/settings-dashboard";
+import { NotificationInbox } from "@/components/notifications/notification-inbox";
 
 export default function NotificationsPage() {
-  return <SettingsDashboard initialSection="notifications" standalone title="Notifications" />;
+  return <NotificationInbox />;
 }

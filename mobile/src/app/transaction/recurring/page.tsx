@@ -1,5 +1,5 @@
-import { SettingsDashboard } from "@/components/settings/settings-dashboard";
+import { RecurringDashboard } from "@/components/recurring/recurring-dashboard";
 
 export default function RecurringTransactionsPage() {
-  return <SettingsDashboard initialSection="recurring" standalone title="Recurring" />;
+  return <RecurringDashboard />;
 }

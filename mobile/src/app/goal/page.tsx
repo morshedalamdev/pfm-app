@@ -1,5 +1,5 @@
-import { PlanDashboard } from "@/components/plans/plan-dashboard";
+import { GoalDashboard } from "@/components/plans/goal-dashboard";
 
 export default function GoalPage() {
-  return <PlanDashboard focus="goal" title="Goals" />;
+  return <GoalDashboard />;
 }

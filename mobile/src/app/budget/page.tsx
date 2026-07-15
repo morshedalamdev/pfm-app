@@ -1,5 +1,5 @@
-import { PlanDashboard } from "@/components/plans/plan-dashboard";
+import { BudgetDashboard } from "@/components/plans/budget-dashboard";
 
 export default function BudgetPage() {
-  return <PlanDashboard focus="budget" title="Budget" />;
+  return <BudgetDashboard />;
 }

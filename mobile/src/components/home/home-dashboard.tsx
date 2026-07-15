@@ -12,6 +12,7 @@ import { HomeHeader } from "@/components/layout/home-header";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { getHomeData } from "@/lib/home/api";
+import { getNotificationUnreadCount } from "@/lib/notifications/api";
 import {
   formatMoney,
   formatMonthLabel,
@@ -47,6 +48,7 @@ export function HomeDashboard() {
     queryFn: getHomeData,
     queryKey: ["home", "month"],
   });
+  const notificationCount = useQuery({ queryFn: getNotificationUnreadCount, queryKey: ["notifications", "unread-count"], refetchInterval: 30_000 });
   const dashboard = home.data?.dashboard;
   const defaultAccount = home.data?.defaultAccount;
   const transactions = home.data?.transactions.items ?? [];
@@ -58,7 +60,7 @@ export function HomeDashboard() {
         balance={defaultAccount ? formatMoney(defaultAccount.current_balance, defaultAccount.currency) : undefined}
         change={defaultAccount ? `${defaultAccount.name} · ${formatSignedMoney(dashboard?.net_flow_amount ?? "0", dashboard?.currency ?? defaultAccount.currency)} net flow this month` : undefined}
         monthLabel={dashboard ? formatMonthLabel(dashboard.range.start_at) : "This month"}
-        actions={<><ThemeToggle compact /><Link aria-label="Notifications" className="icon-button" href={"/notifications" as Route}><Bell aria-hidden="true" size={19} strokeWidth={2.3} /><span className="notification-dot" /></Link></>}
+        actions={<><ThemeToggle compact /><Link aria-label={`Notifications${notificationCount.data?.unread_count ? `, ${notificationCount.data.unread_count} unread` : ""}`} className="icon-button" href={"/notifications" as Route}><Bell aria-hidden="true" size={19} strokeWidth={2.3} />{notificationCount.data?.unread_count ? <span className="notification-dot" /> : null}</Link></>}
       />
 
       {home.isPending ? <HomeSheetSkeleton /> : null}

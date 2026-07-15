@@ -200,7 +200,7 @@ test("transaction forms are mobile-safe and accessible", async ({ page }) => {
 });
 
 for (const theme of ["light", "dark"] as const) {
-  test(`matches the ${theme} transaction history reference baseline`, async ({ page }) => {
+  test(`matches the ${theme} theme reference baseline for transaction history`, async ({ page }) => {
     await page.goto("/transaction");
     await page.evaluate((selectedTheme) => localStorage.setItem("pfm-mobile-theme", selectedTheme), theme);
     await page.reload();
