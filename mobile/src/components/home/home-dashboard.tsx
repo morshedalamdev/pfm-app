@@ -57,7 +57,7 @@ export function HomeDashboard() {
         balance={dashboard ? formatMoney(dashboard.available_balance, dashboard.currency) : undefined}
         change={dashboard ? `${formatSignedMoney(dashboard.net_flow_amount, dashboard.currency)} net flow this month` : undefined}
         monthLabel={dashboard ? formatMonthLabel(dashboard.range.start_at) : "This month"}
-        actions={<><ThemeToggle compact /><button aria-label="Notifications" className="icon-button" type="button"><Bell aria-hidden="true" size={19} strokeWidth={2.3} /><span className="notification-dot" /></button></>}
+        actions={<><ThemeToggle compact /><Link aria-label="Notifications" className="icon-button" href="/settings?section=notifications"><Bell aria-hidden="true" size={19} strokeWidth={2.3} /><span className="notification-dot" /></Link></>}
       />
 
       {home.isPending ? <HomeSheetSkeleton /> : null}
