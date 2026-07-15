@@ -29,9 +29,9 @@ export function BottomNavigation() {
         </Link>
       ))}
 
-      <button aria-label="Add transaction" className="add-button" type="button">
+      <Link aria-label="Add transaction" className="add-button" href={"/transactions/new" as Route}>
         <Plus aria-hidden="true" size={30} strokeWidth={2.2} />
-      </button>
+      </Link>
 
       {items.slice(2).map(({ href, icon: Icon, label }) => (
         <Link

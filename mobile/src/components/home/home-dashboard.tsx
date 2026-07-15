@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Bell, CircleArrowDown, CircleArrowUp, Coffee, ShoppingBag, WalletCards } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import { InsightBanner } from "@/components/finance/insight-banner";
@@ -86,7 +87,8 @@ export function HomeDashboard() {
                 {transactions.map((transaction) => {
                   const view = mapTransaction(transaction);
                   const Icon = view.accent === "blue" ? CircleArrowDown : view.accent === "purple" ? WalletCards : Coffee;
-                  return <TransactionRow key={transaction.id} accent={view.accent} amount={view.amount} icon={Icon} name={view.name} negative={view.isNegative} subtitle={`${view.subtitle} · ${view.dateLabel}`} />;
+                  const href = transaction.type === "income" || transaction.type === "expense" ? `/transactions/${transaction.id}/edit` as Route : undefined;
+                  return <TransactionRow key={transaction.id} accent={view.accent} amount={view.amount} href={href} icon={Icon} name={view.name} negative={view.isNegative} subtitle={`${view.subtitle} · ${view.dateLabel}`} />;
                 })}
               </div>
             ) : (

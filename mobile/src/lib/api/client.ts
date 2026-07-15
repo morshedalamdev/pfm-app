@@ -31,3 +31,46 @@ export async function getBackendJson<T>(
     throw new BackendRequestError(fallback);
   }
 }
+
+type BackendMutationOptions = Readonly<{
+  body?: BodyInit;
+  fallback?: string;
+  headers?: HeadersInit;
+  method: "DELETE" | "PATCH" | "POST" | "PUT";
+}>;
+
+export async function mutateBackendJson<T>(
+  path: string,
+  options: BackendMutationOptions,
+): Promise<T> {
+  const response = await fetch(`/api/backend/${path.replace(/^\/+/, "")}`, {
+    body: options.body,
+    credentials: "same-origin",
+    headers: options.headers,
+    method: options.method,
+  });
+  const fallback = options.fallback ?? "We couldn't save your changes.";
+
+  if (!response.ok) {
+    throw new BackendRequestError(await getBackendErrorMessage(response, fallback));
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new BackendRequestError(fallback);
+  }
+}
+
+export function sendBackendJson<T>(
+  path: string,
+  method: BackendMutationOptions["method"],
+  payload?: unknown,
+  headers?: HeadersInit,
+): Promise<T> {
+  return mutateBackendJson<T>(path, {
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+    headers: { "content-type": "application/json", ...headers },
+    method,
+  });
+}

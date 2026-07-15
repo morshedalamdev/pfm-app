@@ -34,7 +34,13 @@ async function proxyBackend(
   const backendPath = `/api/v1/${encodedPath}${request.nextUrl.search}`;
   const headers = new Headers();
 
-  for (const name of ["accept", "content-type", "idempotency-key", "last-event-id"]) {
+  for (const name of [
+    "accept",
+    "content-type",
+    "idempotency-key",
+    "last-event-id",
+    "x-receipt-filename",
+  ]) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
