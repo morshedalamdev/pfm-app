@@ -1,14 +1,38 @@
 "use client";
 
 import { Fragment } from "react";
-import HeaderItem from "@/components/items/HeaderItem";
+import {
+  ActivityIcon,
+  ArrowDownRightIcon,
+  ArrowUpRightIcon,
+  WalletCardsIcon,
+} from "lucide-react";
+
 import { RootChart } from "@/components/charts/RootChart";
+import {
+  CardSkeleton,
+  CardSurface,
+  ErrorState,
+  FinancialMetricCard,
+  MoneyValue,
+} from "@/components/finance";
 import TransactionItem from "@/components/items/TransactionItem";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { components } from "@/generated/api-types";
 import { useDashboardData } from "@/lib/dashboard/useDashboardData";
 import { useHomeBalanceSource } from "@/lib/dashboard/useHomeBalanceSource";
 import { formatMoney } from "@/lib/finance/format";
+import { cn } from "@/lib/utils";
+
+type DashboardPeriod = components["schemas"]["DashboardPeriod"];
+type DashboardReport = components["schemas"]["DashboardReportResponse"];
+
+const DASHBOARD_PERIODS: Array<{ label: string; value: DashboardPeriod }> = [
+  { label: "Week", value: "week" },
+  { label: "Month", value: "month" },
+  { label: "Year", value: "year" },
+];
 
 export default function HomePage() {
   const {
@@ -37,82 +61,110 @@ export default function HomePage() {
   const transactionsLoading =
     transactionsStatus === "loading" && transactions.length === 0;
   const reportCurrency = report?.currency ?? "USD";
+  const netCashFlow = report ? deriveNetCashFlow(report) : 0;
 
   return (
     <Fragment>
-      <section className="text-center mt-9 mb-3">
-        <h2 className="text-input font-bold uppercase tracking-wide">
-          available balance
-        </h2>
-        {balanceLoading ? (
-          <Skeleton className="mx-auto mt-2 h-12 w-56" />
-        ) : balance ? (
-          <>
-            <h3 className="text-5xl font-bold">
-              {formatMoney(balance.amount, balance.currency)}
-            </h3>
-            <p className="mt-1 text-sm font-medium text-muted-foreground">
-              {balance.label}
-            </p>
-          </>
-        ) : (
-          <>
-            <h3 className="text-5xl font-bold">--</h3>
-            <p className="mt-1 text-sm font-medium text-muted-foreground">
-              No balance source available
-            </p>
-          </>
-        )}
-        {balanceError ? (
-          <div className="mt-2">
-            <p className="text-sm font-medium text-destructive">
-              {balanceError}
-            </p>
-            {!balance ? (
-              <Button
-                type="button"
-                variant="reverse"
-                className="mt-2 w-fit"
-                onClick={() => void loadBalanceSources()}
-              >
-                Retry
-              </Button>
+      <section className="px-3 pt-4">
+        <CardSurface className="overflow-hidden border-primary-border bg-primary-soft/70 p-0 shadow-[var(--shadow-primary-glow)]">
+          <div className="space-y-5 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-normal text-primary-soft-foreground/80">
+                  Current balance
+                </p>
+                <h1 className="mt-2 text-4xl font-bold leading-tight text-primary-soft-foreground sm:text-5xl">
+                  {balanceLoading ? (
+                    <Skeleton className="h-11 w-56 max-w-full bg-primary/15" />
+                  ) : balance ? (
+                    <MoneyValue
+                      className="max-w-full whitespace-normal break-words text-inherit"
+                      currency={balance.currency}
+                      size="xl"
+                      value={balance.amount}
+                    />
+                  ) : (
+                    <span className="finance-number">--</span>
+                  )}
+                </h1>
+                <p className="mt-2 text-sm font-medium text-primary-soft-foreground/80">
+                  {balanceLoading
+                    ? "Loading balance source"
+                    : balance?.label ?? "No balance source available"}
+                </p>
+              </div>
+              <DashboardPeriodSelector
+                onChange={setPeriod}
+                value={period}
+              />
+            </div>
+            {balanceError ? (
+              <div className="rounded-md border border-destructive/20 bg-destructive-soft p-3">
+                <p className="text-sm font-medium text-destructive">
+                  {balanceError}
+                </p>
+                {!balance ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3 w-fit"
+                    onClick={() => void loadBalanceSources()}
+                  >
+                    Retry balance
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
-        ) : null}
+        </CardSurface>
       </section>
-      <section className="grid grid-cols-2 gap-3 p-3">
+
+      <section className="grid gap-3 p-3 sm:grid-cols-3">
         {reportLoading ? (
           <>
-            <Skeleton className="h-[72px] rounded-md" />
-            <Skeleton className="h-[72px] rounded-md" />
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
           </>
         ) : (
           <>
-            <HeaderItem
+            <FinancialMetricCard
+              amount={report?.income_amount ?? "0"}
+              currency={reportCurrency}
+              icon={ArrowUpRightIcon}
+              supportingText={`${periodLabel(period)} income`}
               title="Income"
-              amount={formatMoney(report?.income_amount ?? "0", reportCurrency)}
+              tone="income"
             />
-            <HeaderItem
-              title="Expense"
-              amount={formatMoney(report?.expense_amount ?? "0", reportCurrency)}
+            <FinancialMetricCard
+              amount={report?.expense_amount ?? "0"}
+              currency={reportCurrency}
+              icon={ArrowDownRightIcon}
+              supportingText={`${periodLabel(period)} expenses`}
+              title="Expenses"
+              tone="expense"
+            />
+            <FinancialMetricCard
+              amount={netCashFlow}
+              currency={reportCurrency}
+              icon={netCashFlow >= 0 ? WalletCardsIcon : ActivityIcon}
+              supportingText={`${periodLabel(period)} income minus expenses`}
+              title="Net cash flow"
+              tone={netCashFlow > 0 ? "income" : netCashFlow < 0 ? "expense" : "muted"}
             />
           </>
         )}
       </section>
       {reportError && !report && (
         <section className="px-3 pb-3">
-          <div className="rounded-md bg-accent p-3 text-center">
-            <p className="text-sm font-semibold">{reportError}</p>
-            <Button
-              type="button"
-              variant="reverse"
-              className="mt-2 w-fit"
-              onClick={loadReport}
-            >
-              Retry
-            </Button>
-          </div>
+          <ErrorState
+            description={reportError}
+            retryAction={{
+              label: "Retry summary",
+              onClick: () => void loadReport(),
+            }}
+            title="Dashboard summary could not be loaded"
+          />
         </section>
       )}
       <section>
@@ -180,4 +232,46 @@ export default function HomePage() {
       </section>
     </Fragment>
   );
+}
+
+function DashboardPeriodSelector({
+  onChange,
+  value,
+}: {
+  onChange: (value: DashboardPeriod) => void;
+  value: DashboardPeriod;
+}) {
+  return (
+    <div
+      aria-label="Dashboard period"
+      className="inline-flex w-fit max-w-full rounded-md border border-primary-border bg-background/70 p-1"
+      role="group"
+    >
+      {DASHBOARD_PERIODS.map((periodOption) => (
+        <Button
+          aria-pressed={value === periodOption.value}
+          className={cn(
+            "h-8 w-auto px-3 text-xs",
+            value === periodOption.value
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          key={periodOption.value}
+          onClick={() => onChange(periodOption.value)}
+          type="button"
+          variant={value === periodOption.value ? "default" : "ghost"}
+        >
+          {periodOption.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function deriveNetCashFlow(report: DashboardReport): number {
+  return Number(report.income_amount) - Number(report.expense_amount);
+}
+
+function periodLabel(period: DashboardPeriod): string {
+  return period === "week" ? "This week" : period === "month" ? "This month" : "This year";
 }

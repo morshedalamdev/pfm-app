@@ -50,7 +50,7 @@ export function useDashboardData() {
     null,
   );
 
-  const loadReport = useCallback(async () => {
+  const loadReport = useCallback(async (signal?: AbortSignal) => {
     setReportStatus("loading");
     setReportError(null);
 
@@ -62,11 +62,18 @@ export function useDashboardData() {
             period,
             type: transactionType,
           },
+          signal,
         },
       );
+      if (signal?.aborted) {
+        return;
+      }
       setReport(nextReport);
       setReportStatus("success");
     } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
       setReportError(getErrorMessage(error));
       setReportStatus("error");
     }
@@ -120,7 +127,9 @@ export function useDashboardData() {
   }, []);
 
   useEffect(() => {
-    void loadReport();
+    const controller = new AbortController();
+    void loadReport(controller.signal);
+    return () => controller.abort();
   }, [loadReport]);
 
   useEffect(() => {

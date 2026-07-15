@@ -259,6 +259,40 @@ Agent 04 implementation rule:
 
 - Do not introduce new cross-currency totals or percentages in the frontend. Display per-record currency values unless the backend provides a normalized result.
 
+## Phase 04.2 Core Summary
+
+Phase 04.2 redesigned the dashboard core summary without adding secondary dashboard sections.
+
+Implemented:
+
+- Balance hero using the existing `useHomeBalanceSource()` default account source and `current_balance` display.
+- One dashboard period state from `useDashboardData()`, reused by the hero period selector and the existing chart control.
+- Period selector for `week`, `month`, and `year`, matching the dashboard report API enum.
+- Income, Expenses, and Net Cash Flow cards using Agent 03 `FinancialMetricCard`.
+- Core summary loading skeletons using Agent 03 state primitives.
+- Core summary error state using Agent 03 `ErrorState` with retry.
+- Stale dashboard report request cancellation with `AbortSignal` when period or chart type changes.
+- Focused dashboard Playwright coverage for load, balance rendering, income, expenses, net cash flow, period switching, retry behavior, dark theme, mobile width, desktop width, and keyboard reachability.
+
+Preserved:
+
+- Existing authenticated shell behavior from Agent 02.
+- Existing default-account balance source and calculation.
+- Existing typed dashboard report API usage.
+- Existing chart and recent transactions sections for later Agent 04 phases.
+- Existing recent transaction data source and transaction detail links.
+
+Not implemented in this phase:
+
+- Account overview.
+- Budget health.
+- Savings goals.
+- Upcoming commitments.
+- Cash-flow chart redesign.
+- Recent transaction redesign.
+- Previous-period comparison.
+- Available-to-spend.
+
 ## Planned Files to Change
 
 Likely later Agent 04 phases may modify or create:
@@ -272,12 +306,13 @@ Likely later Agent 04 phases may modify or create:
 - `docs/ui-redesign/04_DASHBOARD_REDESIGN_TEST_REPORT.md`
 - `PFM_PROJECT_STATE.md`
 
-Production dashboard behavior was not changed in Phase 04.1.
+Production dashboard core presentation changed in Phase 04.2. Secondary
+dashboard sections remain deferred.
 
 ## Blockers
 
 - No Agent 04 dependency blocker was found. Agent 01, Agent 02, and Agent 03 are complete with documented handoff reports.
-- Full `npm run e2e` has a known pre-existing integrated finance blocker in recent UI redesign phases around the recurring warning `Groceries` assertion. Phase 04.1 should record any reproduction rather than treating it as a dashboard documentation regression.
+- Full `npm run e2e` has a known pre-existing integrated finance blocker in recent UI redesign phases around the recurring warning `Groceries` assertion. Phase 04.2 added focused dashboard E2E coverage instead of repairing that unrelated baseline issue.
 - Sandboxed production builds may fail without network access because `next/font/google` fetches the existing Urbanist font.
 - Full E2E requires local PostgreSQL, API, Next.js, and browser processes; sandboxed runs may require approval.
 
