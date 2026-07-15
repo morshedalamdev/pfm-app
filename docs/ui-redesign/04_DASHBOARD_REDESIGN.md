@@ -362,21 +362,59 @@ Not implemented in this phase:
 - AI, premium, or advisory claims.
 - Cross-currency planning totals or percentages.
 
+## Phase 04.5 Verification And Handoff
+
+Phase 04.5 completed final dashboard verification and handoff documentation.
+
+Verified:
+
+- Agent 04 changed files are limited to dashboard UI, dashboard hooks, focused
+  E2E specs, docs, and project state.
+- The redesigned dashboard still uses one client-side composition path from
+  existing server-backed sources: `useHomeBalanceSource`, `useDashboardData`,
+  and `useRecurringReminders`.
+- No production dashboard mock balances, fake transactions, sample account
+  data, AI/premium claims, or unsupported advisory copy were added.
+- No backend files, generated API files, database migrations, API contracts,
+  business logic, or React Native/native-platform files were changed.
+- The dashboard is covered at widths 320, 375, 390, 430, 768, 1024, 1280,
+  1440, and 1920.
+- Theme coverage includes System, Light, and Dark.
+- Dashboard verification covers loading, empty, partial-error, retry, keyboard,
+  screen-reader chart summary, links, horizontal overflow, stale period
+  responses, bounded bootstrap requests, and cross-currency account display.
+
+Created:
+
+- `docs/ui-redesign/04_DASHBOARD_REDESIGN_TEST_REPORT.md`
+- `client/e2e/dashboard-verification.e2e.spec.mjs`
+
+Final handoff status:
+
+- Focused dashboard E2E coverage passes for Agent 04 dashboard behavior.
+- Full `npm run e2e` remains subject to the known integrated finance journey
+  recurring-warning `Groceries` assertion blocker documented in prior UI
+  redesign phases.
+- Unsupported previous-period comparisons, available-to-spend, budget
+  `near_limit`, savings behind-schedule status, inferred future recurring
+  schedules, and cross-currency planning totals remain deferred data gaps.
+
 ## Planned Files to Change
 
-Likely later Agent 04 phases may modify or create:
+Agent 04 changed or created:
 
 - `client/app/(dashboard)/page.tsx`
 - `client/lib/dashboard/useDashboardData.ts`
-- Dashboard-specific view-model helpers under `client/lib/dashboard/`
-- Dashboard-specific presentational components if needed
+- `client/lib/dashboard/useHomeBalanceSource.ts`
+- `client/components/charts/RootChart.tsx`
 - Focused dashboard E2E tests under `client/e2e/`
 - `docs/ui-redesign/04_DASHBOARD_REDESIGN.md`
 - `docs/ui-redesign/04_DASHBOARD_REDESIGN_TEST_REPORT.md`
 - `PFM_PROJECT_STATE.md`
 
-Production dashboard planning sections changed in Phase 04.4. Unsupported
-schedule inference, AI insights, and cross-currency totals remain deferred.
+Production dashboard redesign work is complete through Phase 04.5. Unsupported
+schedule inference, AI insights, previous-period comparisons, and cross-currency
+planning totals remain deferred.
 
 ## Blockers
 
