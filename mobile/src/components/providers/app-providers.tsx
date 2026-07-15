@@ -3,6 +3,8 @@
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
+import { SessionHydrator } from "@/components/auth/session-hydrator";
+
 type AppProvidersProps = Readonly<{
   children: ReactNode;
 }>;
@@ -16,6 +18,7 @@ export function AppProviders({ children }: AppProvidersProps) {
       enableSystem
       storageKey="pfm-mobile-theme"
     >
+      <SessionHydrator />
       {children}
     </ThemeProvider>
   );

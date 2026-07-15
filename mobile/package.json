@@ -9,12 +9,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "api:schema": "cd ../server && .venv/bin/python scripts/export_openapi.py ../mobile/generated/openapi.json",
+    "api:types": "openapi-typescript generated/openapi.json -o generated/api-types.ts",
+    "api:generate": "npm run api:schema && npm run api:types",
+    "api:check": "node scripts/check-api-contract.mjs",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "check": "npm run api:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

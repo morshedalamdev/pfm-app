@@ -1,5 +1,6 @@
 import { Bell, ChevronRight, CircleUserRound, Landmark, Tags } from "lucide-react";
 
+import { LogoutButton } from "@/components/auth/logout-button";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -31,6 +32,7 @@ export default function SettingsPage() {
             </button>
           ))}
         </section>
+        <LogoutButton />
       </div>
     </MobileShell>
   );

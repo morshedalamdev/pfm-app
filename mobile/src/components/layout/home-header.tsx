@@ -1,15 +1,28 @@
+"use client";
+
 import type { ReactNode } from "react";
+
+import { useAuthStore } from "@/lib/auth/store";
 
 type HomeHeaderProps = Readonly<{
   actions: ReactNode;
 }>;
 
 export function HomeHeader({ actions }: HomeHeaderProps) {
+  const user = useAuthStore((state) => state.user);
+  const displayName = user?.full_name || user?.email || "Morshed Alam";
+  const initials = displayName
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "PF";
+
   return (
     <header className="balance-hero">
       <div className="top-bar">
-        <div aria-label="Morshed Alam" className="avatar" role="img">
-          MA
+        <div aria-label={displayName} className="avatar" role="img">
+          {initials}
           <span className="avatar-badge" aria-hidden="true">✦</span>
         </div>
         <button className="month-pill" type="button">
