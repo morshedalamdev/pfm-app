@@ -304,6 +304,14 @@ a {
   font-size: 0.76rem;
 }
 
+.balance-skeleton {
+  display: block;
+  width: min(62vw, 238px);
+  height: 47px;
+  border-radius: 13px;
+  background: rgb(255 255 255 / 20%);
+}
+
 .home-sheet {
   position: relative;
   z-index: 2;
@@ -468,6 +476,53 @@ a {
 .transaction-amount { align-items: flex-end; text-align: right; }
 .transaction-amount strong { font-size: 0.86rem; }
 .amount-negative { color: var(--red); }
+
+.skeleton-card,
+.skeleton-row,
+.skeleton-banner {
+  position: relative;
+  overflow: hidden;
+  border-color: transparent;
+  background: var(--surface-soft);
+  box-shadow: none;
+}
+
+.skeleton-card { min-height: 142px; }
+.skeleton-row { min-height: 78px; }
+.skeleton-banner { min-height: 52px; margin-top: 17px; border-radius: 999px; }
+.skeleton-card::after,
+.skeleton-row::after,
+.skeleton-banner::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 18%) 50%, transparent 80%);
+  content: "";
+  transform: translateX(-100%);
+  animation: shimmer 1.4s infinite;
+}
+
+.home-status-card,
+.empty-transactions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.home-status-card { padding: 20px; color: var(--coral); flex-wrap: wrap; }
+.home-status-card div { min-width: 0; flex: 1; color: var(--text); }
+.home-status-card h2,
+.empty-transactions strong { display: block; margin: 0; font-size: 0.92rem; }
+.home-status-card p,
+.empty-transactions span { display: block; margin: 5px 0 0; color: var(--text-muted); font-size: 0.76rem; }
+.retry-button { min-height: 40px; padding: 0 13px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-active); font-size: 0.76rem; font-weight: 700; }
+.empty-transactions { margin-top: 14px; padding: 17px; color: var(--brand); }
+.empty-transactions div { color: var(--text); }
+
+@keyframes shimmer { to { transform: translateX(100%); } }
 
 .bottom-navigation {
   position: fixed;

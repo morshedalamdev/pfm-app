@@ -1,7 +1,8 @@
 "use client";
 
 import { ThemeProvider } from "next-themes";
-import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
 
 import { SessionHydrator } from "@/components/auth/session-hydrator";
 
@@ -10,6 +11,10 @@ type AppProvidersProps = Readonly<{
 }>;
 
 export function AppProviders({ children }: AppProvidersProps) {
+  const [queryClient] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } }),
+  );
+
   return (
     <ThemeProvider
       attribute="data-theme"
@@ -18,8 +23,10 @@ export function AppProviders({ children }: AppProvidersProps) {
       enableSystem
       storageKey="pfm-mobile-theme"
     >
-      <SessionHydrator />
-      {children}
+      <QueryClientProvider client={queryClient}>
+        <SessionHydrator />
+        {children}
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

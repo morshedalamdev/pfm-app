@@ -6,9 +6,12 @@ import { useAuthStore } from "@/lib/auth/store";
 
 type HomeHeaderProps = Readonly<{
   actions: ReactNode;
+  balance?: string;
+  change?: string;
+  monthLabel: string;
 }>;
 
-export function HomeHeader({ actions }: HomeHeaderProps) {
+export function HomeHeader({ actions, balance, change, monthLabel }: HomeHeaderProps) {
   const user = useAuthStore((state) => state.user);
   const displayName = user?.full_name || user?.email || "Morshed Alam";
   const initials = displayName
@@ -25,16 +28,14 @@ export function HomeHeader({ actions }: HomeHeaderProps) {
           {initials}
           <span className="avatar-badge" aria-hidden="true">✦</span>
         </div>
-        <button className="month-pill" type="button">
-          November 2025 <span aria-hidden="true">⌄</span>
-        </button>
+        <span className="month-pill">{monthLabel}</span>
         <div className="header-actions">{actions}</div>
       </div>
 
       <div className="balance-copy">
         <p>Current Balance</p>
-        <strong>$87,457<span>.85</span></strong>
-        <small>+$784 from last week</small>
+        {balance ? <strong>{balance}</strong> : <span aria-label="Loading current balance" className="balance-skeleton" />}
+        {change ? <small>{change}</small> : null}
       </div>
     </header>
   );

@@ -1,15 +1,14 @@
-import { ChevronRight, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
-export function InsightBanner() {
+type InsightBannerProps = Readonly<{ message: string }>;
+
+export function InsightBanner({ message }: InsightBannerProps) {
   return (
-    <button className="insight-banner" type="button">
+    <aside className="insight-banner" aria-label="Monthly cash flow insight">
       <span>
         <Sparkles aria-hidden="true" size={19} />
-        Your insight is ready
+        {message}
       </span>
-      <span className="insight-action">
-        View <ChevronRight aria-hidden="true" size={17} />
-      </span>
-    </button>
+    </aside>
   );
 }
