@@ -50,10 +50,12 @@ test("validates matching registration passwords", async ({ page }) => {
   await expect(page.getByText("Passwords do not match")).toBeVisible();
 });
 
-test("creates an account and opens the protected home page", async ({ page }) => {
+test("creates an account and opens the guided setup", async ({ page }) => {
   await page.route("**/api/auth/register", async (route) => {
     await route.fulfill({ contentType: "application/json", json: { user }, status: 201 });
   });
+  await page.route("**/api/backend/users/me", async (route) => route.fulfill({ contentType: "application/json", json: user }));
+  await page.route("**/api/backend/accounts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [], next_cursor: null } }));
   await page.goto("/auth/register");
   await page.getByLabel("Full name").fill("Mobile User");
   await page.getByLabel("Email address").fill("mobile@example.com");
@@ -61,8 +63,8 @@ test("creates an account and opens the protected home page", async ({ page }) =>
   await page.getByLabel("Confirm password").fill("CorrectHorse42");
   await page.getByRole("button", { name: "Create account" }).click();
 
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "Home overview" })).toBeVisible();
+  await expect(page).toHaveURL(/\/setup$/);
+  await expect(page.getByRole("heading", { name: "Set up your money" })).toBeVisible();
 });
 
 test("auth screens have no detectable accessibility violations", async ({ page }) => {

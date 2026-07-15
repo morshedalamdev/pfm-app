@@ -46,12 +46,31 @@ const transactions = {
   next_cursor: null,
 };
 
+const account = {
+  archived_at: null,
+  created_at: "2025-11-01T00:00:00Z",
+  currency: "USD",
+  current_balance: "87457.8500",
+  disabled_at: null,
+  id: "11111111-1111-1111-1111-111111111111",
+  is_archived: false,
+  is_default: true,
+  is_disabled: false,
+  name: "Daily wallet",
+  opening_balance: "0.0000",
+  type: "bank_account",
+  updated_at: "2025-11-01T00:00:00Z",
+};
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/backend/reports/dashboard**", async (route) => {
     await route.fulfill({ contentType: "application/json", json: dashboard });
   });
   await page.route("**/api/backend/transactions**", async (route) => {
     await route.fulfill({ contentType: "application/json", json: transactions });
+  });
+  await page.route("**/api/backend/accounts?**", async (route) => {
+    await route.fulfill({ contentType: "application/json", json: { has_more: false, items: [account], next_cursor: null } });
   });
   await page.goto("/");
   await expect(page.getByText("Cash withdrawal")).toBeVisible();

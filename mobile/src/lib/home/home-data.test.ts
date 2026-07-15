@@ -33,20 +33,42 @@ const transactions = {
   next_cursor: null,
 } as const;
 
+const accounts = {
+  has_more: false,
+  items: [{
+    archived_at: null,
+    created_at: "2025-01-01T00:00:00Z",
+    currency: "USD",
+    current_balance: "420.5000",
+    disabled_at: null,
+    id: "11111111-1111-1111-1111-111111111111",
+    is_archived: false,
+    is_default: true,
+    is_disabled: false,
+    name: "Everyday checking",
+    opening_balance: "100.0000",
+    type: "bank_account",
+    updated_at: "2025-01-01T00:00:00Z",
+  }],
+  next_cursor: null,
+} as const;
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe("home data", () => {
-  it("loads the dashboard before requesting month-scoped recent activity", async () => {
+  it("uses the default active account for balance and loads month-scoped activity", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboard), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(accounts), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(transactions), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(getHomeData()).resolves.toEqual({ dashboard, transactions });
+    await expect(getHomeData()).resolves.toEqual({ dashboard, defaultAccount: accounts.items[0], transactions });
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/backend/reports/dashboard?period=month&type=expense", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining("/api/backend/transactions?"), expect.any(Object));
-    expect(fetchMock.mock.calls[1]?.[0]).toContain("date_from=2025-11-01T00%3A00%3A00Z");
-    expect(fetchMock.mock.calls[1]?.[0]).toContain("limit=10");
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/backend/accounts?limit=100", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, expect.stringContaining("/api/backend/transactions?"), expect.any(Object));
+    expect(fetchMock.mock.calls[2]?.[0]).toContain("date_from=2025-11-01T00%3A00%3A00Z");
+    expect(fetchMock.mock.calls[2]?.[0]).toContain("limit=10");
   });
 
   it("formats decimal-string money without floating-point conversion", () => {

@@ -51,6 +51,7 @@ export const config = {
     "/notifications/:path*",
     "/profile/:path*",
     "/settings/:path*",
+    "/setup/:path*",
     "/transaction/:path*",
     "/report/:path*",
     "/plan/:path*",

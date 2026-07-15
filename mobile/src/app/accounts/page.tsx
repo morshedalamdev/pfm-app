@@ -1,5 +1,5 @@
-import { SettingsDashboard } from "@/components/settings/settings-dashboard";
+import { AccountsDashboard } from "@/components/accounts/accounts-dashboard";
 
 export default function AccountsPage() {
-  return <SettingsDashboard initialSection="accounts" standalone title="Accounts" />;
+  return <AccountsDashboard />;
 }

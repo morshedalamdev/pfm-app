@@ -86,7 +86,7 @@ export function RegisterForm() {
       }
 
       setUser(payload.user);
-      router.replace("/");
+      router.replace("/setup" as Route);
       router.refresh();
     } catch {
       setError("root", { message: "Unable to reach the registration service" });

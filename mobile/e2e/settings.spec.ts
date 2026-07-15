@@ -44,7 +44,7 @@ test("creates accounts and categories with backend-shaped payloads", async ({ pa
   const payloads: Record<string, unknown>[] = [];
   await page.route("**/api/backend/accounts", async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: account, status: 201 }); });
   await page.route("**/api/backend/categories", async (route) => { payloads.push(route.request().postDataJSON() as Record<string, unknown>); await route.fulfill({ contentType: "application/json", json: category, status: 201 }); });
-  await page.goto("/accounts");
+  await page.goto("/accounts/new");
   await page.getByLabel("Account name").fill("Travel cash");
   await page.getByLabel("Opening balance").fill("350");
   await page.getByRole("button", { name: "Add account" }).click();

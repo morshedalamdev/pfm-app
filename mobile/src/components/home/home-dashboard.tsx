@@ -48,14 +48,15 @@ export function HomeDashboard() {
     queryKey: ["home", "month"],
   });
   const dashboard = home.data?.dashboard;
+  const defaultAccount = home.data?.defaultAccount;
   const transactions = home.data?.transactions.items ?? [];
 
   return (
     <MobileShell>
       <h1 className="sr-only">Home overview</h1>
       <HomeHeader
-        balance={dashboard ? formatMoney(dashboard.available_balance, dashboard.currency) : undefined}
-        change={dashboard ? `${formatSignedMoney(dashboard.net_flow_amount, dashboard.currency)} net flow this month` : undefined}
+        balance={defaultAccount ? formatMoney(defaultAccount.current_balance, defaultAccount.currency) : undefined}
+        change={defaultAccount ? `${defaultAccount.name} · ${formatSignedMoney(dashboard?.net_flow_amount ?? "0", dashboard?.currency ?? defaultAccount.currency)} net flow this month` : undefined}
         monthLabel={dashboard ? formatMonthLabel(dashboard.range.start_at) : "This month"}
         actions={<><ThemeToggle compact /><Link aria-label="Notifications" className="icon-button" href={"/notifications" as Route}><Bell aria-hidden="true" size={19} strokeWidth={2.3} /><span className="notification-dot" /></Link></>}
       />
@@ -68,6 +69,8 @@ export function HomeDashboard() {
             <div><p className="eyebrow">OVERVIEW</p><h2>Your Money</h2></div>
             <Link className="soft-button" href={"/analytics" as Route}>Details <span aria-hidden="true">›</span></Link>
           </div>
+
+          {!defaultAccount ? <section className="home-setup-card"><WalletCards aria-hidden="true" size={22} /><div><strong>Add your first account</strong><span>Set a default account to see your current balance here.</span></div><Link href={"/setup" as Route}>Set up</Link></section> : null}
 
           <div className="money-grid">
             <MoneyStatCard accent="blue" icon={CircleArrowDown} label="Income" value={formatMoney(dashboard.income_amount, dashboard.currency)} />
