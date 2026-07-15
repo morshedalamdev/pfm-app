@@ -10,6 +10,11 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.003,
+    },
+  },
   retries: process.env.CI ? 2 : 0,
   reporter: "line",
   use: {

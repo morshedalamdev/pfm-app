@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
+import { AppProviders } from "@/components/providers/app-providers";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,7 +13,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f4f3f8" },
@@ -25,8 +26,10 @@ type RootLayoutProps = Readonly<{
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
