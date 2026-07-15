@@ -1,11 +1,16 @@
 "use client";
 
-import { Bar, BarChart, Cell, LabelList, XAxis } from "recharts";
+import { Bar, BarChart, Cell, LabelList, Tooltip, XAxis, YAxis } from "recharts";
 
+import { Button } from "@/components/ui/button";
+import {
+  ChartCard,
+  ChartEmptyState,
+  ChartHeader,
+  ChartTooltipContent,
+} from "@/components/finance";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { Button } from "../ui/button";
 import { Ellipsis } from "lucide-react";
-import { Skeleton } from "../ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +24,9 @@ type DashboardPeriod = components["schemas"]["DashboardPeriod"];
 type ReportTransactionType = components["schemas"]["ReportTransactionType"];
 
 const chartConfig = {
-  data: {
-    label: "amount",
-    color: "hsl(var(--muted-foreground))",
+  amount: {
+    label: "Amount",
+    color: "var(--color-chart-1)",
   },
 } satisfies ChartConfig;
 
@@ -50,112 +55,146 @@ export function RootChart({
 }: RootChartProps) {
   const barSize = period === "week" ? 36 : period === "month" ? 10 : 22;
   const hasActivity = buckets.some((bucket) => bucket.amount > 0);
+  const totalAmount = buckets.reduce((sum, bucket) => sum + bucket.amount, 0);
+  const peakBucket = buckets.reduce<DashboardChartBucket | null>(
+    (peak, bucket) => (!peak || bucket.amount > peak.amount ? bucket : peak),
+    null,
+  );
+  const readableType = type === "income" ? "income" : "expenses";
+  const accessibleSummary = hasActivity
+    ? `${periodLabel(period)} ${readableType} total ${formatCompactCurrency(
+        totalAmount,
+        currency,
+      )}. Highest bucket: ${peakBucket?.label ?? "none"} at ${formatCompactCurrency(
+        peakBucket?.amount ?? 0,
+        currency,
+      )}.`
+    : `No ${readableType} activity is available for ${periodLabel(period).toLowerCase()}.`;
 
   return (
-    <>
-      <div className="flex items-center justify-between px-3 mb-1.5">
-        <h4 className="font-bold capitalize">{type}</h4>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm">
-              <Ellipsis />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={() => onTypeChange("expense")}>
-              Expense
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onTypeChange("income")}>
-              Income
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <div className="bg-linear-to-t from-black to-accent rounded-3xl">
-        <nav className="w-full flex flex-wrap justify-center pt-1.5">
-          <Button
-            onClick={() => onPeriodChange("week")}
-            type="button"
-            variant="ghost"
-            className={`w-fit rounded-none font-bold h-5 border-b-2 border-transparent transform-fill duration-300 ${
-              period === "week" ? "border-white" : "text-input"
-            }`}
-          >
-            Week
-          </Button>
-          <Button
-            onClick={() => onPeriodChange("month")}
-            type="button"
-            variant="ghost"
-            className={`w-fit rounded-none font-bold h-5 border-b-2 border-transparent transform-fill duration-300 ${
-              period === "month" ? "border-white" : "text-input"
-            }`}
-          >
-            Month
-          </Button>
-          <Button
-            onClick={() => onPeriodChange("year")}
-            type="button"
-            variant="ghost"
-            className={`w-fit rounded-none font-bold h-5 border-b-2 border-transparent transform-fill duration-300 ${
-              period === "year" ? "border-white" : "text-input"
-            }`}
-          >
-            Year
-          </Button>
-        </nav>
-        {isLoading ? (
-          <div className="p-3">
-            <Skeleton className="h-[220px] w-full rounded-2xl bg-white/10" />
-          </div>
-        ) : errorMessage ? (
-          <div className="grid min-h-[220px] place-items-center gap-2 px-8 text-center">
-            <p className="text-sm font-semibold">{errorMessage}</p>
-            <Button
-              type="button"
-              variant="reverse"
-              className="w-fit"
-              onClick={onRetry}
-            >
-              Retry
+    <ChartCard
+      accessibleSummary={accessibleSummary}
+      className="mx-3"
+      empty={!hasActivity}
+      emptyState={
+        <ChartEmptyState
+          description={`Switch period or type to review more ${readableType}.`}
+          title={`No ${readableType} activity`}
+        />
+      }
+      error={
+        errorMessage ? (
+          <div className="grid justify-items-center gap-2 text-center">
+            <span>{errorMessage}</span>
+            <Button className="w-fit" onClick={onRetry} type="button">
+              Retry chart
             </Button>
           </div>
-        ) : (
-          <div className="relative">
-            <ChartContainer config={chartConfig}>
-              <BarChart accessibilityLayer data={buckets}>
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <Bar dataKey="amount" radius={[9, 9, 0, 0]} barSize={barSize}>
-                  <LabelList
-                    dataKey="amount"
-                    position="top"
-                    formatter={(value: number) =>
-                      formatCompactCurrency(value, currency)
-                    }
-                    className="fill-white text-xs font-bold"
-                  />
-                  {buckets.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        entry.isCurrent
-                          ? "oklch(0.5847 0.2262 26.59)"
-                          : "oklch(0.2178 0 129.63)"
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-            {!hasActivity && (
-              <p className="absolute inset-x-0 bottom-9 text-center text-xs font-semibold text-input">
-                No activity for this period
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </>
+        ) : null
+      }
+      header={
+        <ChartHeader
+          chartTypeControl={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button aria-label="Change chart type" size="icon-sm" variant="outline">
+                  <Ellipsis />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onTypeChange("expense")}>
+                  Expense
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onTypeChange("income")}>
+                  Income
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+          periodControl={
+            <ChartPeriodControl onChange={onPeriodChange} value={period} />
+          }
+          subtitle={accessibleSummary}
+          title={`${periodLabel(period)} ${readableType}`}
+        />
+      }
+      loading={isLoading}
+    >
+      <ChartContainer
+        className="[&_.recharts-cartesian-axis-tick_text]:fill-chart-axis"
+        config={chartConfig}
+      >
+        <BarChart accessibilityLayer data={buckets}>
+          <XAxis
+            axisLine={false}
+            dataKey="label"
+            tickLine={false}
+          />
+          <YAxis hide domain={[0, "dataMax"]} />
+          <Tooltip
+            content={
+              <ChartTooltipContent
+                formatter={(value) =>
+                  formatCompactCurrency(Number(value), currency)
+                }
+                hideLabel={false}
+                indicator="dot"
+              />
+            }
+            cursor={{ fill: "var(--color-chart-track)" }}
+          />
+          <Bar dataKey="amount" name="Amount" radius={[8, 8, 0, 0]} barSize={barSize}>
+            <LabelList
+              className="fill-chart-axis text-xs font-semibold"
+              dataKey="amount"
+              formatter={(value: number) =>
+                formatCompactCurrency(value, currency)
+              }
+              position="top"
+            />
+            {buckets.map((entry, index) => (
+              <Cell
+                fill={
+                  entry.isCurrent
+                    ? "var(--color-chart-1)"
+                    : "var(--color-chart-muted)"
+                }
+                key={`cell-${index}`}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ChartContainer>
+    </ChartCard>
+  );
+}
+
+function ChartPeriodControl({
+  onChange,
+  value,
+}: {
+  onChange: (period: DashboardPeriod) => void;
+  value: DashboardPeriod;
+}) {
+  return (
+    <div
+      aria-label="Chart period"
+      className="inline-flex rounded-md border border-border bg-background p-1"
+      role="group"
+    >
+      {(["week", "month", "year"] as DashboardPeriod[]).map((periodOption) => (
+        <Button
+          aria-pressed={value === periodOption}
+          className="h-8 px-3 text-xs"
+          key={periodOption}
+          onClick={() => onChange(periodOption)}
+          type="button"
+          variant={value === periodOption ? "default" : "ghost"}
+        >
+          {periodLabel(periodOption)}
+        </Button>
+      ))}
+    </div>
   );
 }
 
@@ -167,4 +206,8 @@ function formatCompactCurrency(value: number, currency: string) {
     notation: "compact",
     style: "currency",
   }).format(value);
+}
+
+function periodLabel(period: DashboardPeriod) {
+  return period === "week" ? "Week" : period === "month" ? "Month" : "Year";
 }

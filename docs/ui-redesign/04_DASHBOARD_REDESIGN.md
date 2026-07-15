@@ -293,6 +293,41 @@ Not implemented in this phase:
 - Previous-period comparison.
 - Available-to-spend.
 
+## Phase 04.3 Chart, Accounts, and Transactions
+
+Phase 04.3 added the primary analytical and activity dashboard sections using existing data sources.
+
+Implemented:
+
+- Cash-flow chart moved to the Agent 03 `ChartCard`, `ChartHeader`, `ChartEmptyState`, and chart tooltip primitives.
+- Chart period and income/expense type controls continue to update the selected dashboard report query.
+- Accessible chart summary text for total activity and highest bucket, plus empty copy when no activity is present.
+- Chart loading, empty, error, tooltip, retry, light theme, and dark theme coverage.
+- Account overview using the existing account list from `useHomeBalanceSource()` so the dashboard does not add a second account request for the preview.
+- Account cards showing active account names, current balances, account types, currencies, and default state.
+- Mixed-currency account handling without cross-currency totals or percentages.
+- Recent transaction preview using existing transaction and category requests, with account names/currencies resolved from the shared account list.
+- Transaction rows preserve detail links to `/transaction/{id}` and include category, account, date, amount, and normalized type.
+- Section-level loading, empty, error, and retry states for accounts, recent transactions, and chart failure.
+- Focused dashboard Playwright coverage for chart data, no-data state, chart retry, tooltip, account preview, `View all`, recent transaction links, `View all transactions`, partial chart errors, and theme/layout coverage.
+
+Preserved:
+
+- Existing dashboard report API shape.
+- Existing default-account balance source and calculation.
+- Existing transaction and category request paths.
+- Existing chart single-series API behavior through the income/expense chart type control.
+- Existing accounts and transaction pages.
+
+Not implemented in this phase:
+
+- Budget health.
+- Savings goals.
+- Upcoming commitments.
+- Financial status.
+- Combined income-versus-expense chart series.
+- Cross-currency totals or percentages.
+
 ## Planned Files to Change
 
 Likely later Agent 04 phases may modify or create:
@@ -306,13 +341,13 @@ Likely later Agent 04 phases may modify or create:
 - `docs/ui-redesign/04_DASHBOARD_REDESIGN_TEST_REPORT.md`
 - `PFM_PROJECT_STATE.md`
 
-Production dashboard core presentation changed in Phase 04.2. Secondary
-dashboard sections remain deferred.
+Production dashboard chart, account preview, and transaction preview changed in
+Phase 04.3. Budget, savings, commitments, and financial status remain deferred.
 
 ## Blockers
 
 - No Agent 04 dependency blocker was found. Agent 01, Agent 02, and Agent 03 are complete with documented handoff reports.
-- Full `npm run e2e` has a known pre-existing integrated finance blocker in recent UI redesign phases around the recurring warning `Groceries` assertion. Phase 04.2 added focused dashboard E2E coverage instead of repairing that unrelated baseline issue.
+- Full `npm run e2e` has a known pre-existing integrated finance blocker in recent UI redesign phases around the recurring warning `Groceries` assertion. Phases 04.2 and 04.3 added focused dashboard E2E coverage instead of repairing that unrelated baseline issue.
 - Sandboxed production builds may fail without network access because `next/font/google` fetches the existing Urbanist font.
 - Full E2E requires local PostgreSQL, API, Next.js, and browser processes; sandboxed runs may require approval.
 

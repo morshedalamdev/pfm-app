@@ -68,6 +68,7 @@ export function useHomeBalanceSource() {
   const balance = useMemo(() => resolveHomeDefaultAccount(accounts), [accounts]);
 
   return {
+    accounts,
     balance,
     error,
     isLoading: status === "idle" || status === "loading",

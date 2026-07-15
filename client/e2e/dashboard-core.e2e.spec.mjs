@@ -114,7 +114,9 @@ test("dashboard core summary renders, switches period, retries, and respects the
       name: "$1,234,567.89",
     }),
   ).toBeVisible();
-  await expect(page.getByText("Primary dashboard checking account")).toBeVisible();
+  await expect(
+    page.getByText("Primary dashboard checking account with long label").first(),
+  ).toBeVisible();
   const summaryAlert = page.getByRole("alert");
   await expect(
     summaryAlert.getByText("Dashboard summary could not be loaded"),

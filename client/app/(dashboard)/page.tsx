@@ -1,28 +1,34 @@
 "use client";
 
 import { Fragment } from "react";
+import Link from "next/link";
 import {
   ActivityIcon,
   ArrowDownRightIcon,
   ArrowUpRightIcon,
+  ExternalLinkIcon,
   WalletCardsIcon,
 } from "lucide-react";
 
 import { RootChart } from "@/components/charts/RootChart";
 import {
+  AccountCard,
   CardSkeleton,
   CardSurface,
+  EmptyState,
   ErrorState,
   FinancialMetricCard,
+  ListSkeleton,
   MoneyValue,
+  SectionHeader,
+  TransactionRow,
 } from "@/components/finance";
-import TransactionItem from "@/components/items/TransactionItem";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { components } from "@/generated/api-types";
 import { useDashboardData } from "@/lib/dashboard/useDashboardData";
 import { useHomeBalanceSource } from "@/lib/dashboard/useHomeBalanceSource";
-import { formatMoney } from "@/lib/finance/format";
+import { getAccountTypeLabel } from "@/lib/finance/accountTypes";
 import { cn } from "@/lib/utils";
 
 type DashboardPeriod = components["schemas"]["DashboardPeriod"];
@@ -36,6 +42,7 @@ const DASHBOARD_PERIODS: Array<{ label: string; value: DashboardPeriod }> = [
 
 export default function HomePage() {
   const {
+    accounts,
     balance,
     error: balanceError,
     isLoading: balanceLoading,
@@ -58,10 +65,21 @@ export default function HomePage() {
   } = useDashboardData();
 
   const reportLoading = reportStatus === "loading" && !report;
+  const accountPreviews = accounts.slice(0, 3);
+  const accountNamesById = new Map(
+    accounts.map((account) => [account.id, account.name]),
+  );
+  const accountCurrenciesById = new Map(
+    accounts.map((account) => [account.id, account.currency]),
+  );
+  const accountsLoading = balanceLoading && accountPreviews.length === 0;
   const transactionsLoading =
     transactionsStatus === "loading" && transactions.length === 0;
   const reportCurrency = report?.currency ?? "USD";
   const netCashFlow = report ? deriveNetCashFlow(report) : 0;
+  const accountCurrencies = new Set(
+    accountPreviews.map((account) => account.currency),
+  );
 
   return (
     <Fragment>
@@ -180,55 +198,123 @@ export default function HomePage() {
           currency={reportCurrency}
         />
       </section>
-      <section className="px-3 pb-[70px]">
-        <h2 className="font-bold text-lg pb-3">Recent Transactions</h2>
+
+      <section className="grid gap-3 p-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <CardSurface className="space-y-4">
+          <SectionHeader
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link href="/accounts">
+                  View all
+                  <ExternalLinkIcon aria-hidden="true" />
+                </Link>
+              </Button>
+            }
+            description={
+              accountPreviews.length > 0
+                ? accountCurrencies.size === 1
+                  ? `${accountPreviews.length} active account${accountPreviews.length === 1 ? "" : "s"} in ${
+                      accountPreviews[0]?.currency ?? reportCurrency
+                    }`
+                  : `${accountPreviews.length} active accounts across ${accountCurrencies.size} currencies`
+                : "Current balances by account"
+            }
+            title="Accounts"
+          />
+          {accountsLoading ? (
+            <div className="grid gap-3">
+              <CardSkeleton />
+              <CardSkeleton />
+            </div>
+          ) : balanceError && accountPreviews.length === 0 ? (
+            <ErrorState
+              description={balanceError}
+              retryAction={{
+                label: "Retry accounts",
+                onClick: () => void loadBalanceSources(),
+              }}
+              title="Accounts could not be loaded"
+            />
+          ) : accountPreviews.length === 0 ? (
+            <EmptyState
+              description="Create an account to start tracking balances on the dashboard."
+              title="No accounts yet"
+            />
+          ) : (
+            <div className="grid gap-3">
+              {accountPreviews.map((account) => (
+                <AccountCard
+                  accountName={account.name}
+                  accountType={getAccountTypeLabel(account.type)}
+                  balance={account.current_balance}
+                  className="p-3"
+                  currency={account.currency}
+                  key={account.id}
+                  status={account.is_default ? "default" : undefined}
+                />
+              ))}
+            </div>
+          )}
+        </CardSurface>
+
+        <CardSurface className="space-y-4">
+          <SectionHeader
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link href="/transaction">
+                  View all transactions
+                  <ExternalLinkIcon aria-hidden="true" />
+                </Link>
+              </Button>
+            }
+            description="Latest posted income, expenses, and transfers"
+            title="Recent transactions"
+          />
         {transactionsLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <Skeleton className="size-8 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-44" />
-                </div>
-                <Skeleton className="h-8 w-20" />
-              </div>
-            ))}
-          </div>
+          <ListSkeleton count={6} />
         ) : transactionsError ? (
-          <div className="rounded-md bg-accent p-3 text-center">
-            <p className="text-sm font-semibold">{transactionsError}</p>
-            <Button
-              type="button"
-              variant="reverse"
-              className="mt-2 w-fit"
-              onClick={loadTransactions}
-            >
-              Retry
-            </Button>
-          </div>
+          <ErrorState
+            description={transactionsError}
+            retryAction={{
+              label: "Retry transactions",
+              onClick: () => void loadTransactions(),
+            }}
+            title="Recent transactions could not be loaded"
+          />
         ) : transactions.length === 0 ? (
-          <div className="rounded-md bg-accent p-4 text-center text-sm font-semibold text-input">
-            No recent transactions yet.
-          </div>
+          <EmptyState
+            description="New activity will appear here after the first transaction."
+            title="No recent transactions yet"
+          />
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-border">
             {transactions.map((transaction) => (
-              <TransactionItem
+              <Link
+                className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                href={`/transaction/${transaction.id}`}
                 key={transaction.id}
-                type={transaction.type}
-                category={transaction.category}
-                currency={transaction.currency}
-                note={transaction.note}
-                amount={transaction.amount}
-                date={transaction.date}
-                editHref={`/transaction/${transaction.id}`}
-                recurringLabel="Not set"
-                transactionDate={transaction.transactionDate}
-              />
+              >
+                <TransactionRow
+                  account={
+                    accountNamesById.get(transaction.accountId) ??
+                    "Unknown account"
+                  }
+                  amount={transaction.amount}
+                  category={transaction.category}
+                  className="px-0"
+                  currency={
+                    accountCurrenciesById.get(transaction.accountId) ??
+                    transaction.currency
+                  }
+                  date={transaction.transactionDate}
+                  description={transaction.note}
+                  type={normalizeTransactionType(transaction.type)}
+                />
+              </Link>
             ))}
           </div>
         )}
+        </CardSurface>
       </section>
     </Fragment>
   );
@@ -274,4 +360,10 @@ function deriveNetCashFlow(report: DashboardReport): number {
 
 function periodLabel(period: DashboardPeriod): string {
   return period === "week" ? "This week" : period === "month" ? "This month" : "This year";
+}
+
+function normalizeTransactionType(type: string): "expense" | "income" | "transfer" {
+  if (type === "income") return "income";
+  if (type.startsWith("transfer")) return "transfer";
+  return "expense";
 }
