@@ -274,3 +274,67 @@ mobile/desktop viewports.
 - `client/components/finance/index.ts`
 - `client/app/component-preview/page.tsx`
 - `client/e2e/shared-components.e2e.spec.mjs`
+
+## Phase 03.3 Component Contracts
+
+Phase 03.3 adds reusable financial data-display components on top of the
+Phase 03.2 primitives. These components remain presentation-only and expect
+callers to pass already-loaded data, display status, and calculated metrics.
+
+### Financial Cards
+
+- `FinancialMetricCard`: title, amount, icon, semantic tone, optional trend,
+  supporting text, compact variant, and standard variant.
+- `FinancialSummaryCard`: summary amount, title/subtitle, optional icon,
+  action slot, status slot, and labelled supporting facts.
+- `AccountCard`: account name, type, currency, balance, optional percentage of
+  total, recent activity, default/disabled/archived badges, and context action
+  slot. It does not implement account deletion or disable rules.
+- `SavingsGoalCard`: goal name, saved/target/remaining values, progress,
+  target date, expected completion, required contribution, status, and action
+  slot. Schedule status must be calculated by callers.
+- `LoanDebtCard`: person, given/taken direction, original/outstanding amount,
+  currency, account label, repay date, progress, status, and action slot.
+  Overdue logic remains outside the card.
+- `UpcomingCommitmentRow`: compact upcoming payment/reminder row with icon,
+  title, date/description, amount, and status.
+
+### Financial Rows
+
+- `TransactionRow`: category icon, description, account, date, tags, amount,
+  income/expense/transfer tones, optional action, and selected state. It does
+  not resolve categories or accounts.
+- `BudgetProgressRow`: category, spent, limit, remaining, percentage, status,
+  and accessible progress. It does not calculate budget progress from
+  transactions.
+- `ReportCategoryRow`: category, amount, percentage, period comparison, icon,
+  and progress.
+
+### Chart Containers
+
+- `ChartCard`: title/header slot, responsive height, accessible summary,
+  loading, empty, error, and content states without page queries.
+- `ChartHeader`: title, subtitle, period-control slot, and chart-type-control
+  slot.
+- `ChartLegend`: semantic chart legend with optional values.
+- `ChartTooltipContent`: finance-layer export of the existing Recharts tooltip
+  content for chart consumers.
+- `ChartLoadingState` and `ChartEmptyState`: reusable chart states.
+
+### Phase 03.3 Verification
+
+The development-only `client/app/component-preview/page.tsx` now renders all
+Phase 03.2 and 03.3 primitives for focused browser coverage. The Playwright
+spec verifies light and dark themes, mobile and desktop widths, long labels,
+large values, selected and disabled states, missing optional fields, loading
+and empty chart states, accessible progress labels, no horizontal overflow, and
+keyboard focus for interactive slots.
+
+## Phase 03.3 Changed Files
+
+- `client/components/finance/cards.tsx`
+- `client/components/finance/rows.tsx`
+- `client/components/finance/charts.tsx`
+- `client/components/finance/index.ts`
+- `client/app/component-preview/page.tsx`
+- `client/e2e/shared-components.e2e.spec.mjs`

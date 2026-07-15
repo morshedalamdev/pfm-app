@@ -62,7 +62,7 @@ export function SectionHeader({
   description,
   eyebrow,
   title,
-}: React.HTMLAttributes<HTMLDivElement> & {
+}: Omit<React.HTMLAttributes<HTMLDivElement>, "title"> & {
   action?: React.ReactNode;
   description?: React.ReactNode;
   eyebrow?: React.ReactNode;
