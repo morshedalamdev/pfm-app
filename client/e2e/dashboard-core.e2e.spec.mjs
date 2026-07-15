@@ -73,6 +73,12 @@ test("dashboard core summary renders, switches period, retries, and respects the
   await page.route("**/api/v1/categories?limit=100", (route) =>
     route.fulfill({ json: { has_more: false, items: [], next_cursor: null } }),
   );
+  await page.route("**/api/v1/budgets?*", (route) =>
+    route.fulfill({ json: { has_more: false, items: [], next_cursor: null } }),
+  );
+  await page.route("**/api/v1/savings-goals?*", (route) =>
+    route.fulfill({ json: { has_more: false, items: [], next_cursor: null } }),
+  );
   await page.route("**/api/v1/recurring-rules/due-expenses", (route) =>
     route.fulfill({ json: { items: [] } }),
   );

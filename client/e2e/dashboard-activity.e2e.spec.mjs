@@ -67,6 +67,12 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/notifications/unread-count", (route) =>
     route.fulfill({ json: { unread_count: 0 } }),
   );
+  await page.route("**/api/v1/budgets?*", (route) =>
+    route.fulfill({ json: { has_more: false, items: [], next_cursor: null } }),
+  );
+  await page.route("**/api/v1/savings-goals?*", (route) =>
+    route.fulfill({ json: { has_more: false, items: [], next_cursor: null } }),
+  );
   await page.route("**/api/v1/recurring-rules/due-expenses", (route) =>
     route.fulfill({ json: { items: [] } }),
   );
@@ -122,10 +128,12 @@ test("cash-flow chart, account preview, and recent transaction preview render wi
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Wallet cash" })).toBeVisible();
   await expect(page.getByText("2 active accounts across 2 currencies")).toBeVisible();
-  await expect(page.getByRole("link", { name: /View all$/ })).toHaveAttribute(
-    "href",
-    "/accounts",
-  );
+  await expect(
+    page
+      .locator('[data-slot="card-surface"]')
+      .filter({ has: page.getByRole("heading", { name: "Accounts" }) })
+      .getByRole("link", { name: "View all" }),
+  ).toHaveAttribute("href", "/accounts");
 
   const transactionLink = page.getByRole("link", { name: /Groceries/ });
   await expect(transactionLink).toBeVisible();

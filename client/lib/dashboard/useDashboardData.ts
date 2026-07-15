@@ -5,6 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { subscribeFinanceDataChanged } from "@/lib/finance/events";
+import {
+  listBudgets,
+  listSavingsGoals,
+  type Budget,
+  type SavingsGoal,
+} from "@/lib/finance/api";
+import { monthKey } from "@/lib/finance/format";
 import type { components } from "@/generated/api-types";
 
 type CategoryListResponse = components["schemas"]["CategoryListResponse"];
@@ -42,13 +49,19 @@ export function useDashboardData() {
   const [transactions, setTransactions] = useState<
     RecentDashboardTransaction[]
   >([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [reportStatus, setReportStatus] = useState<RequestState>("idle");
   const [transactionsStatus, setTransactionsStatus] =
     useState<RequestState>("idle");
+  const [budgetsStatus, setBudgetsStatus] = useState<RequestState>("idle");
+  const [savingsStatus, setSavingsStatus] = useState<RequestState>("idle");
   const [reportError, setReportError] = useState<string | null>(null);
   const [transactionsError, setTransactionsError] = useState<string | null>(
     null,
   );
+  const [budgetsError, setBudgetsError] = useState<string | null>(null);
+  const [savingsError, setSavingsError] = useState<string | null>(null);
 
   const loadReport = useCallback(async (signal?: AbortSignal) => {
     setReportStatus("loading");
@@ -117,6 +130,48 @@ export function useDashboardData() {
     }
   }, []);
 
+  const loadBudgets = useCallback(async (signal?: AbortSignal) => {
+    setBudgetsStatus("loading");
+    setBudgetsError(null);
+
+    try {
+      const nextBudgets = await listBudgets(monthKey(), { signal });
+      if (signal?.aborted) {
+        return;
+      }
+      setBudgets(nextBudgets);
+      setBudgetsStatus("success");
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+      setBudgetsError(getErrorMessage(error));
+      setBudgetsStatus("error");
+    }
+  }, []);
+
+  const loadSavingsGoals = useCallback(async (signal?: AbortSignal) => {
+    setSavingsStatus("loading");
+    setSavingsError(null);
+
+    try {
+      const nextSavingsGoals = await listSavingsGoals("all", { signal });
+      if (signal?.aborted) {
+        return;
+      }
+      setSavingsGoals(
+        nextSavingsGoals.filter((goal) => goal.status !== "archived"),
+      );
+      setSavingsStatus("success");
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+      setSavingsError(getErrorMessage(error));
+      setSavingsStatus("error");
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     void loadReport(controller.signal);
@@ -127,13 +182,22 @@ export function useDashboardData() {
     void loadTransactions();
   }, [loadTransactions]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadBudgets(controller.signal);
+    void loadSavingsGoals(controller.signal);
+    return () => controller.abort();
+  }, [loadBudgets, loadSavingsGoals]);
+
   useEffect(
     () =>
       subscribeFinanceDataChanged(() => {
+        void loadBudgets();
         void loadReport();
+        void loadSavingsGoals();
         void loadTransactions();
       }),
-    [loadReport, loadTransactions],
+    [loadBudgets, loadReport, loadSavingsGoals, loadTransactions],
   );
 
   const chartBuckets = useMemo<DashboardChartBucket[]>(() => {
@@ -147,13 +211,21 @@ export function useDashboardData() {
   }, [report]);
 
   return {
+    budgets,
+    budgetsError,
+    budgetsStatus,
     chartBuckets,
+    loadBudgets,
     loadReport,
+    loadSavingsGoals,
     loadTransactions,
     period,
     report,
     reportError,
     reportStatus,
+    savingsError,
+    savingsGoals,
+    savingsStatus,
     setPeriod,
     setTransactionType,
     transactionType,

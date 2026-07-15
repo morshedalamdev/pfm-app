@@ -29,7 +29,7 @@ test("recurring expense actions and income achievement popup are safe", async ({
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
   await waitForHomeBootstrap(page);
-  await expect(page.getByText("Available Balance")).toBeVisible();
+  await expect(page.getByText("Current balance")).toBeVisible();
 
   const tokens = await page.evaluate(() => {
     const value = window.localStorage.getItem("pfm.auth.tokens");
@@ -335,8 +335,8 @@ test("recurring expense actions and income achievement popup are safe", async ({
   expect(receivedRule.last_received_period).toBe(
     monthStart.toISOString().slice(0, 7),
   );
-  await expect(page.getByText("$2,700.00", { exact: true })).toBeVisible();
-  await expect(page.getByText("$2,500.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("$2,700.00", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("$2,500.00", { exact: true }).first()).toBeVisible();
   await api.dispose();
 });
 
@@ -624,7 +624,7 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
   await page.getByRole("button", { name: "Create Account" }).click();
   await expect(page).toHaveURL(`${appBaseUrl}/`);
   await waitForHomeBootstrap(page);
-  await expect(page.getByText("Available Balance")).toBeVisible();
+  await expect(page.getByText("Current balance")).toBeVisible();
 
   await page.goto("/accounts");
   await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
@@ -904,9 +904,9 @@ test("integrated finance journeys render across breakpoints", async ({ page }) =
     ),
     page.goto("/"),
   ]);
-  await expect(page.getByText("Available Balance")).toBeVisible();
+  await expect(page.getByText("Current balance")).toBeVisible();
   await navigateAndWaitForHomeData(page, () => page.reload());
-  await expect(page.getByText("Available Balance")).toBeVisible({
+  await expect(page.getByText("Current balance")).toBeVisible({
     timeout: 15_000,
   });
   await expect(page.getByText("Checking", { exact: true })).toBeVisible({
@@ -1159,7 +1159,7 @@ test("Home uses the default account and Settings is unavailable", async ({
   });
 
   await page.goto("/");
-  await expect(page.getByText("Available Balance")).toBeVisible();
+  await expect(page.getByText("Current balance")).toBeVisible();
   await expect(page.getByText("Euro Main", { exact: true })).toBeVisible();
   await expect(page.getByText("€250.00", { exact: true })).toBeVisible();
   await expect(page.getByText("Old Home Source", { exact: true })).toHaveCount(0);
@@ -1841,7 +1841,7 @@ test("used account hides the delete button", async ({ page }) => {
 });
 
 async function waitForHomeBootstrap(page) {
-  await expect(page.getByText("Cash", { exact: true })).toBeVisible({
+  await expect(page.getByText("Cash", { exact: true }).first()).toBeVisible({
     timeout: 15_000,
   });
 }
@@ -1915,7 +1915,7 @@ const routeHeading = {
 
 async function assertRenderedWithoutOverflow(page, path, viewportLabel) {
   if (path === "/") {
-    await expect(page.getByText("Available Balance")).toBeVisible({
+    await expect(page.getByText("Current balance")).toBeVisible({
       timeout: 15_000,
     });
   } else {

@@ -328,6 +328,40 @@ Not implemented in this phase:
 - Combined income-versus-expense chart series.
 - Cross-currency totals or percentages.
 
+## Phase 04.4 Planning Sections
+
+Phase 04.4 completed the secondary planning sections using only reliable existing data.
+
+Implemented:
+
+- Budget Health preview from the existing monthly budget API and backend-computed progress.
+- Budget rows using Agent 03 `BudgetProgressRow`, including over-budget state and progress values above 100%.
+- Savings Goals preview from the existing savings goals API, including active and completed goals.
+- Savings progress using Agent 03 `SavingsGoalCard`, preserving zero-target-safe backend progress values.
+- Upcoming Commitments preview from existing due recurring reminder APIs only.
+- Commitments show only due reminders; no future schedules or fake commitments are inferred.
+- Deterministic Financial Status area based on over-budget budgets, due reminders, completed savings, or selected-period cash flow.
+- Financial Status is omitted when no meaningful loaded data exists.
+- Section-level loading, empty, error, and retry states for budgets, savings, and due commitments.
+- `View all` links to existing Budget and Savings routes, plus an `Open transactions` link for due recurring reminders because no recurring-management route exists.
+- Focused dashboard Playwright coverage for budget rows, over-budget state, no budgets, savings goals, completed savings, zero-target savings, no savings goals, due commitments, no commitments, deterministic status rendering/omission, section retry, mobile/default desktop layouts, and light/dark themes.
+
+Preserved:
+
+- Existing budget, savings, recurring, account, transaction, and dashboard report API contracts.
+- Existing recurring reminder popup behavior.
+- Existing budget, savings, transaction, and account pages.
+- Existing dashboard summary, chart, account preview, and transaction preview behavior.
+
+Not implemented in this phase:
+
+- Unsupported budget `near_limit` status.
+- Savings behind-schedule status.
+- Inferred future recurring schedules.
+- Loan repayment commitments.
+- AI, premium, or advisory claims.
+- Cross-currency planning totals or percentages.
+
 ## Planned Files to Change
 
 Likely later Agent 04 phases may modify or create:
@@ -341,13 +375,13 @@ Likely later Agent 04 phases may modify or create:
 - `docs/ui-redesign/04_DASHBOARD_REDESIGN_TEST_REPORT.md`
 - `PFM_PROJECT_STATE.md`
 
-Production dashboard chart, account preview, and transaction preview changed in
-Phase 04.3. Budget, savings, commitments, and financial status remain deferred.
+Production dashboard planning sections changed in Phase 04.4. Unsupported
+schedule inference, AI insights, and cross-currency totals remain deferred.
 
 ## Blockers
 
 - No Agent 04 dependency blocker was found. Agent 01, Agent 02, and Agent 03 are complete with documented handoff reports.
-- Full `npm run e2e` has a known pre-existing integrated finance blocker in recent UI redesign phases around the recurring warning `Groceries` assertion. Phases 04.2 and 04.3 added focused dashboard E2E coverage instead of repairing that unrelated baseline issue.
+- Full `npm run e2e` has a known pre-existing integrated finance blocker in recent UI redesign phases around the recurring warning `Groceries` assertion. Phases 04.2, 04.3, and 04.4 added focused dashboard E2E coverage instead of repairing that unrelated baseline issue.
 - Sandboxed production builds may fail without network access because `next/font/google` fetches the existing Urbanist font.
 - Full E2E requires local PostgreSQL, API, Next.js, and browser processes; sandboxed runs may require approval.
 
