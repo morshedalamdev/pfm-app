@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import {
   deleteReceipt,
   getTransaction,
@@ -62,6 +63,7 @@ function EditForm({ accounts, categories, receiptWarning, receipts, transaction 
   const receiptRef = useRef<HTMLInputElement>(null);
   const [receiptBusy, setReceiptBusy] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(receiptWarning ? "The transaction was saved, but its receipt did not upload. Try adding it again." : null);
+  const [receiptToRemove, setReceiptToRemove] = useState<Receipt | null>(null);
   const {
     formState: { errors, isSubmitting, isDirty },
     handleSubmit,
@@ -91,6 +93,7 @@ function EditForm({ accounts, categories, receiptWarning, receipts, transaction 
         transaction_at: new Date(values.transactionAt).toISOString(),
       });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       router.replace("/transaction" as Route);
     } catch (error) {
       setError("root", { message: error instanceof Error ? error.message : "Unable to update this transaction" });
@@ -117,12 +120,12 @@ function EditForm({ accounts, categories, receiptWarning, receipts, transaction 
   }
 
   async function removeReceipt(receipt: Receipt) {
-    if (!window.confirm(`Remove ${receipt.original_filename}?`)) return;
     setReceiptBusy(true);
     setReceiptError(null);
     try {
       await deleteReceipt(receipt.id);
       await queryClient.invalidateQueries({ queryKey: ["transaction-edit", transaction.id] });
+      setReceiptToRemove(null);
     } catch (error) {
       setReceiptError(error instanceof Error ? error.message : "Unable to remove the receipt");
     } finally {
@@ -153,8 +156,9 @@ function EditForm({ accounts, categories, receiptWarning, receipts, transaction 
         <div className="section-heading"><div><p className="eyebrow">ATTACHMENTS</p><h2 id="receipts-heading">Receipts</h2></div><button disabled={receiptBusy} onClick={() => receiptRef.current?.click()} type="button"><Camera aria-hidden="true" size={16} /> Add</button></div>
         <input accept={RECEIPT_ACCEPT} aria-label="Add receipt file" className="sr-only" onChange={(event) => void addReceipt(event.target.files?.[0])} ref={receiptRef} type="file" />
         {receiptError ? <p className="form-error" role="alert">{receiptError}</p> : null}
-        {receipts.length ? <div className="receipt-list">{receipts.map((receipt) => <div className="receipt-item" key={receipt.id}><FileText aria-hidden="true" size={19} /><div><strong>{receipt.original_filename}</strong><span>{Math.max(1, Math.round(receipt.size_bytes / 1024))} KB</span></div><button aria-label={`Remove ${receipt.original_filename}`} disabled={receiptBusy} onClick={() => void removeReceipt(receipt)} type="button"><Trash2 aria-hidden="true" size={17} /></button></div>)}</div> : <p className="receipt-empty">No receipts attached yet.</p>}
+        {receipts.length ? <div className="receipt-list">{receipts.map((receipt) => <div className="receipt-item" key={receipt.id}><FileText aria-hidden="true" size={19} /><div><strong>{receipt.original_filename}</strong><span>{Math.max(1, Math.round(receipt.size_bytes / 1024))} KB</span></div><button aria-label={`Remove ${receipt.original_filename}`} disabled={receiptBusy} onClick={() => setReceiptToRemove(receipt)} type="button"><Trash2 aria-hidden="true" size={17} /></button></div>)}</div> : <p className="receipt-empty">No receipts attached yet.</p>}
       </section>
+      <Drawer onOpenChange={(open) => { if (!open) setReceiptToRemove(null); }} open={Boolean(receiptToRemove)}><DrawerContent><DrawerHeader><DrawerTitle>Remove this receipt?</DrawerTitle><DrawerDescription>{receiptToRemove ? `${receiptToRemove.original_filename} will be permanently removed from this transaction.` : "This receipt will be removed."}</DrawerDescription></DrawerHeader><DrawerFooter><button className="drawer-danger-button" disabled={receiptBusy || !receiptToRemove} onClick={() => { if (receiptToRemove) void removeReceipt(receiptToRemove); }} type="button">{receiptBusy ? "Removing…" : "Remove receipt"}</button><DrawerClose asChild><button className="drawer-close-button" type="button">Keep receipt</button></DrawerClose></DrawerFooter></DrawerContent></Drawer>
     </>
   );
 }

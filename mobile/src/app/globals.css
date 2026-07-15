@@ -874,6 +874,92 @@ a {
   line-height: 1.45;
 }
 
+.transaction-history-page,
+.transaction-detail-page { padding-bottom: 132px; }
+.transaction-header-add { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 15px; background: var(--brand-soft); color: var(--brand-active); }
+.transaction-quick-actions { display: grid; margin-top: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.transaction-quick-actions a { display: flex; min-width: 0; min-height: 54px; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow-card); font-size: 0.68rem; font-weight: 700; }
+.transaction-quick-actions a:first-child { color: var(--coral-ink); }
+.transaction-quick-actions a:nth-child(2) { color: var(--green-ink); }
+.transaction-quick-actions a:last-child { color: var(--brand-active); }
+.transaction-toolbar { display: grid; align-items: center; margin-top: 14px; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; }
+.transaction-search { display: flex; min-width: 0; min-height: 48px; align-items: center; padding: 0 13px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow-card); gap: 9px; }
+.transaction-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 0.75rem; }
+.transaction-search input::placeholder { color: var(--text-soft); }
+.transaction-filter-button { position: relative; display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow-card); }
+.transaction-filter-button--active { border-color: transparent; background: var(--brand); color: #fff; }
+.transaction-filter-button > span { position: absolute; top: -5px; right: -4px; display: grid; width: 19px; height: 19px; place-items: center; border: 2px solid var(--app); border-radius: 50%; background: var(--coral); color: #fff; font-size: 0.57rem; font-weight: 800; }
+.transaction-history-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 23px; }
+.transaction-history-heading h2 { margin: 0; font-size: 1.02rem; letter-spacing: -0.027em; text-transform: capitalize; }
+.transaction-history-heading > span { min-width: 31px; padding: 6px 9px; border-radius: 999px; background: var(--surface-soft); color: var(--text-muted); font-size: 0.65rem; font-weight: 720; text-align: center; }
+.transaction-history-groups { display: grid; margin-top: 13px; gap: 20px; }
+.transaction-history-groups > section > h3 { margin: 0 0 8px 3px; color: var(--text-muted); font-size: 0.65rem; font-weight: 720; }
+.transaction-history-groups > section > div { display: grid; overflow: hidden; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-card); }
+.history-transaction-row { display: grid; min-width: 0; min-height: 73px; align-items: center; padding: 10px 11px; border-bottom: 1px solid var(--border); grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 9px; }
+.history-transaction-row:last-child { border-bottom: 0; }
+.history-transaction-copy,
+.history-transaction-value { display: grid; min-width: 0; gap: 4px; }
+.history-transaction-copy strong { overflow: hidden; font-size: 0.77rem; text-overflow: ellipsis; white-space: nowrap; }
+.history-transaction-copy small { overflow: hidden; color: var(--text-muted); font-size: 0.61rem; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+.history-transaction-value { justify-items: end; }
+.history-transaction-value strong { color: var(--coral-ink); font-size: 0.71rem; white-space: nowrap; }
+.history-transaction-value .amount-positive { color: var(--green-ink); }
+.history-transaction-value small { color: var(--text-soft); font-size: 0.59rem; }
+.history-transaction-row > svg { color: var(--text-soft); }
+.transaction-history-loading { display: grid; margin-top: 13px; gap: 9px; }
+.transaction-history-loading span { height: 73px; border-radius: 21px; background: var(--surface-soft); animation: form-pulse 1.3s ease-in-out infinite alternate; }
+.transaction-history-error { margin-top: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-card); }
+.transaction-history-error strong { font-size: 0.84rem; }
+.transaction-history-error p { margin: 6px 0 13px; color: var(--text-muted); font-size: 0.7rem; line-height: 1.45; }
+.transaction-history-error button { min-height: 39px; padding: 0 13px; border-radius: 13px; background: var(--brand-soft); color: var(--brand-active); font-size: 0.7rem; font-weight: 720; }
+.transaction-history-empty { display: grid; justify-items: center; margin-top: 13px; padding: 31px 20px; border: 1px dashed var(--border); border-radius: 24px; background: var(--surface); color: var(--text-muted); text-align: center; }
+.transaction-history-empty > svg { color: var(--brand-active); }
+.transaction-history-empty strong { margin-top: 10px; color: var(--text); font-size: 0.84rem; }
+.transaction-history-empty p { max-width: 260px; margin: 6px 0 0; font-size: 0.7rem; line-height: 1.45; }
+.transaction-history-empty a { min-height: 42px; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--brand-soft); color: var(--brand-active); font-size: 0.7rem; font-weight: 720; }
+.transaction-filter-sheet { display: grid; padding: 2px 20px 6px; gap: 18px; }
+.transaction-filter-sheet fieldset { min-width: 0; padding: 0; border: 0; }
+.transaction-filter-sheet legend,
+.transaction-filter-sheet label > span { display: flex; align-items: center; margin-bottom: 8px; color: var(--text-muted); font-size: 0.68rem; font-weight: 700; gap: 6px; }
+.transaction-filter-sheet fieldset > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.transaction-filter-sheet fieldset:nth-child(2) > div { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.transaction-filter-sheet fieldset button { min-height: 42px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text-muted); font-size: 0.65rem; font-weight: 680; text-transform: capitalize; }
+.transaction-filter-sheet fieldset button[aria-pressed="true"] { border-color: transparent; background: var(--brand-soft); color: var(--brand-active); }
+.transaction-filter-sheet label { display: grid; }
+.transaction-filter-sheet input { min-height: 46px; padding: 0 11px; border: 1px solid var(--border); border-radius: 14px; outline: 0; background: var(--surface); color: var(--text); font-size: 0.74rem; }
+.transaction-filter-apply,
+.transaction-filter-reset { width: 100%; min-height: 47px; border-radius: 15px; font-size: 0.74rem; font-weight: 720; }
+.transaction-filter-apply { background: linear-gradient(140deg, #9d68ff, #7441de); color: #fff; }
+.transaction-filter-reset { background: var(--surface-soft); color: var(--text-muted); }
+
+.transaction-detail-hero { display: grid; justify-items: center; margin-top: 15px; padding: 25px 19px; border-radius: 27px; background: linear-gradient(145deg, #ff826d, #df4936); color: #fff; text-align: center; box-shadow: 0 16px 30px rgb(199 68 52 / 18%); }
+.transaction-detail-hero--incoming { background: linear-gradient(145deg, #43d086, #159653); box-shadow: 0 16px 30px rgb(21 150 83 / 18%); }
+.transaction-detail-hero--transfer { background: linear-gradient(145deg, #9d68ff, #7441de); box-shadow: 0 16px 30px rgb(112 62 214 / 20%); }
+.transaction-detail-hero > span { display: grid; width: 49px; height: 49px; place-items: center; border-radius: 17px; background: rgb(255 255 255 / 17%); }
+.transaction-detail-hero p { margin: 13px 0 0; font-size: 0.64rem; font-weight: 720; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.78; }
+.transaction-detail-hero h2 { margin: 5px 0 0; font-size: 1.06rem; letter-spacing: -0.025em; }
+.transaction-detail-hero > strong { margin-top: 9px; font-size: 2rem; letter-spacing: -0.055em; }
+.transaction-detail-facts { display: grid; margin-top: 14px; overflow: hidden; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-card); }
+.transaction-detail-facts > div { display: grid; min-height: 55px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--border); grid-template-columns: auto minmax(0, 1fr) auto; gap: 9px; }
+.transaction-detail-facts > div:last-child { border-bottom: 0; }
+.transaction-detail-facts svg { color: var(--brand-active); }
+.transaction-detail-facts span { color: var(--text-muted); font-size: 0.68rem; }
+.transaction-detail-facts strong { max-width: 190px; overflow: hidden; font-size: 0.7rem; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.transaction-detail-note,
+.transaction-detail-receipts { margin-top: 14px; padding: 17px; border: 1px solid var(--border); border-radius: 21px; background: var(--surface); box-shadow: var(--shadow-card); }
+.transaction-detail-note > p:last-child { margin: 7px 0 0; color: var(--text-muted); font-size: 0.74rem; line-height: 1.5; white-space: pre-wrap; }
+.transaction-detail-receipts { display: grid; gap: 8px; }
+.transaction-detail-receipts > div { display: grid; align-items: center; padding: 10px; border-radius: 15px; background: var(--app); grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
+.transaction-detail-receipts > div svg { color: var(--brand-active); }
+.transaction-detail-receipts > div span { overflow: hidden; font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
+.transaction-detail-receipts > div small { color: var(--text-muted); font-size: 0.61rem; }
+.transaction-detail-actions { display: grid; margin-top: 14px; gap: 8px; }
+.transaction-detail-actions > a,
+.transaction-detail-actions > button { display: flex; min-height: 49px; align-items: center; justify-content: center; border-radius: 16px; font-size: 0.74rem; font-weight: 720; gap: 7px; }
+.transaction-detail-actions > a { background: var(--brand-soft); color: var(--brand-active); }
+.transaction-detail-actions > button { border: 1px solid color-mix(in srgb, var(--red) 24%, var(--border)); background: var(--coral-soft); color: var(--red); }
+.transaction-detail-actions > p { margin: 0; padding: 12px; border-radius: 14px; background: var(--surface-soft); color: var(--text-muted); font-size: 0.68rem; text-align: center; }
+
 .report-page { padding-bottom: 124px; }
 .plan-page { padding-bottom: 126px; }
 

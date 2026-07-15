@@ -7,9 +7,25 @@ export type CategoryList = components["schemas"]["CategoryListResponse"];
 export type Receipt = components["schemas"]["ReceiptResponse"];
 export type ReceiptList = components["schemas"]["ReceiptListResponse"];
 export type Transaction = components["schemas"]["TransactionResponse"];
+export type TransactionList = components["schemas"]["TransactionListResponse"];
 export type TransactionCreate = components["schemas"]["TransactionCreateRequest"];
 export type TransactionUpdate = components["schemas"]["TransactionUpdateRequest"];
 export type TransferCreate = components["schemas"]["TransferCreateRequest"];
 export type Transfer = components["schemas"]["TransferResponse"];
 
 export type TransactionKind = "expense" | "income" | "transfer";
+export type TransactionTypeFilter = "all" | TransactionKind;
+export type TransactionPeriod = "day" | "week" | "month";
+
+export type TransactionHistoryData = Readonly<{
+  accounts: Account[];
+  categories: Category[];
+  transactions: Transaction[];
+}>;
+
+export type TransactionDetailData = Readonly<{
+  accounts: Account[];
+  categories: Category[];
+  receipts: Receipt[];
+  transaction: Transaction;
+}>;

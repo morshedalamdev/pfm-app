@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createTransaction, uploadReceipt, validateReceipt } from "@/lib/transactions/api";
+import { createTransaction, listTransactions, uploadReceipt, validateReceipt } from "@/lib/transactions/api";
+import { groupTransactions, isIncomingTransaction, transactionDateRange, transactionTitle } from "@/lib/transactions/history";
 import { transactionFormSchema, validateConvertedAmount } from "@/lib/transactions/schemas";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -85,4 +86,41 @@ describe("transaction flows", () => {
     });
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("access_token");
   });
+
+  it("loads both transfer directions and keeps newest activity first", async () => {
+    const debit = { ...transactionsFixture, id: "44444444-4444-4444-4444-444444444444", transaction_at: "2026-07-14T12:00:00Z", type: "transfer_debit" };
+    const credit = { ...transactionsFixture, id: "55555555-5555-5555-5555-555555555555", transaction_at: "2026-07-15T12:00:00Z", type: "transfer_credit" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ has_more: false, items: [debit], next_cursor: null }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ has_more: false, items: [credit], next_cursor: null }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listTransactions({ dateFrom: "2026-07-01T00:00:00Z", dateTo: "2026-08-01T00:00:00Z", search: "travel", type: "transfer" })).resolves.toEqual([credit, debit]);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("type=transfer_debit");
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("type=transfer_credit");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("search=travel");
+  });
+
+  it("groups activity and maps transaction meaning for mobile history", () => {
+    const income = { ...transactionsFixture, type: "income" };
+    expect(isIncomingTransaction(income)).toBe(true);
+    expect(transactionTitle(income, [])).toBe("Lunch");
+    expect(groupTransactions([income])).toHaveLength(1);
+    const selectedRange = transactionDateRange("month", "2026-07-15");
+    expect(new Date(selectedRange.dateTo).getTime() - new Date(selectedRange.dateFrom).getTime()).toBe(86_400_000);
+  });
 });
+
+const transactionsFixture = {
+  account_id: validValues.accountId,
+  amount: "12.3400",
+  category_id: validValues.categoryId,
+  created_at: "2026-07-15T12:00:00Z",
+  currency: "USD",
+  description: "Lunch",
+  id: "33333333-3333-3333-3333-333333333333",
+  transaction_at: "2026-07-15T12:00:00Z",
+  type: "expense",
+  updated_at: "2026-07-15T12:00:00Z",
+  voided_at: null,
+};

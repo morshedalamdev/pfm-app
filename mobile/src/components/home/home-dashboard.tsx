@@ -90,7 +90,7 @@ export function HomeDashboard() {
                 {transactions.map((transaction) => {
                   const view = mapTransaction(transaction);
                   const Icon = view.accent === "blue" ? CircleArrowDown : view.accent === "purple" ? WalletCards : Coffee;
-                  const href = transaction.type === "income" || transaction.type === "expense" ? `/transaction/${transaction.id}/edit` as Route : undefined;
+                  const href = `/transaction/${transaction.id}` as Route;
                   return <TransactionRow key={transaction.id} accent={view.accent} amount={view.amount} href={href} icon={Icon} name={view.name} negative={view.isNegative} subtitle={`${view.subtitle} · ${view.dateLabel}`} />;
                 })}
               </div>

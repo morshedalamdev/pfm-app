@@ -48,6 +48,12 @@ test.beforeEach(async ({ page }) => {
       json: { has_more: false, items: [category], next_cursor: null },
     }),
   );
+  await page.route("**/api/backend/transactions?**", async (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      json: { has_more: false, items: [], next_cursor: null },
+    }),
+  );
   await page.route("**/api/backend/budgets**", async (route) =>
     route.fulfill({
       contentType: "application/json",

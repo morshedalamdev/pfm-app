@@ -1,5 +1,4 @@
-import type { Route } from "next";
-import { redirect } from "next/navigation";
+import { TransactionDetail } from "@/components/transactions/transaction-detail";
 
 type TransactionDetailPageProps = Readonly<{
   params: Promise<{ transactionId: string }>;
@@ -7,5 +6,5 @@ type TransactionDetailPageProps = Readonly<{
 
 export default async function TransactionDetailPage({ params }: TransactionDetailPageProps) {
   const { transactionId } = await params;
-  redirect(`/transaction/${encodeURIComponent(transactionId)}/edit` as Route);
+  return <TransactionDetail transactionId={transactionId} />;
 }

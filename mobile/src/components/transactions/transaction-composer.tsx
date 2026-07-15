@@ -105,6 +105,7 @@ function ComposerForm({ accounts, categories, kind }: ComposerFormProps) {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["home"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       if (receipt) {
         try {
           await uploadReceipt(receiptTransactionId, receipt);

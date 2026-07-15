@@ -55,6 +55,43 @@ const existingReceipt = {
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/backend/accounts**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [accountOne, accountTwo], next_cursor: null } }));
   await page.route("**/api/backend/categories**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [category], next_cursor: null } }));
+  await page.route("**/api/backend/transactions?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [transaction], next_cursor: null } }));
+  await page.route("**/api/backend/receipts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [existingReceipt], next_cursor: null } }));
+});
+
+test("searches and filters the complete transaction history", async ({ page }) => {
+  await page.goto("/transaction");
+  await expect(page.getByRole("link", { name: /Lunch/ })).toBeVisible();
+
+  const searchRequest = page.waitForRequest((request) => request.url().includes("/api/backend/transactions?") && request.url().includes("search=rent"));
+  await page.getByLabel("Search transactions").fill("rent");
+  await searchRequest;
+
+  await page.getByRole("button", { name: "Filter transactions" }).click();
+  const drawer = page.getByRole("dialog", { name: "Filter transactions" });
+  const transferRequest = page.waitForRequest((request) => request.url().includes("type=transfer_debit"));
+  await drawer.getByRole("button", { name: "transfer" }).click();
+  await transferRequest;
+  await drawer.getByRole("button", { name: "Show transactions" }).click();
+  await expect(drawer).toBeHidden();
+});
+
+test("opens transaction details and deletes through a Drawer", async ({ page }) => {
+  let deleted = false;
+  await page.route(`**/api/backend/transactions/${transactionId}`, async (route) => {
+    if (route.request().method() === "DELETE") deleted = true;
+    await route.fulfill({ contentType: "application/json", json: { ...transaction, voided_at: deleted ? "2026-07-15T13:00:00Z" : null } });
+  });
+  await page.goto("/transaction");
+  await page.getByRole("link", { name: /Lunch/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/transaction/${transactionId}$`));
+  await expect(page.getByRole("heading", { name: "Transaction details" })).toBeVisible();
+  await page.getByRole("button", { name: "Delete transaction" }).click();
+  const drawer = page.getByRole("dialog", { name: "Delete this transaction?" });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("button", { name: "Delete transaction" }).click();
+  await expect(page).toHaveURL(/\/transaction$/);
+  expect(deleted).toBe(true);
 });
 
 test("creates an expense with an attached receipt", async ({ page }) => {
@@ -133,11 +170,12 @@ test("edits a transaction and manages its receipts", async ({ page }) => {
     receiptItems = [];
     await route.fulfill({ contentType: "application/json", json: existingReceipt });
   });
-  page.on("dialog", (dialog) => void dialog.accept());
-
   await page.goto(`/transaction/${transactionId}/edit`);
   await expect(page.getByText("lunch.pdf")).toBeVisible();
   await page.getByRole("button", { name: "Remove lunch.pdf" }).click();
+  const receiptDrawer = page.getByRole("dialog", { name: "Remove this receipt?" });
+  await expect(receiptDrawer).toBeVisible();
+  await receiptDrawer.getByRole("button", { name: "Remove receipt" }).click();
   await expect(page.getByText("No receipts attached yet.")).toBeVisible();
   await page.getByLabel("Add receipt file").setInputFiles({ buffer: Buffer.from("image"), mimeType: "image/png", name: "new.png" });
   await expect(page.getByText("new.png")).toBeVisible();
@@ -152,10 +190,23 @@ test("transaction forms are mobile-safe and accessible", async ({ page }) => {
   await page.route(`**/api/backend/transactions/${transactionId}`, async (route) => route.fulfill({ contentType: "application/json", json: transaction }));
   await page.route("**/api/backend/receipts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [], next_cursor: null } }));
 
-  for (const route of ["/transaction/new", `/transaction/${transactionId}/edit`]) {
+  for (const route of ["/transaction", "/transaction/new", `/transaction/${transactionId}`, `/transaction/${transactionId}/edit`]) {
     await page.goto(route);
-    await expect(page.getByRole("heading", { name: route.includes("edit") ? "Edit transaction" : "Add transaction" })).toBeVisible();
+    const title = route.endsWith("/transaction") ? "Transactions" : route.endsWith(transactionId) ? "Transaction details" : route.includes("edit") ? "Edit transaction" : "Add transaction";
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   }
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`matches the ${theme} transaction history reference baseline`, async ({ page }) => {
+    await page.goto("/transaction");
+    await page.evaluate((selectedTheme) => localStorage.setItem("pfm-mobile-theme", selectedTheme), theme);
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    await expect(page.getByRole("link", { name: /Lunch/ })).toBeVisible();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await expect(page).toHaveScreenshot(`transaction-history-${theme}.png`, { animations: "disabled", fullPage: true });
+  });
+}
