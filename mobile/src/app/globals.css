@@ -584,6 +584,38 @@ a {
 .transaction-page { padding-bottom: 132px; }
 
 .report-page { padding-bottom: 124px; }
+.plan-page { padding-bottom: 126px; }
+
+.plan-month { display: flex; min-height: 40px; align-items: center; padding: 0 7px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
+.plan-month input { width: 104px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 0.7rem; font-weight: 680; }
+.plan-section { margin-top: 18px; }
+.plan-section .section-heading > svg { color: var(--brand); }
+.plan-goal-list { display: grid; gap: 10px; }
+.live-goal-card { margin-top: 0; }
+.goal-contribute-button { min-height: 35px; padding: 0 11px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-active); font-size: 0.68rem; font-weight: 720; }
+.plan-empty { margin: 10px 0 0; padding: 16px; border: 1px dashed var(--border); border-radius: 18px; color: var(--text-muted); font-size: 0.74rem; line-height: 1.45; text-align: center; }
+
+.plan-form-sheet { display: grid; margin: 14px 0 18px; padding: 18px; border: 1px solid var(--border); border-radius: 25px; background: var(--surface); box-shadow: var(--shadow-card); gap: 14px; }
+.plan-kind-tabs { margin: 0; grid-template-columns: repeat(2, 1fr); }
+.plan-form-fields { display: grid; gap: 12px; }
+.plan-form-fields label,
+.contribution-form label { display: grid; gap: 6px; }
+.plan-form-fields label > span,
+.contribution-form label > span { color: var(--text-muted); font-size: 0.7rem; font-weight: 690; }
+.plan-form-fields input,
+.plan-form-fields select,
+.contribution-form input { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid var(--border); border-radius: 14px; outline: 0; background: var(--app); color: var(--text); font-size: 0.78rem; }
+.plan-form-fields input:focus,
+.plan-form-fields select:focus,
+.contribution-form input:focus { border-color: var(--brand-active); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 17%, transparent); }
+
+.contribution-form { display: grid; margin: -1px 6px 10px; padding: 14px; border: 1px solid var(--brand-soft); border-radius: 18px; background: var(--surface-tint); gap: 10px; }
+.contribution-form > div:last-child { display: flex; justify-content: flex-end; gap: 8px; }
+.contribution-save { min-height: 39px; padding: 0 13px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 0.72rem; font-weight: 720; }
+
+.plan-loading { display: grid; margin-top: 18px; gap: 13px; }
+.plan-loading div { height: 210px; border-radius: 25px; background: var(--surface-soft); animation: form-pulse 1.3s ease-in-out infinite alternate; }
+.plan-loading div:nth-child(2) { height: 172px; }
 
 .report-month-picker {
   display: grid;
