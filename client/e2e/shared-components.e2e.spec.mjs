@@ -74,6 +74,54 @@ test("shared finance primitives render accessibly across themes and viewports", 
       await expect(page.getByTestId("interactive-card")).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(page.getByRole("button", { name: "Account actions" })).toBeFocused();
+
+      await expect(page.getByTestId("interaction-preview")).toBeVisible();
+      await expect(page.getByLabel("Display name")).toBeVisible();
+      await expect(page.getByText("Amount must be greater than zero.")).toBeVisible();
+      await page.getByLabel("Search preview").fill("coffee");
+      await expect(page.getByLabel("Search preview")).toHaveValue("coffee");
+      await expect(page.getByRole("radio", { name: "All" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await page.getByRole("radio", { name: "Expense" }).click();
+      await expect(page.getByRole("radio", { name: "Expense" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await page.getByRole("button", { name: "Remove filter" }).click();
+      await expect(page.getByText("Active month")).toHaveCount(0);
+      await page.getByRole("tab", { name: "Details" }).click();
+      await expect(page.getByText("Details panel")).toBeVisible();
+
+      const dialogTrigger = page.getByRole("button", { name: "Open dialog" });
+      await dialogTrigger.click();
+      await expect(page.getByRole("dialog", { name: "Preview dialog" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Preview dialog" })).toHaveCount(0);
+      await expect(dialogTrigger).toBeFocused();
+
+      const drawerTrigger = page.getByRole("button", { name: "Open drawer" });
+      await drawerTrigger.click();
+      await expect(page.getByRole("dialog", { name: "Preview drawer" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Preview drawer" })).toHaveCount(0);
+
+      const sheetTrigger = page.getByRole("button", { name: "Open sheet" });
+      await sheetTrigger.click();
+      await expect(page.getByRole("dialog", { name: "Preview sheet" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Preview sheet" })).toHaveCount(0);
+
+      await page.getByRole("button", { name: "Open confirm" }).click();
+      await expect(page.getByRole("alertdialog", { name: "Confirm action" })).toBeVisible();
+      await page.getByRole("button", { name: "Cancel" }).click();
+      await expect(page.getByRole("alertdialog", { name: "Confirm action" })).toHaveCount(0);
+
+      await page.getByRole("button", { name: "Open destructive" }).click();
+      await expect(page.getByRole("alertdialog", { name: "Delete record?" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("alertdialog", { name: "Delete record?" })).toHaveCount(0);
     }
   }
 });

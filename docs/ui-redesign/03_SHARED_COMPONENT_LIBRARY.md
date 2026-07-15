@@ -338,3 +338,70 @@ keyboard focus for interactive slots.
 - `client/components/finance/index.ts`
 - `client/app/component-preview/page.tsx`
 - `client/e2e/shared-components.e2e.spec.mjs`
+
+## Phase 03.4 Component Contracts
+
+Phase 03.4 adds shared interaction and state components for later page
+redesign agents. These components do not call APIs, own payload transforms, or
+introduce a form library.
+
+### State UI
+
+- `PageLoadingState`, `CardSkeleton`, and `ListSkeleton`: theme-safe loading
+  placeholders with no fake financial data and reduced-motion-safe animation.
+- `EmptyState` and `ErrorState`: action-capable states with semantic roles and
+  explicit retry support.
+- `InlineError`, `AlertBanner`, `SuccessBanner`, and `WarningBanner`: reusable
+  semantic message components.
+
+### Forms
+
+- `FormField`, `FieldLabel`, `FieldDescription`, and `FieldError`: label,
+  description, and error association helpers.
+- `TextInput`, `MoneyInput`, `SearchInput`, `SelectField`, `DateField`,
+  `TextareaField`, `SegmentedControl`, and `ToggleField`: callback-driven form
+  controls preserving native keyboard behavior and the global mobile 16px input
+  rule. Validation and payload behavior stay with callers.
+
+### Filtering and Data Controls
+
+- `FilterBar`, `FilterChip`, `FilterButton`, `SearchAndFilterHeader`,
+  `SortControl`, `DateRangeControl`, `Pagination`, `ResponsiveDataList`, and
+  `Tabs`: responsive, keyboard-accessible controls with callback-driven state
+  and no API logic.
+
+### Overlays
+
+- `AppDialog`, `AppDrawer`, and `AppSheet`: app-level wrappers around existing
+  Radix/Vaul primitives with title/description/content/action slots,
+  scrollable content, shell z-index alignment, and mobile safe-area padding.
+- `ConfirmDialog` and `DestructiveConfirmDialog`: alert-dialog wrappers with
+  destructive confirmation semantics delegated through explicit callbacks.
+- `ActionMenu` and `ContextMenu`: dropdown-based action wrappers using the
+  existing menu primitive.
+
+### Phase 03.4 Verification
+
+The development-only preview includes labels, descriptions, invalid fields,
+search, active filters, filter reset, segmented controls, tabs, pagination,
+states, banners, dialog, drawer, sheet, confirm dialog, destructive dialog, and
+action menu coverage. Focused Playwright verifies screen-reader labels,
+keyboard interaction, focus restoration, Escape-key close, disabled states,
+error states, mobile/desktop layout, and no horizontal overflow.
+
+The required full E2E suite was also attempted for Phase 03.4. It reproduced
+the existing baseline blocker in `integrated finance journeys render across
+breakpoints`: the recurring warning dialog did not show the expected
+`Groceries` text before the assertion timeout. No production repair was made
+because this phase only added shared interaction primitives.
+
+## Phase 03.4 Changed Files
+
+- `client/components/finance/states.tsx`
+- `client/components/finance/forms.tsx`
+- `client/components/finance/controls.tsx`
+- `client/components/finance/overlays.tsx`
+- `client/components/finance/index.ts`
+- `client/app/component-preview/interaction-preview.tsx`
+- `client/app/component-preview/page.tsx`
+- `client/e2e/shared-components.e2e.spec.mjs`

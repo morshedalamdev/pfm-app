@@ -36,6 +36,8 @@ import {
   UpcomingCommitmentRow,
 } from "@/components/finance";
 
+import { InteractionPreview } from "./interaction-preview";
+
 export const dynamic = "force-dynamic";
 
 export default function ComponentPreviewPage() {
@@ -344,6 +346,8 @@ export default function ComponentPreviewPage() {
             <span />
           </ChartCard>
         </section>
+
+        <InteractionPreview />
       </div>
     </main>
   );
