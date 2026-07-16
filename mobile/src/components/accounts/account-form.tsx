@@ -7,7 +7,9 @@ import { type FormEvent, useState } from "react";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
+import { CurrencyPicker } from "@/components/accounts/currency-picker";
 import { createAccount } from "@/lib/accounts/api";
+import { isWorldCurrency } from "@/lib/accounts/currencies";
 import { accountTypes } from "@/lib/accounts/types";
 import { getSafeNextPath } from "@/lib/auth/safe-next-path";
 
@@ -17,7 +19,8 @@ export function AccountForm() {
   const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [type, setType] = useState<(typeof accountTypes)[number][0]>("bank_account");
-  const [currency, setCurrency] = useState(searchParams.get("currency")?.toUpperCase() || "USD");
+  const requestedCurrency = searchParams.get("currency")?.toUpperCase() || "USD";
+  const [currency, setCurrency] = useState<string>(isWorldCurrency(requestedCurrency) ? requestedCurrency : "USD");
   const [openingBalance, setOpeningBalance] = useState("0");
   const [error, setError] = useState<string | null>(null);
   const create = useMutation({ mutationFn: createAccount });
@@ -25,8 +28,8 @@ export function AccountForm() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (!name.trim() || !/^[-+]?\d+(\.\d{1,4})?$/.test(openingBalance) || !/^[A-Z]{3}$/.test(currency)) {
-      setError("Enter a name, a valid opening balance, and a three-letter currency code.");
+    if (!name.trim() || !/^[-+]?\d+(\.\d{1,4})?$/.test(openingBalance) || !isWorldCurrency(currency)) {
+      setError("Enter a name, a valid opening balance, and select a currency.");
       return;
     }
     try {
@@ -55,7 +58,7 @@ export function AccountForm() {
         <form className="management-form account-form" noValidate onSubmit={(event) => void submit(event)}>
           <label><span>Account name</span><input autoFocus autoComplete="off" onChange={(event) => setName(event.target.value)} placeholder="Everyday checking" value={name} /></label>
           <label><span>Type</span><select onChange={(event) => setType(event.target.value as typeof type)} value={type}>{accountTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <div className="management-form-grid"><label><span>Currency</span><input aria-label="Currency" maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} value={currency} /></label><label><span>Opening balance</span><input aria-label="Opening balance" inputMode="decimal" onChange={(event) => setOpeningBalance(event.target.value)} placeholder="0.00" value={openingBalance} /></label></div>
+          <div className="management-form-grid"><label><span>Currency</span><CurrencyPicker onChange={setCurrency} value={currency} /></label><label><span>Opening balance</span><input aria-label="Opening balance" inputMode="decimal" onChange={(event) => setOpeningBalance(event.target.value)} placeholder="0.00" value={openingBalance} /></label></div>
           <small>Your opening balance is the amount in this account right now.</small>
           {error ? <p className="form-error" role="alert">{error}</p> : null}
           <button className="management-submit" disabled={create.isPending} type="submit">{create.isPending ? "Adding account…" : "Add account"}</button>

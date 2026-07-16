@@ -41,7 +41,17 @@ test("guides a new user through currency and their first account", async ({ page
   expect(accountPayload).toMatchObject({ currency: "EUR", name: "Main cash", opening_balance: "250", type: "bank_account" });
 });
 
-test("manages an account through its detail page and guarded Drawer removal", async ({ page }) => {
+test("shows the default account as the system currency source", async ({ page }) => {
+  await page.route("**/api/backend/users/me", async (route) => route.fulfill({ contentType: "application/json", json: profile }));
+  await page.route("**/api/backend/accounts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [{ ...account, currency: "EUR" }], next_cursor: null } }));
+
+  await page.goto("/setup");
+  await expect(page.getByRole("heading", { name: "EUR is your system currency" })).toBeVisible();
+  await expect(page.getByText("Your system currency follows Daily wallet, your default account.")).toBeVisible();
+  await expect(page.getByLabel("Home currency")).toHaveCount(0);
+});
+
+test("hides removal when an account is in use", async ({ page }) => {
   let current: Omit<typeof account, "disabled_at"> & { disabled_at: string | null } = account;
   await page.route("**/api/backend/accounts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [current], next_cursor: null } }));
   await page.route(`**/api/backend/accounts/${ids.account}/delete-eligibility`, async (route) => route.fulfill({ contentType: "application/json", json: { account_id: ids.account, can_delete: false, reasons: ["transaction"] } }));
@@ -53,12 +63,34 @@ test("manages an account through its detail page and guarded Drawer removal", as
   await expect(page.getByRole("heading", { name: "Account details" })).toBeVisible();
   await page.getByRole("button", { name: "Disable account" }).click();
   await expect(page.getByText("Disabled")).toBeVisible();
+  await expect(page.getByText("This account is linked to transactions.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove account" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test("shows removal only for an unused account", async ({ page }) => {
+  await page.route(`**/api/backend/accounts/${ids.account}/delete-eligibility`, async (route) => route.fulfill({ contentType: "application/json", json: { account_id: ids.account, can_delete: true, reasons: [] } }));
+  await page.route(`**/api/backend/accounts/${ids.account}`, async (route) => route.fulfill({ contentType: "application/json", json: account }));
+
+  await page.goto(`/accounts/${ids.account}`);
   await page.getByRole("button", { name: "Remove account" }).click();
   const drawer = page.getByRole("dialog", { name: "Remove this account?" });
   await expect(drawer).toBeVisible();
-  await expect(drawer.getByText("This account is linked to transactions.")).toBeVisible();
-  await expect(drawer.getByRole("button", { name: "Remove account" })).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(drawer.getByRole("button", { name: "Remove account" })).toBeVisible();
+});
+
+test("searches the complete world currency list when adding an account", async ({ page }) => {
+  await page.goto("/accounts/new");
+  const currency = page.getByRole("combobox", { name: "Currency" });
+  await currency.fill("Bangladesh");
+  const currencies = page.getByRole("listbox", { name: "World currencies" });
+  await expect(currencies.getByRole("option", { name: /BDT/ })).toBeVisible();
+  await currencies.getByRole("option", { name: /BDT/ }).click();
+  await expect(currency).toHaveValue("BDT");
+
+  await currency.fill("");
+  await expect(currencies.getByRole("option")).toHaveCount(162);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 

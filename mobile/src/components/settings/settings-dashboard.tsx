@@ -89,18 +89,16 @@ function ProfileForm({ onSaved, profile }: { onSaved: (profile: Profile) => void
   const [phone, setPhone] = useState(profile.phone_number ?? "");
   const [occupation, setOccupation] = useState(profile.occupation ?? "");
   const [about, setAbout] = useState(profile.about ?? "");
-  const [currency, setCurrency] = useState(profile.base_currency);
   const [notice, setNotice] = useState<string | null>(null);
   const mutation = useMutation({ mutationFn: updateProfile });
   async function submit(event: FormEvent) {
     event.preventDefault(); setNotice(null);
-    if (!/^[A-Z]{3}$/.test(currency)) { setNotice("Use a three-letter currency code."); return; }
     try {
-      const saved = await mutation.mutateAsync({ about: about.trim() || null, base_currency: currency, full_name: fullName.trim() || null, occupation: occupation.trim() || null, phone_number: phone.trim() || null });
+      const saved = await mutation.mutateAsync({ about: about.trim() || null, full_name: fullName.trim() || null, occupation: occupation.trim() || null, phone_number: phone.trim() || null });
       onSaved(saved); setNotice("Profile updated.");
     } catch (cause) { setNotice(messageFor(cause, "Unable to update your profile.")); }
   }
-  return <SectionCard eyebrow="PERSONAL DETAILS" title="Your profile"><form className="management-form" onSubmit={(event) => void submit(event)}><label><span>Full name</span><input autoComplete="name" onChange={(event) => setFullName(event.target.value)} value={fullName} /></label><label><span>Email</span><input disabled value={profile.email} /></label><label><span>Phone</span><input autoComplete="tel" onChange={(event) => setPhone(event.target.value)} value={phone} /></label><label><span>Occupation</span><input onChange={(event) => setOccupation(event.target.value)} value={occupation} /></label><label><span>About</span><textarea maxLength={500} onChange={(event) => setAbout(event.target.value)} value={about} /></label><label><span>Base currency</span><input aria-describedby="currency-note" maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} value={currency} /></label><small id="currency-note">Currency changes are limited by your account policy.</small>{notice ? <p className={notice === "Profile updated." ? "form-notice" : "form-error"} role="status">{notice}</p> : null}<SubmitButton busy={mutation.isPending}>Save profile</SubmitButton></form></SectionCard>;
+  return <SectionCard eyebrow="PERSONAL DETAILS" title="Your profile"><form className="management-form" onSubmit={(event) => void submit(event)}><label><span>Full name</span><input autoComplete="name" onChange={(event) => setFullName(event.target.value)} value={fullName} /></label><label><span>Email</span><input disabled value={profile.email} /></label><label><span>Phone</span><input autoComplete="tel" onChange={(event) => setPhone(event.target.value)} value={phone} /></label><label><span>Occupation</span><input onChange={(event) => setOccupation(event.target.value)} value={occupation} /></label><label><span>About</span><textarea maxLength={500} onChange={(event) => setAbout(event.target.value)} value={about} /></label>{notice ? <p className={notice === "Profile updated." ? "form-notice" : "form-error"} role="status">{notice}</p> : null}<SubmitButton busy={mutation.isPending}>Save profile</SubmitButton></form></SectionCard>;
 }
 
 function AccountsSection() {

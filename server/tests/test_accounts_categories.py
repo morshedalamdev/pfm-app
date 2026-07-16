@@ -460,9 +460,9 @@ def test_account_default_and_disable_helpers(
 ) -> None:
     context = finance_context
     headers = auth_headers(context, "account-defaults@example.com")
-    first = create_account(context, headers, "Main Cash", "cash", "100")
-    second = create_account(context, headers, "Backup Bank", "bank", "20")
-    third = create_account(context, headers, "Travel Wallet", "wallet", "50")
+    first = create_account(context, headers, "Main Cash", "cash", "100", "USD")
+    second = create_account(context, headers, "Backup Bank", "bank", "20", "EUR")
+    third = create_account(context, headers, "Travel Wallet", "wallet", "50", "BDT")
 
     assert first["is_default"] is True
     assert second["is_default"] is False
@@ -473,6 +473,30 @@ def test_account_default_and_disable_helpers(
     )
     assert set_default_response.status_code == 200
     assert set_default_response.json()["is_default"] is True
+    assert context.client.get("/api/v1/users/me", headers=headers).json()[
+        "base_currency"
+    ] == "EUR"
+
+    manual_currency_response = context.client.patch(
+        "/api/v1/users/me",
+        headers=headers,
+        json={"base_currency": "CNY"},
+    )
+    assert manual_currency_response.status_code == 409
+    assert manual_currency_response.json()["error"]["message"] == (
+        "System currency follows the default account."
+    )
+
+    update_currency_response = context.client.patch(
+        f"/api/v1/accounts/{second['id']}",
+        headers=headers,
+        json={"currency": "gbp"},
+    )
+    assert update_currency_response.status_code == 200
+    assert update_currency_response.json()["currency"] == "GBP"
+    assert context.client.get("/api/v1/users/me", headers=headers).json()[
+        "base_currency"
+    ] == "GBP"
 
     list_response = context.client.get("/api/v1/accounts?limit=10", headers=headers)
     assert list_response.status_code == 200
@@ -499,9 +523,13 @@ def test_account_default_and_disable_helpers(
     assert fallback_response.status_code == 200
     fallback_accounts = fallback_response.json()["items"]
     assert sum(1 for account in fallback_accounts if account["is_default"]) == 1
-    assert next(account for account in fallback_accounts if account["is_default"])[
-        "id"
-    ] in {first["id"], third["id"]}
+    fallback_account = next(
+        account for account in fallback_accounts if account["is_default"]
+    )
+    assert fallback_account["id"] in {first["id"], third["id"]}
+    assert context.client.get("/api/v1/users/me", headers=headers).json()[
+        "base_currency"
+    ] == fallback_account["currency"]
 
     disabled_default_response = context.client.patch(
         f"/api/v1/accounts/{second['id']}/default",
@@ -511,6 +539,27 @@ def test_account_default_and_disable_helpers(
     assert disabled_default_response.json()["error"]["message"] == (
         "Disabled or archived account cannot be the default."
     )
+
+
+def test_first_account_sets_the_system_currency(
+    finance_context: FinanceApiContext,
+) -> None:
+    context = finance_context
+    headers = auth_headers(context, "account-currency-source@example.com")
+
+    account = create_account(
+        context,
+        headers,
+        "Euro cash",
+        "cash",
+        "0",
+        "EUR",
+    )
+
+    assert account["is_default"] is True
+    profile_response = context.client.get("/api/v1/users/me", headers=headers)
+    assert profile_response.status_code == 200
+    assert profile_response.json()["base_currency"] == "EUR"
 
 
 def test_account_delete_eligibility_helper(
@@ -693,6 +742,7 @@ def create_account(
     name: str,
     account_type: str,
     opening_balance: str,
+    currency: str = "USD",
 ) -> dict[str, object]:
     response = context.client.post(
         "/api/v1/accounts",
@@ -700,6 +750,7 @@ def create_account(
         json={
             "name": name,
             "type": account_type,
+            "currency": currency,
             "opening_balance": opening_balance,
         },
     )

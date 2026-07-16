@@ -1699,6 +1699,18 @@ a {
 .accounts-skeleton { height: 132px; margin-top: 16px; border-radius: 24px; background: var(--surface-soft); animation: form-pulse 1.3s ease-in-out infinite alternate; }
 .account-form-intro { margin-bottom: 18px; }
 .account-form { padding: 18px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow-card); }
+.currency-picker { position: relative; min-width: 0; }
+.currency-picker-input { position: relative; }
+.currency-picker-input > svg { position: absolute; top: 50%; left: 12px; z-index: 1; color: var(--text-soft); pointer-events: none; transform: translateY(-50%); }
+.management-form .currency-picker-input input { width: 100%; padding-left: 36px; }
+.currency-picker-list { position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 20; max-height: 248px; overflow-y: auto; padding: 5px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 18px 38px rgb(28 20 48 / 18%); }
+.currency-picker-option { display: flex; width: 100%; min-height: 46px; align-items: center; justify-content: space-between; padding: 7px 9px; border-radius: 11px; color: var(--text); text-align: left; gap: 8px; }
+.currency-picker-option--active { background: var(--brand-soft); }
+.currency-picker-option > span { display: grid; min-width: 0; gap: 2px; }
+.currency-picker-option strong { font-size: 0.71rem; }
+.currency-picker-option small { overflow: hidden; color: var(--text-muted); font-size: 0.62rem; text-overflow: ellipsis; white-space: nowrap; }
+.currency-picker-option > svg { flex: 0 0 auto; color: var(--brand-active); }
+.currency-picker-empty { margin: 0; padding: 14px 10px; color: var(--text-muted); font-size: 0.68rem; text-align: center; }
 .account-detail-hero { display: grid; justify-items: center; margin-top: 17px; padding: 26px 20px; border-radius: 27px; background: linear-gradient(145deg, #9d68ff, #7441de); color: #fff; text-align: center; }
 .account-detail-hero > span { display: grid; width: 51px; height: 51px; place-items: center; border-radius: 18px; background: rgb(255 255 255 / 16%); }
 .account-detail-hero .eyebrow { margin-top: 15px; color: rgb(255 255 255 / 72%); }

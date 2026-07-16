@@ -40,9 +40,11 @@ test("updates the authenticated profile", async ({ page }) => {
   await page.getByLabel("Full name").fill("Morgan Park");
   await page.getByLabel("Email").fill("morgan.park@example.com");
   await page.getByLabel("Occupation").selectOption("business");
+  await expect(page.getByText("Base currency")).toHaveCount(0);
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByText("Profile updated.")).toBeVisible();
-  expect(payload).toMatchObject({ full_name: "Morgan Park", email: "morgan.park@example.com", occupation: "business", base_currency: "USD" });
+  expect(payload).toMatchObject({ full_name: "Morgan Park", email: "morgan.park@example.com", occupation: "business" });
+  expect(payload).not.toHaveProperty("base_currency");
 });
 
 test("creates accounts and categories with backend-shaped payloads", async ({ page }) => {
