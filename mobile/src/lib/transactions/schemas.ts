@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { z } from "zod";
 
 const positiveMoney = z.string()
@@ -30,4 +31,14 @@ export type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 export function validateConvertedAmount(value: string): string | null {
   const result = positiveMoney.safeParse(value);
   return result.success ? null : result.error.issues[0]?.message ?? "Enter the converted amount";
+}
+
+export function exceedsAccountBalance(amount: string, balance: string): boolean {
+  if (!positiveMoney.safeParse(amount).success) return false;
+
+  try {
+    return new Decimal(amount).greaterThan(new Decimal(balance));
+  } catch {
+    return false;
+  }
 }

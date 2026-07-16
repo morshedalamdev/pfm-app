@@ -249,6 +249,55 @@ def test_income_expense_balance_effects_follow_selected_account(
     assert get_account_balance(context, headers, reserve["id"]) == Decimal("43.0000")
 
 
+def test_rejects_expenses_and_transfers_above_available_balance(
+    transaction_context: TransactionApiContext,
+) -> None:
+    context = transaction_context
+    headers = auth_headers(context, "transaction-insufficient-balance@example.com")
+    checking = create_account(context, headers, "Protected Checking", "bank", "100")
+    savings = create_account(context, headers, "Protected Savings", "savings", "0")
+    expense_category = create_category(
+        context,
+        headers,
+        "Protected Expense",
+        "expense",
+        "receipt",
+    )
+
+    expense_response = context.client.post(
+        "/api/v1/transactions",
+        headers=headers,
+        json={
+            "account_id": checking["id"],
+            "category_id": expense_category["id"],
+            "type": "expense",
+            "amount": "100.0001",
+            "transaction_at": "2026-01-07T00:00:00+00:00",
+        },
+    )
+    assert expense_response.status_code == 422
+    assert expense_response.json()["error"]["message"] == (
+        "The selected account does not have enough balance"
+    )
+
+    transfer_response = context.client.post(
+        "/api/v1/transactions/transfers",
+        headers=headers,
+        json={
+            "from_account_id": checking["id"],
+            "to_account_id": savings["id"],
+            "amount": "100.0001",
+            "transaction_at": "2026-01-07T00:00:00+00:00",
+        },
+    )
+    assert transfer_response.status_code == 422
+    assert transfer_response.json()["error"]["message"] == (
+        "The selected account does not have enough balance"
+    )
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("100.0000")
+    assert get_account_balance(context, headers, savings["id"]) == Decimal("0.0000")
+
+
 def test_transaction_validation_and_reference_rules(
     transaction_context: TransactionApiContext,
 ) -> None:
@@ -478,7 +527,7 @@ def test_transfer_create_retrieve_and_source_records(
 ) -> None:
     context = transaction_context
     headers = auth_headers(context, "transfer-owner@example.com")
-    checking = create_account(context, headers, "Checking Transfer", "bank", "0")
+    checking = create_account(context, headers, "Checking Transfer", "bank", "30")
     savings = create_account(context, headers, "Savings Transfer", "savings", "0")
 
     transfer = create_transfer(
@@ -535,7 +584,7 @@ def test_transfer_create_retrieve_and_source_records(
         "debit_category_id": None,
         "credit_category_id": None,
     }
-    assert get_account_balance(context, headers, checking["id"]) == Decimal("-25.1250")
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("4.8750")
     assert get_account_balance(context, headers, savings["id"]) == Decimal("25.1250")
 
 
@@ -646,7 +695,7 @@ def test_transfer_validation_and_ownership_rules(
     context = transaction_context
     owner_headers = auth_headers(context, "transfer-rules-owner@example.com")
     other_headers = auth_headers(context, "transfer-rules-other@example.com")
-    checking = create_account(context, owner_headers, "Rules Checking", "bank", "0")
+    checking = create_account(context, owner_headers, "Rules Checking", "bank", "10")
     savings = create_account(context, owner_headers, "Rules Savings", "savings", "0")
     eur_wallet = create_account(
         context,
@@ -1045,7 +1094,7 @@ def test_transfer_rolls_back_when_link_write_fails(
     context = transaction_context
     email = "transfer-rollback@example.com"
     headers = auth_headers(context, email)
-    checking = create_account(context, headers, "Rollback Checking", "bank", "0")
+    checking = create_account(context, headers, "Rollback Checking", "bank", "20")
     savings = create_account(context, headers, "Rollback Savings", "savings", "0")
 
     asyncio.run(
@@ -1064,7 +1113,7 @@ def test_transaction_filters_pagination_and_ordering(
     context = transaction_context
     headers = auth_headers(context, "transaction-filters@example.com")
     checking = create_account(context, headers, "Filter Checking", "bank", "0")
-    wallet = create_account(context, headers, "Filter Wallet", "wallet", "0")
+    wallet = create_account(context, headers, "Filter Wallet", "wallet", "20")
     income_category = create_category(context, headers, "Filter Income", "income", "up")
     food_category = create_category(context, headers, "Food", "expense", "utensils")
     rent_category = create_category(context, headers, "Rent", "expense", "home")
@@ -1335,7 +1384,7 @@ def test_transfer_create_idempotency(
 ) -> None:
     context = transaction_context
     headers = auth_headers(context, "transfer-idempotency@example.com")
-    checking = create_account(context, headers, "Idempotent Checking", "bank", "0")
+    checking = create_account(context, headers, "Idempotent Checking", "bank", "20")
     savings = create_account(context, headers, "Idempotent Savings", "savings", "0")
 
     first = create_transfer(
@@ -1359,7 +1408,7 @@ def test_transfer_create_idempotency(
         idempotency_key="transfer-create-key",
     )
     assert second == first
-    assert get_account_balance(context, headers, checking["id"]) == Decimal("-15.0000")
+    assert get_account_balance(context, headers, checking["id"]) == Decimal("5.0000")
     assert get_account_balance(context, headers, savings["id"]) == Decimal("15.0000")
 
     debit_response = context.client.get(
@@ -1470,7 +1519,13 @@ def test_transfer_idempotency_replay_survives_reference_revalidation(
 ) -> None:
     context = transaction_context
     headers = auth_headers(context, "transfer-replay-archived@example.com")
-    checking = create_account(context, headers, "Replay Transfer Checking", "bank", "0")
+    checking = create_account(
+        context,
+        headers,
+        "Replay Transfer Checking",
+        "bank",
+        "50",
+    )
     savings = create_account(
         context,
         headers,

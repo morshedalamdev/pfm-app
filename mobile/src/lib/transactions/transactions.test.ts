@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createTransaction, listTransactions, uploadReceipt, validateReceipt } from "@/lib/transactions/api";
 import { groupTransactions, isIncomingTransaction, transactionDateRange, transactionTitle } from "@/lib/transactions/history";
-import { transactionFormSchema, validateConvertedAmount } from "@/lib/transactions/schemas";
+import { exceedsAccountBalance, transactionFormSchema, validateConvertedAmount } from "@/lib/transactions/schemas";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -30,6 +30,9 @@ describe("transaction flows", () => {
     }).success).toBe(false);
     expect(validateConvertedAmount("145.2500")).toBeNull();
     expect(validateConvertedAmount("0")).toMatch(/positive amount/);
+    expect(exceedsAccountBalance("100.0001", "100.0000")).toBe(true);
+    expect(exceedsAccountBalance("100.0000", "100.0000")).toBe(false);
+    expect(exceedsAccountBalance("not-a-number", "100.0000")).toBe(false);
   });
 
   it("validates receipt type and size before upload", () => {

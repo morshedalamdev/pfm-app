@@ -181,6 +181,31 @@ test("creates a cross-currency transfer with the received amount", async ({ page
   expect(transferPayload).toMatchObject({ amount: "100", converted_amount: "92.50", from_account_id: accountOne.id, to_account_id: accountTwo.id });
 });
 
+test("prevents expenses and transfers that exceed the source account balance", async ({ page }) => {
+  let expenseCreated = false;
+  let transferCreated = false;
+  await page.route("**/api/backend/transactions", async (route) => {
+    expenseCreated = true;
+    await route.fulfill({ contentType: "application/json", json: transaction, status: 201 });
+  });
+  await page.route("**/api/backend/transactions/transfers", async (route) => {
+    transferCreated = true;
+    await route.fulfill({ contentType: "application/json", json: {}, status: 201 });
+  });
+
+  await page.goto("/transaction/new?type=expense");
+  await page.getByLabel("Amount").fill("1000.0001");
+  await expect(page.getByRole("alert").filter({ hasText: "Insufficient balance" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save expense" })).toBeDisabled();
+  expect(expenseCreated).toBe(false);
+
+  await page.goto("/transaction/new?type=transfer");
+  await page.getByLabel("Amount", { exact: true }).fill("1000.0001");
+  await expect(page.getByRole("alert").filter({ hasText: "Insufficient balance" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Transfer money" })).toBeDisabled();
+  expect(transferCreated).toBe(false);
+});
+
 test("edits a transaction and manages its receipts", async ({ page }) => {
   let receiptItems = [existingReceipt];
   let updatedPayload: Record<string, unknown> | null = null;

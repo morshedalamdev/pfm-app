@@ -11,6 +11,7 @@ import { useForm, useWatch } from "react-hook-form";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
+import { formatMoney } from "@/lib/home/view-model";
 import {
   createTransaction,
   createTransfer,
@@ -19,7 +20,7 @@ import {
   uploadReceipt,
   validateReceipt,
 } from "@/lib/transactions/api";
-import { transactionFormSchema, type TransactionFormValues, validateConvertedAmount } from "@/lib/transactions/schemas";
+import { exceedsAccountBalance, transactionFormSchema, type TransactionFormValues, validateConvertedAmount } from "@/lib/transactions/schemas";
 import type { Account, Category, TransactionKind } from "@/lib/transactions/types";
 
 function currentLocalDateTime(): string {
@@ -58,12 +59,20 @@ function ComposerForm({ accounts, categories, kind }: ComposerFormProps) {
     resolver: zodResolver(transactionFormSchema),
   });
   const fromAccountId = useWatch({ control, name: "accountId" });
+  const amount = useWatch({ control, name: "amount" });
   const toAccountId = useWatch({ control, name: "toAccountId" });
   const fromAccount = accounts.find((account) => account.id === fromAccountId);
   const toAccount = accounts.find((account) => account.id === toAccountId);
   const currenciesDiffer = kind === "transfer" && fromAccount && toAccount && fromAccount.currency !== toAccount.currency;
+  const amountExceedsBalance = (kind === "expense" || kind === "transfer")
+    && fromAccount !== undefined
+    && exceedsAccountBalance(amount, fromAccount.current_balance);
 
   const onSubmit = handleSubmit(async (values) => {
+    if (amountExceedsBalance) {
+      setError("amount", { message: "Insufficient balance in the selected account." });
+      return;
+    }
     if (receipt) {
       const fileError = validateReceipt(receipt);
       if (fileError) {
@@ -134,6 +143,7 @@ function ComposerForm({ accounts, categories, kind }: ComposerFormProps) {
         <span className="amount-input"><small>{fromAccount?.currency ?? "USD"}</small><input aria-label="Amount" inputMode="decimal" placeholder="0.00" {...register("amount")} /></span>
         {errors.amount ? <small role="alert">{errors.amount.message}</small> : null}
       </label>
+      {amountExceedsBalance && fromAccount ? <p className="transaction-balance-warning" role="alert">Insufficient balance. {fromAccount.name} has {formatMoney(fromAccount.current_balance, fromAccount.currency)} available.</p> : null}
 
       <div className="form-card">
         <label className="transaction-field">
@@ -191,7 +201,7 @@ function ComposerForm({ accounts, categories, kind }: ComposerFormProps) {
       </div>
 
       {errors.root ? <p className="form-error" role="alert">{errors.root.message}</p> : null}
-      <button className="save-transaction-button" disabled={isSubmitting || missingSetup} type="submit">{isSubmitting ? "Saving…" : kind === "transfer" ? "Transfer money" : `Save ${kind}`}</button>
+      <button className="save-transaction-button" disabled={isSubmitting || missingSetup || amountExceedsBalance} type="submit">{isSubmitting ? "Saving…" : kind === "transfer" ? "Transfer money" : `Save ${kind}`}</button>
     </form>
   );
 }

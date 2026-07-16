@@ -1340,6 +1340,16 @@ a {
   font-size: 0.72rem;
   line-height: 1.45;
 }
+.transaction-balance-warning {
+  margin: -3px 0 0;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--red) 25%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--red) 9%, var(--surface));
+  color: var(--red);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
 .form-notice { background: var(--brand-soft); color: var(--text-muted); }
 .setup-requirement { display: grid; padding: 15px; border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border)); border-radius: 20px; background: var(--surface-tint); gap: 11px; }
 .setup-requirement strong { font-size: 0.78rem; }
