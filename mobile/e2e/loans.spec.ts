@@ -20,6 +20,14 @@ test("shows searchable loan summaries and meaningful detail paths", async ({ pag
   await page.goto("/loan");
   await expect(page.getByText("Alex Morgan")).toBeVisible();
   await expect(page.getByText("$400.00", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Filter loans" }).click();
+  const filterDrawer = page.getByRole("dialog", { name: "Filter loans" });
+  await expect(filterDrawer).toBeVisible();
+  await filterDrawer.getByRole("button", { name: "given" }).click();
+  await filterDrawer.getByRole("button", { name: "open" }).click();
+  await filterDrawer.getByRole("button", { name: "Show loans" }).click();
+  await expect(filterDrawer).toBeHidden();
+  await expect(page.getByRole("button", { name: "Filter loans, 2 active" })).toBeVisible();
   await page.getByLabel("Search loans").fill("missing");
   await expect(page.getByText("No loan records")).toBeVisible();
   await page.getByLabel("Search loans").fill("Alex");

@@ -65,16 +65,21 @@ test("creates and edits a savings goal on dedicated paths", async ({ page }) => 
   await page.goto("/goal/new");
   await page.getByLabel("Goal name").fill("Emergency fund");
   await page.getByLabel("Target amount").fill("5000");
-  await page.getByLabel("Monthly target").fill("300");
+  await expect(page.getByLabel("Monthly target")).toBeDisabled();
+  await expect(page.getByLabel("Target date")).toHaveAttribute("required", "");
+  const targetDate = await page.evaluate(() => { const date = new Date(); date.setFullYear(date.getFullYear() + 1); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; });
+  await page.getByLabel("Target date").fill(targetDate);
+  await expect(page.getByLabel("Monthly target")).toHaveValue("416.6667");
   await page.getByRole("button", { name: "Create goal" }).click();
   await expect(page).toHaveURL(`/goal/${ids.goal}`);
-  expect(createPayload).toMatchObject({ currency: "USD", monthly_target_amount: "300", name: "Emergency fund", target_amount: "5000" });
+  expect(createPayload).toMatchObject({ currency: "USD", monthly_target_amount: "416.6667", name: "Emergency fund", target_amount: "5000", target_date: targetDate });
 
   await page.getByRole("link", { name: "Edit goal" }).click();
-  await page.getByLabel("Monthly target").fill("350");
+  await expect(page.getByLabel("Monthly target")).toBeDisabled();
+  const editedMonthlyTarget = await page.getByLabel("Monthly target").inputValue();
   await page.getByRole("button", { name: "Save goal" }).click();
   await expect(page).toHaveURL(`/goal/${ids.goal}`);
-  expect(updatePayload).toMatchObject({ monthly_target_amount: "350", name: "House fund" });
+  expect(updatePayload).toMatchObject({ monthly_target_amount: editedMonthlyTarget, name: "House fund", target_date: goal.target_date });
 });
 
 test("moves money from an account into a goal and deletes with a Drawer", async ({ page }) => {

@@ -2150,6 +2150,8 @@ a {
 .goal-form-intro h2 { margin: 4px 0 0; font-size: 1.12rem; letter-spacing: -0.035em; }
 .budget-setup-intro p:last-child,
 .goal-form-intro p:last-child { margin: 6px 0 0; color: var(--text-muted); font-size: 0.69rem; line-height: 1.5; }
+.goal-form .transaction-field input:disabled { background: var(--surface-soft); color: var(--text-muted); cursor: default; opacity: 1; }
+.goal-monthly-hint { margin: 0; color: var(--text-muted); font-size: 0.63rem; line-height: 1.4; }
 .budget-total-field { display: grid; padding: 17px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-card); gap: 8px; }
 .budget-total-field > span { color: var(--text-muted); font-size: 0.68rem; font-weight: 700; }
 .budget-total-field > p { margin: -2px 0 2px; color: var(--text-muted); font-size: 0.64rem; line-height: 1.4; }
@@ -2234,12 +2236,6 @@ a {
 .loan-summary-hero > div span { display: grid; gap: 4px; }
 .loan-summary-hero small { color: rgb(255 255 255 / 76%); font-size: 0.61rem; }
 .loan-summary-hero strong { font-size: 0.8rem; }
-.loan-search { display: flex; min-height: 47px; align-items: center; margin-top: 14px; padding: 0 13px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow-card); color: var(--text-muted); gap: 8px; }
-.loan-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 0.74rem; }
-.loan-filter-tabs { display: grid; margin-top: 10px; padding: 4px; border-radius: 16px; background: var(--surface-soft); grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
-.loan-filter-tabs button { min-height: 37px; border-radius: 12px; background: transparent; color: var(--text-muted); font-size: 0.62rem; font-weight: 700; }
-.loan-filter-tabs button[aria-pressed="true"] { background: var(--surface); color: var(--brand-active); box-shadow: var(--shadow-card); }
-.loan-status-tabs { margin-top: 7px; }
 .loan-list-section { margin-top: 22px; }
 .loan-list-section .section-heading > span,
 .loan-settlements .section-heading > span { min-width: 30px; padding: 6px 9px; border-radius: 999px; background: var(--surface-soft); color: var(--text-muted); font-size: 0.63rem; font-weight: 720; text-align: center; }

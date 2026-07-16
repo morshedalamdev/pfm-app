@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createSavingsTransfer, getPlanData } from "@/lib/plans/api";
 import type { Budget, SavingsGoal } from "@/lib/plans/types";
-import { budgetTotals, goalTotals, isPositiveMoney, planMonthRange, preferredGoalAccount, progressPercent } from "@/lib/plans/utils";
+import { budgetTotals, goalTotals, isPositiveMoney, monthlyTargetForDate, planMonthRange, preferredGoalAccount, progressPercent } from "@/lib/plans/utils";
 
 const budget = (categoryId: string | null, limit: string, spent: string): Budget => ({ archived_at: null, category_id: categoryId, category_name: categoryId ? "Dining" : null, created_at: "2026-07-01T00:00:00Z", currency: "USD", id: categoryId ?? "overall", is_archived: false, limit_amount: limit, period_end: "2026-08-01", period_start: "2026-07-01", period_type: "monthly", progress: { percent_used: "25", remaining_amount: String(Number(limit) - Number(spent)), spent_amount: spent, status: "on_track" }, updated_at: "2026-07-01T00:00:00Z" });
 const goal = (status: SavingsGoal["status"], saved: string, target: string): SavingsGoal => ({ archived_at: null, completed_at: status === "completed" ? "2026-07-01T00:00:00Z" : null, created_at: "2026-07-01T00:00:00Z", currency: "USD", id: `${status}-${saved}`, monthly_target_amount: "100", name: "Goal", note: null, progress: { is_target_met: status === "completed", percent_complete: String((Number(saved) / Number(target)) * 100), remaining_amount: String(Number(target) - Number(saved)), saved_amount: saved }, status, target_amount: target, target_date: null, updated_at: "2026-07-01T00:00:00Z" });
@@ -31,6 +31,9 @@ describe("plans", () => {
     expect(isPositiveMoney("0.0001")).toBe(true);
     expect(isPositiveMoney("0")).toBe(false);
     expect(progressPercent("151")).toBe(100);
+    expect(monthlyTargetForDate("5000", "2027-07-17", new Date("2026-07-17T10:00:00Z"))).toBe("416.6667");
+    expect(monthlyTargetForDate("1000", "2026-10-18", new Date("2026-07-17T10:00:00Z"))).toBe("250.0000");
+    expect(monthlyTargetForDate("1000", "", new Date("2026-07-17T10:00:00Z"))).toBe("0");
   });
 
   it("uses the overall budget for totals without double counting allocations", () => {

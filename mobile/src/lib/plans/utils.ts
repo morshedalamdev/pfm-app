@@ -21,6 +21,21 @@ export function isMoney(value: string): boolean {
   return /^\d{1,14}(?:\.\d{1,4})?$/.test(value.trim());
 }
 
+export function monthlyTargetForDate(target: string, targetDate: string, today = new Date()): string {
+  if (!isPositiveMoney(target) || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) return "0";
+
+  const deadline = new Date(`${targetDate}T00:00:00Z`);
+  if (Number.isNaN(deadline.getTime()) || deadline.toISOString().slice(0, 10) !== targetDate) return "0";
+
+  const current = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  if (deadline.getTime() < current) return "0";
+
+  const monthDifference = (deadline.getUTCFullYear() - today.getFullYear()) * 12
+    + deadline.getUTCMonth() - today.getMonth();
+  const months = Math.max(1, monthDifference + Number(deadline.getUTCDate() > today.getDate()));
+  return new Decimal(target).dividedBy(months).toDecimalPlaces(4, Decimal.ROUND_UP).toFixed(4);
+}
+
 export function budgetTotals(budgets: Budget[]) {
   const overall = budgets.find((budget) => budget.category_id === null);
   const source = overall ? [overall] : budgets;
