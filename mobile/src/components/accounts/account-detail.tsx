@@ -36,7 +36,7 @@ export function AccountDetail({ accountId }: { accountId: string }) {
     try { await remove.mutateAsync(accountId); } catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "Unable to remove this account."); }
   }
 
-  return <MobileShell><main className="standard-page account-detail-page"><PageHeader backHref={"/accounts" as Route} title="Account details" trailing={<ThemeToggle compact />} />
+  return <MobileShell><div className="standard-page account-detail-page"><PageHeader backHref={"/accounts" as Route} title="Account details" trailing={<ThemeToggle compact />} />
     {account.isPending ? <div aria-busy="true" aria-label="Loading account" className="accounts-skeleton" /> : null}
     {account.isError ? <section className="management-error" role="alert"><strong>Couldn’t load this account</strong><button onClick={() => void account.refetch()} type="button">Try again</button></section> : null}
     {value ? <><section className="account-detail-hero"><span><Landmark aria-hidden="true" size={25} /></span><p className="eyebrow">{value.type.replaceAll("_", " ")}</p><h2>{value.name}</h2><strong>{formatMoney(value.current_balance, value.currency)}</strong>{value.is_default ? <small><Star aria-hidden="true" size={13} /> Default account</small> : value.is_disabled ? <small className="account-disabled">Disabled</small> : <small>Available for transactions</small>}</section>
@@ -45,5 +45,5 @@ export function AccountDetail({ accountId }: { accountId: string }) {
       <p className="account-detail-note"><ShieldCheck aria-hidden="true" size={16} />Removing is available only when an account has no linked activity.</p>
     </> : null}
     <Drawer onOpenChange={setDeleteOpen} open={deleteOpen}><DrawerContent><DrawerHeader><DrawerTitle>Remove this account?</DrawerTitle><DrawerDescription>{eligibility.isPending ? "Checking whether this account is safe to remove…" : eligibility.data && !canDeleteAccount(eligibility.data) ? accountDeleteReason(eligibility.data) : "This permanently removes the account. This can’t be undone."}</DrawerDescription></DrawerHeader>{deleteError ? <p className="drawer-error" role="alert">{deleteError}</p> : null}<DrawerFooter>{eligibility.data && canDeleteAccount(eligibility.data) ? <button className="drawer-danger-button" disabled={remove.isPending} onClick={() => void confirmDelete()} type="button">{remove.isPending ? "Removing…" : "Remove account"}</button> : null}<DrawerClose asChild><button className="drawer-close-button" type="button">Close</button></DrawerClose></DrawerFooter></DrawerContent></Drawer>
-  </main></MobileShell>;
+  </div></MobileShell>;
 }

@@ -1,4 +1,4 @@
-import { SettingsDashboard } from "@/components/settings/settings-dashboard";
+import { SettingsHub } from "@/components/settings/settings-hub";
 import { settingsSection } from "@/lib/settings/utils";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
@@ -23,5 +23,5 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     redirect(canonicalRoutes[section] as Route);
   }
 
-  return <SettingsDashboard initialSection="overview" />;
+  return <SettingsHub />;
 }

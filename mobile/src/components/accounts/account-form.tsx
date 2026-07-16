@@ -32,7 +32,15 @@ export function AccountForm() {
     }
     try {
       const account = await create.mutateAsync({ currency, name: name.trim(), opening_balance: openingBalance, type });
-      await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+        queryClient.invalidateQueries({ queryKey: ["budget-setup"] }),
+        queryClient.invalidateQueries({ queryKey: ["goal-detail"] }),
+        queryClient.invalidateQueries({ queryKey: ["goal-editor"] }),
+        queryClient.invalidateQueries({ queryKey: ["loan-editor"] }),
+        queryClient.invalidateQueries({ queryKey: ["recurring-editor"] }),
+        queryClient.invalidateQueries({ queryKey: ["transaction-options"] }),
+      ]);
       const next = getSafeNextPath(searchParams.get("next"));
       router.replace((next === "/" ? `/accounts/${account.id}` : next) as Route);
     } catch (cause) {
@@ -42,7 +50,7 @@ export function AccountForm() {
 
   return (
     <MobileShell>
-      <main className="standard-page account-form-page">
+      <div className="standard-page account-form-page">
         <PageHeader backHref={"/accounts" as Route} title="Add account" trailing={<ThemeToggle compact />} />
         <section className="account-form-intro"><p className="eyebrow">FIRST, A MONEY SOURCE</p><h2>Where do you use money?</h2><p>Start with the account, card, or cash you use most. You can add the rest later.</p></section>
         <form className="management-form account-form" noValidate onSubmit={(event) => void submit(event)}>
@@ -53,7 +61,7 @@ export function AccountForm() {
           {error ? <p className="form-error" role="alert">{error}</p> : null}
           <button className="management-submit" disabled={create.isPending} type="submit">{create.isPending ? "Adding account…" : "Add account"}</button>
         </form>
-      </main>
+      </div>
     </MobileShell>
   );
 }

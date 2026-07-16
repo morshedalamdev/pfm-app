@@ -38,9 +38,11 @@ test("updates the authenticated profile", async ({ page }) => {
   await page.route("**/api/backend/users/me", async (route) => { if (route.request().method() === "PATCH") payload = route.request().postDataJSON() as Record<string, unknown>; await route.fulfill({ contentType: "application/json", json: payload ? { ...profile, ...payload } : profile }); });
   await page.goto("/profile");
   await page.getByLabel("Full name").fill("Morgan Park");
+  await page.getByLabel("Email").fill("morgan.park@example.com");
+  await page.getByLabel("Occupation").selectOption("business");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByText("Profile updated.")).toBeVisible();
-  expect(payload).toMatchObject({ full_name: "Morgan Park", base_currency: "USD" });
+  expect(payload).toMatchObject({ full_name: "Morgan Park", email: "morgan.park@example.com", occupation: "business", base_currency: "USD" });
 });
 
 test("creates accounts and categories with backend-shaped payloads", async ({ page }) => {
@@ -52,10 +54,50 @@ test("creates accounts and categories with backend-shaped payloads", async ({ pa
   await page.getByLabel("Opening balance").fill("350");
   await page.getByRole("button", { name: "Add account" }).click();
   await page.goto("/settings/categories");
-  await page.getByLabel("Name").fill("Books");
-  await page.getByRole("button", { name: "Add category" }).click();
+  await page.getByRole("link", { name: "New category" }).click();
+  await page.getByLabel("Category name").fill("Books");
+  await page.getByRole("button", { name: "Create category" }).click();
   expect(payloads[0]).toMatchObject({ name: "Travel cash", opening_balance: "350", type: "bank_account" });
   expect(payloads[1]).toMatchObject({ kind: "expense", name: "Books" });
+});
+
+test("uses clear settings paths and edits and archives a custom category in a drawer", async ({ page }) => {
+  let updatePayload: Record<string, unknown> | null = null;
+  let archived = false;
+  await page.route(`**/api/backend/categories/${ids.category}`, async (route) => {
+    if (route.request().method() === "PATCH") updatePayload = route.request().postDataJSON() as Record<string, unknown>;
+    if (route.request().method() === "DELETE") archived = true;
+    await route.fulfill({ contentType: "application/json", json: { ...category, ...(updatePayload ?? {}), is_archived: archived } });
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByRole("link", { name: /Profile/ })).toHaveAttribute("href", "/profile");
+  await expect(page.getByRole("link", { name: /Accounts/ })).toHaveAttribute("href", "/accounts");
+  await expect(page.getByRole("link", { name: /Categories/ })).toHaveAttribute("href", "/settings/categories");
+  await page.getByRole("link", { name: /Categories/ }).click();
+  await page.getByRole("link", { name: /Dining/ }).click();
+  await expect(page).toHaveURL(`/settings/categories/${ids.category}/edit`);
+  await page.getByLabel("Category name").fill("Eating out");
+  await page.getByRole("button", { name: "Save category" }).click();
+  await expect(page).toHaveURL("/settings/categories");
+  expect(updatePayload).toMatchObject({ icon_key: "food", kind: "expense", name: "Eating out" });
+
+  await page.goto(`/settings/categories/${ids.category}/edit`);
+  await page.getByRole("button", { name: "Archive category" }).click();
+  const drawer = page.getByRole("dialog", { name: "Archive Dining?" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText(/past records keep their category/i)).toBeVisible();
+  await drawer.getByRole("button", { name: "Archive category" }).click();
+  await expect(page).toHaveURL("/settings/categories");
+  expect(archived).toBe(true);
+});
+
+test("keeps profile, settings, and categories accessible and overflow-free", async ({ page }) => {
+  for (const route of ["/settings", "/profile", "/settings/categories"]) {
+    await page.goto(route);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  }
 });
 
 test("creates a loan contact, loan record, and settlement", async ({ page }) => {
@@ -155,5 +197,23 @@ for (const theme of ["light", "dark"] as const) {
     await expect(page.getByText("Budget alert")).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await expect(page).toHaveScreenshot(`notifications-${theme}.png`, { animations: "disabled", fullPage: true });
+  });
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`matches the ${theme} theme reference baseline for profile, settings, and categories`, async ({ page }) => {
+    await page.goto("/settings");
+    await page.evaluate((selectedTheme) => localStorage.setItem("pfm-mobile-theme", selectedTheme), theme);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Make the app feel like yours." })).toBeVisible();
+    await expect(page).toHaveScreenshot(`settings-${theme}.png`, { animations: "disabled", fullPage: true });
+
+    await page.goto("/profile");
+    await expect(page.getByLabel("Full name")).toHaveValue("Morgan Lee");
+    await expect(page).toHaveScreenshot(`profile-${theme}.png`, { animations: "disabled", fullPage: true });
+
+    await page.goto("/settings/categories");
+    await expect(page.getByText("Dining", { exact: true })).toBeVisible();
+    await expect(page).toHaveScreenshot(`categories-${theme}.png`, { animations: "disabled", fullPage: true });
   });
 }

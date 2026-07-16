@@ -117,7 +117,7 @@ function AccountsSection() {
 }
 
 function CategoriesSection() {
-  const queryClient = useQueryClient(); const categories = useQuery({ queryFn: getCategories, queryKey: ["settings", "categories"] }); const [name, setName] = useState(""); const [kind, setKind] = useState<"expense" | "income">("expense"); const [error, setError] = useState<string | null>(null); const create = useMutation({ mutationFn: createCategory }); const archive = useMutation({ mutationFn: archiveCategory });
+  const queryClient = useQueryClient(); const categories = useQuery({ queryFn: () => getCategories(), queryKey: ["settings", "categories"] }); const [name, setName] = useState(""); const [kind, setKind] = useState<"expense" | "income">("expense"); const [error, setError] = useState<string | null>(null); const create = useMutation({ mutationFn: createCategory }); const archive = useMutation({ mutationFn: archiveCategory });
   async function refresh() { await queryClient.invalidateQueries({ queryKey: ["settings", "categories"] }); }
   async function submit(event: FormEvent) { event.preventDefault(); setError(null); if (!name.trim()) { setError("Enter a category name."); return; } try { await create.mutateAsync({ icon_key: kind === "income" ? "wallet" : "tag", kind, name: name.trim() }); setName(""); await refresh(); } catch (cause) { setError(messageFor(cause, "Unable to create the category.")); } }
   if (!categories.data) return <LoadState error={categories.isError} label="categories" onRetry={() => void categories.refetch()} />;

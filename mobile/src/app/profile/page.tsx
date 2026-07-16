@@ -1,5 +1,5 @@
-import { SettingsDashboard } from "@/components/settings/settings-dashboard";
+import { ProfileDashboard } from "@/components/settings/profile-dashboard";
 
 export default function ProfilePage() {
-  return <SettingsDashboard initialSection="profile" standalone title="Profile" />;
+  return <ProfileDashboard />;
 }

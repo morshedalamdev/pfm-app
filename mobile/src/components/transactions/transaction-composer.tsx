@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightLeft, CalendarDays, Camera, Landmark, NotebookPen, Tags } from "lucide-react";
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -121,10 +122,13 @@ function ComposerForm({ accounts, categories, kind }: ComposerFormProps) {
   });
 
   const missingSetup = accounts.length < (kind === "transfer" ? 2 : 1) || (kind !== "transfer" && categories.length === 0);
+  const needsAccounts = accounts.length < (kind === "transfer" ? 2 : 1);
+  const needsCategory = kind !== "transfer" && categories.length === 0;
+  const returnPath = `/transaction/new?type=${kind}`;
 
   return (
     <form className="transaction-form" noValidate onSubmit={onSubmit}>
-      {missingSetup ? <p className="form-notice" role="status">Add {accounts.length < (kind === "transfer" ? 2 : 1) ? "the required accounts" : `an ${kind} category`} in Settings before saving.</p> : null}
+      {missingSetup ? <section className="setup-requirement" role="status"><div><strong>Finish setup to continue</strong><p>{kind === "transfer" ? "A transfer needs two active accounts." : "This transaction needs an active account and category."}</p></div><div>{needsAccounts ? <Link href={`/accounts/new?next=${encodeURIComponent(returnPath)}` as Route}>Add {kind === "transfer" ? "an account" : "account"}</Link> : null}{needsCategory ? <Link href={`/settings/categories/new?kind=${kind}&next=${encodeURIComponent(returnPath)}` as Route}>Add {kind} category</Link> : null}</div></section> : null}
 
       <label className="transaction-field amount-field">
         <span>Amount</span>

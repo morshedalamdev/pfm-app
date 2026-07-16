@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { futureDate, isPositiveMoney, localDateTimeValue, settingsSection } from "@/lib/settings/utils";
+import { emptyToNull, futureDate, isCurrencyCode, isPositiveMoney, localDateTimeValue, profileInitials, settingsSection } from "@/lib/settings/utils";
 
 describe("settings utilities", () => {
   it("accepts known sections and falls back to overview", () => {
@@ -20,5 +20,23 @@ describe("settings utilities", () => {
     const date = new Date("2026-07-15T09:30:00.000Z");
     expect(localDateTimeValue(date)).toHaveLength(16);
     expect(futureDate(30, date)).toBe("2026-08-14");
+  });
+});
+
+describe("profile helpers", () => {
+  it("normalizes optional profile text", () => {
+    expect(emptyToNull("  Designer  ")).toBe("Designer");
+    expect(emptyToNull("   ")).toBeNull();
+  });
+
+  it("validates three-letter uppercase currencies", () => {
+    expect(isCurrencyCode("USD")).toBe(true);
+    expect(isCurrencyCode("usd")).toBe(false);
+    expect(isCurrencyCode("US")).toBe(false);
+  });
+
+  it("creates approachable avatar initials", () => {
+    expect(profileInitials("Morgan Lee", "morgan@example.com")).toBe("ML");
+    expect(profileInitials(null, "morgan@example.com")).toBe("M");
   });
 });

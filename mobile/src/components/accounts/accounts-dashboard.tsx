@@ -19,7 +19,7 @@ export function AccountsDashboard() {
 
   return (
     <MobileShell>
-      <main className="standard-page accounts-page">
+      <div className="standard-page accounts-page">
         <PageHeader backHref={null} title="Accounts" trailing={<ThemeToggle compact />} />
         <section className="accounts-hero">
           <p className="eyebrow">MONEY SOURCES</p>
@@ -41,7 +41,7 @@ export function AccountsDashboard() {
             )) : <div className="accounts-empty"><WalletCards aria-hidden="true" size={25} /><strong>Your first account belongs here</strong><span>Use cash, a bank account, or a card—whatever you spend from first.</span><Link href={"/accounts/new" as Route}>Add your first account</Link></div>}
           </section>
         ) : null}
-      </main>
+      </div>
     </MobileShell>
   );
 }

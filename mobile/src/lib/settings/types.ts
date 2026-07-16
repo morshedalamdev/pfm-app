@@ -6,6 +6,7 @@ export type AccountList = components["schemas"]["AccountListResponse"];
 export type Category = components["schemas"]["CategoryResponse"];
 export type CategoryCreate = components["schemas"]["CategoryCreateRequest"];
 export type CategoryList = components["schemas"]["CategoryListResponse"];
+export type CategoryUpdate = components["schemas"]["CategoryUpdateRequest"];
 export type LoanPerson = components["schemas"]["LoanPersonResponse"];
 export type LoanPersonCreate = components["schemas"]["LoanPersonCreateRequest"];
 export type LoanPersonList = components["schemas"]["LoanPersonListResponse"];

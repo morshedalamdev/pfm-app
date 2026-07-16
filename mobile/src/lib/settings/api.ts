@@ -6,6 +6,7 @@ import type {
   Category,
   CategoryCreate,
   CategoryList,
+  CategoryUpdate,
   LoanData,
   LoanPerson,
   LoanPersonCreate,
@@ -49,12 +50,25 @@ export function disableAccount(id: string) {
   return sendBackendJson<Account>(`accounts/${encodeURIComponent(id)}/disable`, "PATCH");
 }
 
-export function getCategories() {
-  return getBackendJson<CategoryList>("categories?limit=100", "We couldn't load your categories.");
+export function getCategories(kind?: "expense" | "income") {
+  const search = new URLSearchParams({ limit: "100" });
+  if (kind) search.set("kind", kind);
+  return getBackendJson<CategoryList>(`categories?${search}`, "We couldn't load your categories.");
 }
 
 export function createCategory(payload: CategoryCreate) {
   return sendBackendJson<Category>("categories", "POST", payload);
+}
+
+export async function getCategory(id: string) {
+  const categories = await getCategories();
+  const category = categories.items.find((item) => item.id === id && !item.is_archived);
+  if (!category) throw new Error("We couldn't find this category.");
+  return category;
+}
+
+export function updateCategory(id: string, payload: CategoryUpdate) {
+  return sendBackendJson<Category>(`categories/${encodeURIComponent(id)}`, "PATCH", payload);
 }
 
 export function archiveCategory(id: string) {

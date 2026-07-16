@@ -28,3 +28,18 @@ export function futureDate(days = 30, date = new Date()): string {
   result.setDate(result.getDate() + days);
   return result.toISOString().slice(0, 10);
 }
+
+export function emptyToNull(value: string): string | null {
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+export function isCurrencyCode(value: string): boolean {
+  return /^[A-Z]{3}$/.test(value);
+}
+
+export function profileInitials(fullName: string | null, email: string): string {
+  const words = fullName?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (words.length) return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join("");
+  return email.slice(0, 1).toUpperCase() || "U";
+}

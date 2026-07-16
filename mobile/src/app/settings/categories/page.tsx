@@ -1,5 +1,5 @@
-import { SettingsDashboard } from "@/components/settings/settings-dashboard";
+import { CategoriesDashboard } from "@/components/settings/categories-dashboard";
 
 export default function CategoriesPage() {
-  return <SettingsDashboard initialSection="categories" standalone title="Categories" />;
+  return <CategoriesDashboard />;
 }
