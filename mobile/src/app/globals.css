@@ -2103,10 +2103,6 @@ a {
   box-shadow: 0 17px 34px rgb(112 62 214 / 20%);
 }
 
-.budget-month-toolbar { display: flex; min-height: 46px; align-items: center; margin-top: 14px; padding: 0 13px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow-card); gap: 8px; }
-.budget-month-toolbar > span { font-size: 0.68rem; font-weight: 700; }
-.budget-month-toolbar input { width: 108px; margin-left: auto; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 0.72rem; font-weight: 700; }
-
 .budget-summary-hero .eyebrow,
 .goal-summary-hero .eyebrow { color: rgb(255 255 255 / 78%); }
 .budget-summary-hero h2 { margin: 6px 0 0; font-size: 0.9rem; }
@@ -2154,18 +2150,13 @@ a {
 .goal-monthly-hint { margin: 0; color: var(--text-muted); font-size: 0.63rem; line-height: 1.4; }
 .budget-total-field { display: grid; padding: 17px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-card); gap: 8px; }
 .budget-total-field > span { color: var(--text-muted); font-size: 0.68rem; font-weight: 700; }
-.budget-total-field > p { margin: -2px 0 2px; color: var(--text-muted); font-size: 0.64rem; line-height: 1.4; }
 .budget-total-field > div,
 .budget-category-fields label > div { display: flex; align-items: center; border-bottom: 2px solid var(--border); }
 .budget-total-field small,
 .budget-category-fields label small { color: var(--brand-active); font-size: 0.68rem; font-weight: 750; }
 .budget-total-field input { width: 100%; min-width: 0; padding: 5px 0 5px 8px; border: 0; outline: 0; background: transparent; font-size: 1.7rem; font-weight: 760; letter-spacing: -0.04em; }
-.budget-total-field input:read-only { color: var(--text-muted); cursor: default; }
-.budget-setup-tabs { display: grid; padding: 4px; border-radius: 16px; background: var(--surface-soft); grid-template-columns: repeat(2, 1fr); gap: 4px; }
-.budget-setup-tabs button { min-height: 41px; border-radius: 13px; background: transparent; color: var(--text-muted); font-size: 0.72rem; font-weight: 710; }
-.budget-setup-tabs button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-card); }
 .budget-allocation-summary { padding: 16px; border-radius: 22px; background: var(--surface-soft); }
-.budget-allocation-summary > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.budget-allocation-summary > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .budget-allocation-summary > div span { display: grid; gap: 4px; }
 .budget-allocation-summary small { color: var(--text-muted); font-size: 0.62rem; }
 .budget-allocation-summary strong { font-size: 0.82rem; }
@@ -2175,15 +2166,6 @@ a {
 .budget-category-fields > label { display: grid; align-items: center; padding: 11px 13px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); grid-template-columns: minmax(0, 1fr) 128px; gap: 10px; }
 .budget-category-fields > label > span { overflow: hidden; font-size: 0.72rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .budget-category-fields label input { width: 100%; min-width: 0; padding: 7px 0 7px 6px; border: 0; outline: 0; background: transparent; font-size: 0.75rem; font-weight: 710; text-align: right; }
-.budget-detail-list { display: grid; gap: 9px; }
-.budget-detail-list .section-heading > svg,
-.budget-category-fields .section-heading > svg { color: var(--brand-active); }
-.budget-detail-list > article { display: grid; min-width: 0; align-items: center; padding: 13px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
-.budget-detail-list > article > div { display: grid; min-width: 0; gap: 4px; }
-.budget-detail-list > article > div strong { overflow: hidden; font-size: 0.74rem; text-overflow: ellipsis; white-space: nowrap; }
-.budget-detail-list > article span { color: var(--text-muted); font-size: 0.62rem; }
-.budget-detail-list > article > strong { font-size: 0.75rem; }
-
 .goal-summary-hero { display: grid; justify-items: center; text-align: center; }
 .goal-summary-hero > span { display: grid; width: 49px; height: 49px; place-items: center; border-radius: 17px; background: rgb(255 255 255 / 17%); }
 .goal-summary-hero .eyebrow { margin-top: 13px; }

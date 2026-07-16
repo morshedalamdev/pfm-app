@@ -41,9 +41,6 @@ test("creates and updates budget allocations, then deletes with a Drawer", async
   await page.route("**/api/backend/budgets", async (route) => { createPayload = route.request().postDataJSON() as Record<string, unknown>; await route.fulfill({ contentType: "application/json", json: { ...budget, category_id: null, category_name: null, id: "55555555-5555-5555-5555-555555555555" }, status: 201 }); });
   await page.route(`**/api/backend/budgets/${ids.budget}`, async (route) => { if (route.request().method() === "PATCH") updatePayload = route.request().postDataJSON() as Record<string, unknown>; if (route.request().method() === "DELETE") deleted = true; await route.fulfill({ contentType: "application/json", json: budget }); });
   await page.goto("/budget/setup");
-  await expect(page.getByLabel("Monthly budget")).toHaveAttribute("readonly", "");
-  await expect(page.getByText("Category details")).toBeVisible();
-  await page.getByRole("button", { name: "Custom" }).click();
   await page.getByLabel("Monthly budget").fill("1200");
   await page.getByLabel("Dining budget").fill("600");
   await page.getByRole("button", { name: "Save budget" }).click();
@@ -127,10 +124,6 @@ for (const theme of ["light", "dark"] as const) {
     await expect(page.getByText("Dining")).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await expect(page).toHaveScreenshot(`budget-${theme}.png`, { animations: "disabled", fullPage: true });
-    await page.goto("/budget/setup");
-    await expect(page.getByText("Category details")).toBeVisible();
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    await expect(page).toHaveScreenshot(`budget-setup-${theme}.png`, { animations: "disabled", fullPage: true });
     await page.goto("/goal");
     await expect(page.getByText("House fund")).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
