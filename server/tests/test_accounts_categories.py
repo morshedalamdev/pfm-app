@@ -349,7 +349,9 @@ def test_used_accounts_cannot_be_removed(
 ) -> None:
     context = finance_context
     headers = auth_headers(context, "account-use-guard@example.com")
-    transaction_account = create_account(context, headers, "Spending Cash", "cash", "0")
+    transaction_account = create_account(
+        context, headers, "Spending Cash", "cash", "10"
+    )
     recurring_account = create_account(context, headers, "Recurring Bank", "bank", "0")
     loan_account = create_account(context, headers, "Loan Bank", "bank", "100")
     settlement_account = create_account(
@@ -567,7 +569,7 @@ def test_account_delete_eligibility_helper(
 ) -> None:
     context = finance_context
     headers = auth_headers(context, "account-delete-eligibility@example.com")
-    used_account = create_account(context, headers, "Used Cash", "cash", "0")
+    used_account = create_account(context, headers, "Used Cash", "cash", "10")
     unused_account = create_account(context, headers, "Unused Cash", "cash", "0")
     expense_category = create_category(context, headers, "Food", "expense", "utensils")
 

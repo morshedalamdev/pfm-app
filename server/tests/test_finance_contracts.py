@@ -55,6 +55,7 @@ def test_finance_openapi_transaction_list_contract() -> None:
     assert parameters["type"]["schema"]["anyOf"][0]["enum"] == [
         "income",
         "expense",
+        "transfer",
         "transfer_debit",
         "transfer_credit",
     ]

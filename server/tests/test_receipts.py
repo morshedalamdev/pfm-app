@@ -270,7 +270,7 @@ def create_account(
         json={
             "name": "Receipt Wallet",
             "type": "wallet",
-            "opening_balance": "0",
+            "opening_balance": "20",
             "currency": "USD",
         },
     )

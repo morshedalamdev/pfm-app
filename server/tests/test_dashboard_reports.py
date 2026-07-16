@@ -140,7 +140,7 @@ def test_dashboard_report_aggregates_source_records_and_boundaries(
     expense_category = create_category(
         context, headers, "Dining", "expense", "utensils"
     )
-    other_account = create_account(context, other_headers, "Other", "bank", "500.0000")
+    other_account = create_account(context, other_headers, "Other", "bank", "1000.0000")
     other_expense = create_category(
         context, other_headers, "Other Dining", "expense", "utensils"
     )
@@ -178,7 +178,7 @@ def test_dashboard_report_aggregates_source_records_and_boundaries(
         checking["id"],
         expense_category["id"],
         "expense",
-        "999.0000",
+        "400.0000",
         "2026-01-14T00:00:00+00:00",
     )
     delete_response = context.client.delete(
@@ -297,7 +297,7 @@ def test_dashboard_report_totals_include_transactions_and_exclude_loans_and_recu
     context = report_context
     headers = auth_headers(context, "dashboard-loan-exclusion@example.com")
     income_account = create_account(context, headers, "Checking", "bank", "0.0000")
-    expense_account = create_account(context, headers, "Wallet", "wallet", "0.0000")
+    expense_account = create_account(context, headers, "Wallet", "wallet", "50.0000")
     income_category = create_category(context, headers, "Salary", "income", "briefcase")
     expense_category = create_category(
         context,
