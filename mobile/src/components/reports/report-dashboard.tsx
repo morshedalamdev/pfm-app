@@ -7,7 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { getReportData } from "@/lib/reports/api";
 import { cashFlowHeight, currentMonthKey, formatReportPercent, reportMonthLabel, reportPercent } from "@/lib/reports/utils";
 import { formatMoney, formatSignedMoney } from "@/lib/home/view-model";
@@ -64,7 +63,7 @@ export function ReportDashboard({ title = "Report" }: { title?: string }) {
   return (
     <MobileShell>
       <div className="standard-page report-page">
-        <PageHeader backHref={null} title={title} trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={null} title={title} />
         <div className="report-month-picker">
           <button aria-label="Previous month" onClick={() => setMonth((value) => moveMonth(value, -1))} type="button"><ChevronLeft aria-hidden="true" size={18} /></button>
           <label><CalendarDays aria-hidden="true" size={16} /><input aria-label="Report month" max={currentMonthKey()} onChange={(event) => setMonth(event.target.value)} type="month" value={month} /></label>

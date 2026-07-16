@@ -9,7 +9,6 @@ import { useState } from "react";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { deleteTransaction, getTransactionDetail } from "@/lib/transactions/api";
 import { isIncomingTransaction, isTransferTransaction, transactionTitle } from "@/lib/transactions/history";
@@ -44,7 +43,7 @@ export function TransactionDetail({ transactionId }: { transactionId: string }) 
   const category = transaction ? data?.categories.find((item) => item.id === transaction.category_id) : undefined;
   const Icon = transfer ? ArrowLeftRight : incoming ? ArrowDownLeft : ArrowUpRight;
 
-  return <MobileShell><div className="standard-page transaction-detail-page"><PageHeader backHref={"/transaction" as Route} title="Transaction details" trailing={<ThemeToggle compact />} />
+  return <MobileShell><div className="standard-page transaction-detail-page"><PageHeader backHref={"/transaction" as Route} title="Transaction details" />
     {detail.isPending ? <div aria-busy="true" aria-label="Loading transaction" className="transaction-form-skeleton" /> : null}
     {detail.isError ? <section className="transaction-history-error" role="alert"><strong>Couldn’t load this transaction</strong><p>{detail.error.message}</p><button onClick={() => void detail.refetch()} type="button">Try again</button></section> : null}
     {data && transaction ? <><section className={`transaction-detail-hero ${incoming ? "transaction-detail-hero--incoming" : transfer ? "transaction-detail-hero--transfer" : ""}`}><span><Icon aria-hidden="true" size={25} /></span><p>{transaction.type.replaceAll("_", " ")}</p><h2>{transactionTitle(transaction, data.categories)}</h2><strong>{incoming ? "+" : "−"}{formatMoney(transaction.amount, transaction.currency)}</strong></section>

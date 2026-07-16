@@ -6,7 +6,6 @@ import { type FormEvent, useState } from "react";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useAuthStore } from "@/lib/auth/store";
 import { getProfile, updateProfile } from "@/lib/settings/api";
 import type { Profile } from "@/lib/settings/types";
@@ -55,5 +54,5 @@ function ProfileForm({ profile }: { profile: Profile }) {
 
 export function ProfileDashboard() {
   const profile = useQuery({ queryFn: getProfile, queryKey: ["profile"] });
-  return <MobileShell><div className="standard-page profile-page"><PageHeader backHref={"/settings" as Route} title="Profile" trailing={<ThemeToggle compact />} />{profile.isPending ? <div aria-busy="true" aria-label="Loading profile" className="profile-skeleton" /> : null}{profile.isError ? <section className="management-error" role="alert"><strong>Couldn’t load your profile</strong><p>{profile.error.message}</p><button onClick={() => void profile.refetch()} type="button">Try again</button></section> : null}{profile.data ? <ProfileForm key={profile.data.id} profile={profile.data} /> : null}</div></MobileShell>;
+  return <MobileShell><div className="standard-page profile-page"><PageHeader backHref={"/settings" as Route} title="Profile" />{profile.isPending ? <div aria-busy="true" aria-label="Loading profile" className="profile-skeleton" /> : null}{profile.isError ? <section className="management-error" role="alert"><strong>Couldn’t load your profile</strong><p>{profile.error.message}</p><button onClick={() => void profile.refetch()} type="button">Try again</button></section> : null}{profile.data ? <ProfileForm key={profile.data.id} profile={profile.data} /> : null}</div></MobileShell>;
 }

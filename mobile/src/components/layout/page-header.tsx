@@ -3,6 +3,8 @@ import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { HeaderMenu } from "@/components/navigation/header-menu";
+
 type PageHeaderProps = Readonly<{
   backHref?: Route | null;
   title: string;
@@ -18,7 +20,7 @@ export function PageHeader({ backHref = "/", title, trailing }: PageHeaderProps)
         </Link>
       ) : null}
       <h1>{title}</h1>
-      <div className="page-header-trailing">{trailing}</div>
+      <div className="page-header-trailing">{trailing}<HeaderMenu /></div>
     </header>
   );
 }

@@ -99,6 +99,16 @@ test("loads inside the mobile canvas without horizontal overflow", async ({ page
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
 });
 
+test("uses the profile avatar link and sticky home toolbar", async ({ page }) => {
+  await expect(page.getByRole("link", { name: "Open profile" })).toHaveAttribute("href", "/profile");
+  expect(
+    await page.locator(".top-bar").evaluate((element) => getComputedStyle(element).position),
+  ).toBe("sticky");
+  await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Switch to .* theme/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Notifications/ })).toHaveCount(0);
+});
+
 for (const theme of ["light", "dark"] as const) {
   test(`has no automatically detectable ${theme} theme accessibility violations`, async ({
     page,
@@ -126,6 +136,7 @@ test("matches the light theme reference baseline", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("pfm-mobile-theme", "light"));
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
   await expect(page.getByText("Cash withdrawal")).toBeVisible();
 
   await expect(page).toHaveScreenshot("home-light.png", {
@@ -138,6 +149,7 @@ test("matches the dark theme reference baseline", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("pfm-mobile-theme", "dark"));
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
   await expect(page.getByText("Cash withdrawal")).toBeVisible();
 
   await expect(page).toHaveScreenshot("home-dark.png", {

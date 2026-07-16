@@ -8,7 +8,6 @@ import { type FormEvent, useState } from "react";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { createRecurringRule, getRecurringEditorData, updateRecurringRule } from "@/lib/recurring/api";
 import type { RecurringOptions, RecurringRule } from "@/lib/recurring/types";
 import { isPositiveMoney, localDateTime } from "@/lib/recurring/utils";
@@ -40,5 +39,5 @@ function RecurringFields({ data }: { data: FormData }) {
 
 export function RecurringForm({ ruleId }: { ruleId?: string }) {
   const editor = useQuery({ queryFn: () => getRecurringEditorData(ruleId), queryKey: ["recurring-editor", ruleId ?? "new"] });
-  return <MobileShell><div className="standard-page recurring-form-page"><PageHeader backHref={ruleId ? `/transaction/recurring/${ruleId}` as Route : "/transaction/recurring" as Route} title={ruleId ? "Edit recurring" : "New recurring"} trailing={<ThemeToggle compact />} />{editor.isPending ? <div aria-busy="true" className="transaction-form-skeleton" /> : null}{editor.isError ? <section className="transaction-history-error" role="alert"><strong>Couldn’t prepare this schedule</strong><p>{editor.error.message}</p><button onClick={() => void editor.refetch()} type="button">Try again</button></section> : null}{editor.data ? <RecurringFields data={editor.data} /> : null}</div></MobileShell>;
+  return <MobileShell><div className="standard-page recurring-form-page"><PageHeader backHref={ruleId ? `/transaction/recurring/${ruleId}` as Route : "/transaction/recurring" as Route} title={ruleId ? "Edit recurring" : "New recurring"} />{editor.isPending ? <div aria-busy="true" className="transaction-form-skeleton" /> : null}{editor.isError ? <section className="transaction-history-error" role="alert"><strong>Couldn’t prepare this schedule</strong><p>{editor.error.message}</p><button onClick={() => void editor.refetch()} type="button">Try again</button></section> : null}{editor.data ? <RecurringFields data={editor.data} /> : null}</div></MobileShell>;
 }

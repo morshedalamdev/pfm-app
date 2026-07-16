@@ -1,17 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
+import Link from "next/link";
 
+import { HeaderMenu } from "@/components/navigation/header-menu";
 import { useAuthStore } from "@/lib/auth/store";
 
 type HomeHeaderProps = Readonly<{
-  actions: ReactNode;
   balance?: string;
   change?: string;
   monthLabel: string;
 }>;
 
-export function HomeHeader({ actions, balance, change, monthLabel }: HomeHeaderProps) {
+export function HomeHeader({ balance, change, monthLabel }: HomeHeaderProps) {
   const user = useAuthStore((state) => state.user);
   const displayName = user?.full_name || user?.email || "Morshed Alam";
   const initials = displayName
@@ -24,12 +24,12 @@ export function HomeHeader({ actions, balance, change, monthLabel }: HomeHeaderP
   return (
     <header className="balance-hero">
       <div className="top-bar">
-        <div aria-label={displayName} className="avatar" role="img">
+        <Link aria-label="Open profile" className="avatar" href="/profile">
           {initials}
           <span className="avatar-badge" aria-hidden="true">✦</span>
-        </div>
+        </Link>
         <span className="month-pill">{monthLabel}</span>
-        <div className="header-actions">{actions}</div>
+        <div className="header-actions"><HeaderMenu /></div>
       </div>
 
       <div className="balance-copy">

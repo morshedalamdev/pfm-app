@@ -11,7 +11,6 @@ import { useForm, useWatch } from "react-hook-form";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
   createTransaction,
   createTransfer,
@@ -204,7 +203,7 @@ export function TransactionComposer({ initialKind }: { initialKind: TransactionK
   return (
     <MobileShell>
       <div className="standard-page transaction-page">
-        <PageHeader backHref={"/transaction" as Route} title="Add transaction" trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={"/transaction" as Route} title="Add transaction" />
         <div aria-label="Transaction type" className="transaction-kind-tabs" role="group">
           {(["expense", "income", "transfer"] as const).map((option) => <button aria-pressed={kind === option} key={option} onClick={() => setKind(option)} type="button">{option}</button>)}
         </div>

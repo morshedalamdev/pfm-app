@@ -103,7 +103,7 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("uses canonical primary navigation and the More drawer", async ({ page }) => {
+test("uses canonical primary navigation and the header menu", async ({ page }) => {
   await page.goto("/transaction");
   await expect(page.getByRole("heading", { exact: true, name: "Transactions" })).toBeVisible();
   await expect(page.getByRole("link", { exact: true, name: "Transaction" })).toHaveAttribute(
@@ -115,26 +115,34 @@ test("uses canonical primary navigation and the More drawer", async ({ page }) =
   await expect(page).toHaveURL(/\/analytics$/);
   await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();
 
-  await page.getByRole("button", { name: "More" }).click();
-  const drawer = page.getByRole("dialog", { name: "More" });
+  await page.getByRole("link", { name: "Loan" }).click();
+  await expect(page).toHaveURL(/\/loan$/);
+  await expect(page.getByRole("link", { exact: true, name: "Loan" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const drawer = page.getByRole("dialog", { name: "Menu" });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByRole("link", { name: "Accounts" })).toBeVisible();
+  await expect(drawer.getByRole("link", { name: "Loan" })).toHaveCount(0);
+  await expect(drawer.getByRole("link", { name: "Profile" })).toHaveCount(0);
+  await expect(drawer.getByRole("group", { name: "Color theme" })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Sign out" })).toBeVisible();
   await drawer.getByRole("link", { name: "Accounts" }).click();
 
   await expect(page).toHaveURL(/\/accounts$/);
   await expect(page.getByRole("heading", { exact: true, level: 1, name: "Accounts" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "More" })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  await expect(page.getByRole("button", { name: "More" })).toHaveCount(0);
 });
 
 test("traps focus, closes with Escape, and keeps the drawer accessible", async ({ page }) => {
   await page.goto("/transaction");
-  const trigger = page.getByRole("button", { name: "More" });
+  const trigger = page.getByRole("button", { name: "Open menu" });
   await trigger.click();
 
-  const drawer = page.getByRole("dialog", { name: "More" });
+  const drawer = page.getByRole("dialog", { name: "Menu" });
   await expect(drawer).toBeVisible();
   expect(
     await drawer.evaluate((element) => element.contains(document.activeElement)),
@@ -152,18 +160,18 @@ test("traps focus, closes with Escape, and keeps the drawer accessible", async (
 });
 
 for (const theme of ["light", "dark"] as const) {
-  test(`matches the ${theme} theme reference baseline for the More drawer`, async ({ page }) => {
+  test(`matches the ${theme} theme reference baseline for the header menu`, async ({ page }) => {
     await page.goto("/transaction");
     await page.evaluate((selectedTheme) => {
       localStorage.setItem("pfm-mobile-theme", selectedTheme);
     }, theme);
     await page.reload();
-    await page.getByRole("button", { name: "More" }).click();
-    await expect(page.getByRole("dialog", { name: "More" })).toBeVisible();
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.getByRole("dialog", { name: "Menu" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
-    await expect(page).toHaveScreenshot(`more-drawer-${theme}.png`, {
+    await expect(page).toHaveScreenshot(`header-menu-${theme}.png`, {
       animations: "disabled",
       fullPage: true,
     });
@@ -183,4 +191,11 @@ test("redirects legacy routes to their canonical paths", async ({ page }) => {
 
   await page.goto("/settings?section=accounts");
   await expect(page).toHaveURL(/\/accounts$/);
+});
+
+test("uses sticky headers on standard pages", async ({ page }) => {
+  await page.goto("/transaction");
+  const header = page.locator(".page-header");
+  await expect(header).toBeVisible();
+  expect(await header.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
 });

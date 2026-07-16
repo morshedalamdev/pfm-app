@@ -7,7 +7,6 @@ import { type FormEvent, useState } from "react";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { createAccount } from "@/lib/accounts/api";
 import { accountTypes } from "@/lib/accounts/types";
 import { getSafeNextPath } from "@/lib/auth/safe-next-path";
@@ -51,7 +50,7 @@ export function AccountForm() {
   return (
     <MobileShell>
       <div className="standard-page account-form-page">
-        <PageHeader backHref={"/accounts" as Route} title="Add account" trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={"/accounts" as Route} title="Add account" />
         <section className="account-form-intro"><p className="eyebrow">FIRST, A MONEY SOURCE</p><h2>Where do you use money?</h2><p>Start with the account, card, or cash you use most. You can add the rest later.</p></section>
         <form className="management-form account-form" noValidate onSubmit={(event) => void submit(event)}>
           <label><span>Account name</span><input autoFocus autoComplete="off" onChange={(event) => setName(event.target.value)} placeholder="Everyday checking" value={name} /></label>

@@ -7,7 +7,6 @@ import Link from "next/link";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { getAccounts } from "@/lib/accounts/api";
 import { isAccountActive } from "@/lib/accounts/utils";
 import { formatMoney } from "@/lib/home/view-model";
@@ -20,7 +19,7 @@ export function AccountsDashboard() {
   return (
     <MobileShell>
       <div className="standard-page accounts-page">
-        <PageHeader backHref={null} title="Accounts" trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={null} title="Accounts" />
         <section className="accounts-hero">
           <p className="eyebrow">MONEY SOURCES</p>
           <h2>See where your money lives.</h2>

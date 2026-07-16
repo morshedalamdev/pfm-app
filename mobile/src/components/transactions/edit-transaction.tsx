@@ -10,7 +10,6 @@ import { useForm } from "react-hook-form";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import {
   deleteReceipt,
@@ -169,7 +168,7 @@ export function EditTransaction({ receiptWarning, transactionId }: { receiptWarn
   return (
     <MobileShell>
       <div className="standard-page transaction-page">
-        <PageHeader backHref={"/transaction" as Route} title="Edit transaction" trailing={<ThemeToggle compact />} />
+        <PageHeader backHref={"/transaction" as Route} title="Edit transaction" />
         {edit.isPending ? <div aria-busy="true" className="transaction-form-skeleton" /> : null}
         {edit.isError ? <div className="form-load-error" role="alert"><strong>{edit.error.message}</strong><button onClick={() => void edit.refetch()} type="button">Try again</button></div> : null}
         {edit.data ? <EditForm accounts={edit.data.accounts} categories={edit.data.categories} receiptWarning={receiptWarning} receipts={edit.data.receipts} transaction={edit.data.transaction} /> : null}

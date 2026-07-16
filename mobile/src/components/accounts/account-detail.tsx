@@ -9,7 +9,6 @@ import { useState } from "react";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { deleteAccount, disableAccount, getAccount, getAccountDeleteEligibility, setDefaultAccount } from "@/lib/accounts/api";
 import { accountDeleteReason, canDeleteAccount } from "@/lib/accounts/utils";
 import { formatMoney } from "@/lib/home/view-model";
@@ -36,7 +35,7 @@ export function AccountDetail({ accountId }: { accountId: string }) {
     try { await remove.mutateAsync(accountId); } catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "Unable to remove this account."); }
   }
 
-  return <MobileShell><div className="standard-page account-detail-page"><PageHeader backHref={"/accounts" as Route} title="Account details" trailing={<ThemeToggle compact />} />
+  return <MobileShell><div className="standard-page account-detail-page"><PageHeader backHref={"/accounts" as Route} title="Account details" />
     {account.isPending ? <div aria-busy="true" aria-label="Loading account" className="accounts-skeleton" /> : null}
     {account.isError ? <section className="management-error" role="alert"><strong>Couldn’t load this account</strong><button onClick={() => void account.refetch()} type="button">Try again</button></section> : null}
     {value ? <><section className="account-detail-hero"><span><Landmark aria-hidden="true" size={25} /></span><p className="eyebrow">{value.type.replaceAll("_", " ")}</p><h2>{value.name}</h2><strong>{formatMoney(value.current_balance, value.currency)}</strong>{value.is_default ? <small><Star aria-hidden="true" size={13} /> Default account</small> : value.is_disabled ? <small className="account-disabled">Disabled</small> : <small>Available for transactions</small>}</section>
