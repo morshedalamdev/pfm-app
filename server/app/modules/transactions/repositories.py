@@ -69,7 +69,11 @@ class TransactionRepository:
             query = query.where(Transaction.account_id == account_id)
         if category_id is not None:
             query = query.where(Transaction.category_id == category_id)
-        if transaction_type is not None:
+        if transaction_type == "transfer":
+            query = query.where(
+                Transaction.type.in_(("transfer_debit", "transfer_credit"))
+            )
+        elif transaction_type is not None:
             query = query.where(Transaction.type == transaction_type)
         if search is not None:
             query = query.where(Transaction.description.ilike(f"%{search}%"))

@@ -62,6 +62,7 @@ test.beforeEach(async ({ page }) => {
 test("searches and filters the complete transaction history", async ({ page }) => {
   await page.goto("/transaction");
   await expect(page.getByRole("link", { name: /Lunch/ })).toBeVisible();
+  await expect(page.getByLabel("Quick transaction actions")).toHaveCount(0);
 
   const searchRequest = page.waitForRequest((request) => request.url().includes("/api/backend/transactions?") && request.url().includes("search=rent"));
   await page.getByLabel("Search transactions").fill("rent");
@@ -69,11 +70,44 @@ test("searches and filters the complete transaction history", async ({ page }) =
 
   await page.getByRole("button", { name: "Filter transactions" }).click();
   const drawer = page.getByRole("dialog", { name: "Filter transactions" });
-  const transferRequest = page.waitForRequest((request) => request.url().includes("type=transfer_debit"));
+  const transferRequest = page.waitForRequest((request) => request.url().includes("type=transfer"));
   await drawer.getByRole("button", { name: "transfer" }).click();
   await transferRequest;
   await drawer.getByRole("button", { name: "Show transactions" }).click();
   await expect(drawer).toBeHidden();
+});
+
+test("loads additional transaction pages as the user scrolls", async ({ page }) => {
+  const firstPage = Array.from({ length: 20 }, (_, index) => ({
+    ...transaction,
+    description: `Page one transaction ${index + 1}`,
+    id: `60000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`,
+    transaction_at: `2026-07-${String(28 - index).padStart(2, "0")}T12:00:00Z`,
+  }));
+  const secondPage = [
+    { ...transaction, description: "Older page transaction 1", id: "70000000-0000-0000-0000-000000000001", transaction_at: "2026-06-30T12:00:00Z" },
+    { ...transaction, description: "Older page transaction 2", id: "70000000-0000-0000-0000-000000000002", transaction_at: "2026-06-29T12:00:00Z" },
+  ];
+  let nextPageRequested = false;
+  await page.route("**/api/backend/transactions?**", async (route) => {
+    const requestUrl = new URL(route.request().url());
+    if (requestUrl.searchParams.get("cursor") === "cursor-page-two") {
+      nextPageRequested = true;
+      await route.fulfill({ contentType: "application/json", json: { has_more: false, items: secondPage, next_cursor: null } });
+      return;
+    }
+    expect(requestUrl.searchParams.get("limit")).toBe("20");
+    await route.fulfill({ contentType: "application/json", json: { has_more: true, items: firstPage, next_cursor: "cursor-page-two" } });
+  });
+
+  await page.goto("/transaction");
+  await expect(page.getByText("Page one transaction 1", { exact: true })).toBeVisible();
+  const nextPageRequest = page.waitForRequest((request) => request.url().includes("cursor=cursor-page-two"));
+  await page.getByTestId("transaction-load-more-sentinel").scrollIntoViewIfNeeded();
+  await nextPageRequest;
+  await expect(page.getByText("Older page transaction 1")).toBeVisible();
+  expect(nextPageRequested).toBe(true);
+  await expect(page.getByText("All transactions loaded")).toBeVisible();
 });
 
 test("opens transaction details and deletes through a Drawer", async ({ page }) => {

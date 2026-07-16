@@ -4559,7 +4559,7 @@ export interface operations {
                 date_to?: string | null;
                 account_id?: string | null;
                 category_id?: string | null;
-                type?: ("income" | "expense" | "transfer_debit" | "transfer_credit") | null;
+                type?: ("income" | "expense" | "transfer" | "transfer_debit" | "transfer_credit") | null;
                 search?: string | null;
             };
             header?: never;

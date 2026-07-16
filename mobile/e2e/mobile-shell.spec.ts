@@ -168,6 +168,26 @@ test("shows empty recent activity without replacing live totals", async ({ page 
   await expect(page.getByText("No transactions this month")).toBeVisible();
 });
 
+test("shows only the 10 most recent transactions on Home", async ({ page }) => {
+  const recentTransactions = Array.from({ length: 12 }, (_, index) => ({
+    ...transactions.items[0],
+    description: `Recent activity ${index + 1}`,
+    id: `50000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`,
+    transaction_at: `2025-11-${String(28 - index).padStart(2, "0")}T10:00:00Z`,
+  }));
+  let transactionRequestUrl = "";
+  await page.route("**/api/backend/transactions**", async (route) => {
+    transactionRequestUrl = route.request().url();
+    await route.fulfill({ contentType: "application/json", json: { has_more: true, items: recentTransactions, next_cursor: "older" } });
+  });
+
+  await page.reload();
+  await expect(page.getByText("Recent activity 1", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recent activity 10", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recent activity 11", { exact: true })).toHaveCount(0);
+  expect(new URL(transactionRequestUrl).searchParams.get("limit")).toBe("10");
+});
+
 test("shows a retryable error when the home API fails", async ({ page }) => {
   let attempts = 0;
   await page.route("**/api/backend/reports/dashboard**", async (route) => {

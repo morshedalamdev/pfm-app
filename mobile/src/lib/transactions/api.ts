@@ -7,7 +7,7 @@ import type {
   Transaction,
   TransactionCreate,
   TransactionDetailData,
-  TransactionHistoryData,
+  TransactionHistoryOptions,
   TransactionKind,
   TransactionList,
   TransactionTypeFilter,
@@ -58,51 +58,44 @@ export function deleteTransaction(transactionId: string): Promise<Transaction> {
   return sendBackendJson<Transaction>(`transactions/${encodeURIComponent(transactionId)}`, "DELETE");
 }
 
-type TransactionListParams = Readonly<{
+export type TransactionListParams = Readonly<{
+  cursor?: string;
   dateFrom: string;
   dateTo: string;
   search: string;
   type: TransactionTypeFilter;
 }>;
 
-function transactionQuery(params: TransactionListParams, type?: string): string {
+const TRANSACTION_PAGE_SIZE = 20;
+
+function transactionQuery(params: TransactionListParams): string {
   const query = new URLSearchParams({
     date_from: params.dateFrom,
     date_to: params.dateTo,
-    limit: "100",
+    limit: String(TRANSACTION_PAGE_SIZE),
   });
   if (params.search.trim()) query.set("search", params.search.trim());
-  if (type) query.set("type", type);
+  if (params.type !== "all") query.set("type", params.type);
+  if (params.cursor) query.set("cursor", params.cursor);
   return `transactions?${query.toString()}`;
 }
 
-export async function listTransactions(params: TransactionListParams): Promise<Transaction[]> {
-  if (params.type === "transfer") {
-    const [debits, credits] = await Promise.all([
-      getBackendJson<TransactionList>(transactionQuery(params, "transfer_debit"), "We couldn't load your transfers."),
-      getBackendJson<TransactionList>(transactionQuery(params, "transfer_credit"), "We couldn't load your transfers."),
-    ]);
-    const unique = new Map([...debits.items, ...credits.items].map((transaction) => [transaction.id, transaction]));
-    return [...unique.values()].sort((a, b) => new Date(b.transaction_at).getTime() - new Date(a.transaction_at).getTime());
-  }
-  const response = await getBackendJson<TransactionList>(
-    transactionQuery(params, params.type === "all" ? undefined : params.type),
+export function listTransactions(params: TransactionListParams): Promise<TransactionList> {
+  return getBackendJson<TransactionList>(
+    transactionQuery(params),
     "We couldn't load your transactions.",
   );
-  return response.items;
 }
 
-export async function getTransactionHistory(params: TransactionListParams): Promise<TransactionHistoryData> {
-  const [accounts, expenseCategories, incomeCategories, transactions] = await Promise.all([
+export async function getTransactionHistoryOptions(): Promise<TransactionHistoryOptions> {
+  const [accounts, expenseCategories, incomeCategories] = await Promise.all([
     listAccounts(),
     listCategories("expense"),
     listCategories("income"),
-    listTransactions(params),
   ]);
   return {
     accounts: accounts.items.filter((account) => !account.is_archived),
     categories: [...expenseCategories.items, ...incomeCategories.items].filter((category) => !category.is_archived),
-    transactions,
   };
 }
 

@@ -87,17 +87,15 @@ describe("transaction flows", () => {
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("access_token");
   });
 
-  it("loads both transfer directions and keeps newest activity first", async () => {
-    const debit = { ...transactionsFixture, id: "44444444-4444-4444-4444-444444444444", transaction_at: "2026-07-14T12:00:00Z", type: "transfer_debit" };
-    const credit = { ...transactionsFixture, id: "55555555-5555-5555-5555-555555555555", transaction_at: "2026-07-15T12:00:00Z", type: "transfer_credit" };
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ has_more: false, items: [debit], next_cursor: null }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ has_more: false, items: [credit], next_cursor: null }), { status: 200 }));
+  it("requests cursor-paginated transfer activity through the unified filter", async () => {
+    const debit = { ...transactionsFixture, id: "44444444-4444-4444-4444-444444444444", type: "transfer_debit" };
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ has_more: true, items: [debit], next_cursor: "older-page" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(listTransactions({ dateFrom: "2026-07-01T00:00:00Z", dateTo: "2026-08-01T00:00:00Z", search: "travel", type: "transfer" })).resolves.toEqual([credit, debit]);
-    expect(fetchMock.mock.calls[0]?.[0]).toContain("type=transfer_debit");
-    expect(fetchMock.mock.calls[1]?.[0]).toContain("type=transfer_credit");
+    await expect(listTransactions({ cursor: "older-page", dateFrom: "2026-07-01T00:00:00Z", dateTo: "2026-08-01T00:00:00Z", search: "travel", type: "transfer" })).resolves.toEqual({ has_more: true, items: [debit], next_cursor: "older-page" });
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("type=transfer");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("cursor=older-page");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("limit=20");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("search=travel");
   });
 

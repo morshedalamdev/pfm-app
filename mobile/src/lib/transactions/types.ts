@@ -17,10 +17,9 @@ export type TransactionKind = "expense" | "income" | "transfer";
 export type TransactionTypeFilter = "all" | TransactionKind;
 export type TransactionPeriod = "day" | "week" | "month";
 
-export type TransactionHistoryData = Readonly<{
+export type TransactionHistoryOptions = Readonly<{
   accounts: Account[];
   categories: Category[];
-  transactions: Transaction[];
 }>;
 
 export type TransactionDetailData = Readonly<{

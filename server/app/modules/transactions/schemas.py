@@ -13,6 +13,7 @@ TransactionType = Literal["income", "expense"]
 TransactionFilterType = Literal[
     "income",
     "expense",
+    "transfer",
     "transfer_debit",
     "transfer_credit",
 ]

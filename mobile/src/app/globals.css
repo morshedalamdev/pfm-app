@@ -930,11 +930,6 @@ a {
 .transaction-history-page,
 .transaction-detail-page { padding-bottom: 132px; }
 .transaction-header-add { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 15px; background: var(--brand-soft); color: var(--brand-active); }
-.transaction-quick-actions { display: grid; margin-top: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.transaction-quick-actions a { display: flex; min-width: 0; min-height: 54px; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow-card); font-size: 0.68rem; font-weight: 700; }
-.transaction-quick-actions a:first-child { color: var(--coral-ink); }
-.transaction-quick-actions a:nth-child(2) { color: var(--green-ink); }
-.transaction-quick-actions a:last-child { color: var(--brand-active); }
 .transaction-toolbar { display: grid; align-items: center; margin-top: 14px; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; }
 .transaction-search { display: flex; min-width: 0; min-height: 48px; align-items: center; padding: 0 13px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); color: var(--text-muted); box-shadow: var(--shadow-card); gap: 9px; }
 .transaction-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 0.75rem; }
@@ -961,7 +956,13 @@ a {
 .history-transaction-row > svg { color: var(--text-soft); }
 .transaction-history-loading { display: grid; margin-top: 13px; gap: 9px; }
 .transaction-history-loading span { height: 73px; border-radius: 21px; background: var(--surface-soft); animation: form-pulse 1.3s ease-in-out infinite alternate; }
+.transaction-history-more,
+.transaction-history-end { min-height: 44px; margin: 14px 0 0; color: var(--text-muted); font-size: 0.66rem; text-align: center; }
+.transaction-history-more { display: grid; place-items: center; border: 1px dashed var(--border); border-radius: 15px; background: var(--surface-soft); }
+.transaction-history-end { display: grid; place-items: center; }
 .transaction-history-error { margin-top: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-card); }
+.transaction-history-error--more { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; gap: 10px; }
+.transaction-history-error--more button { flex: 0 0 auto; }
 .transaction-history-error strong { font-size: 0.84rem; }
 .transaction-history-error p { margin: 6px 0 13px; color: var(--text-muted); font-size: 0.7rem; line-height: 1.45; }
 .transaction-history-error button { min-height: 39px; padding: 0 13px; border-radius: 13px; background: var(--brand-soft); color: var(--brand-active); font-size: 0.7rem; font-weight: 720; }

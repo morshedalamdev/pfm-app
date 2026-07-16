@@ -48,7 +48,7 @@ export function HomeDashboard() {
   });
   const dashboard = home.data?.dashboard;
   const defaultAccount = home.data?.defaultAccount;
-  const transactions = home.data?.transactions.items ?? [];
+  const transactions = (home.data?.transactions.items ?? []).slice(0, 10);
 
   return (
     <MobileShell>

@@ -1372,6 +1372,17 @@ def test_transfer_create_idempotency(
         first["debit_transaction_id"]
     ]
 
+    transfer_response = context.client.get(
+        "/api/v1/transactions",
+        headers=headers,
+        params={"type": "transfer", "search": "idempotent"},
+    )
+    assert transfer_response.status_code == 200
+    assert {item["id"] for item in transfer_response.json()["items"]} == {
+        first["debit_transaction_id"],
+        first["credit_transaction_id"],
+    }
+
     conflict_response = context.client.post(
         "/api/v1/transactions/transfers",
         headers={**headers, "Idempotency-Key": "transfer-create-key"},
