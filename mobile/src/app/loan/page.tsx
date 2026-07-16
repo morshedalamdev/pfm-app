@@ -1,5 +1,5 @@
-import { SettingsDashboard } from "@/components/settings/settings-dashboard";
+import { LoanDashboard } from "@/components/loans/loan-dashboard";
 
 export default function LoanPage() {
-  return <SettingsDashboard initialSection="loans" standalone title="Loans" />;
+  return <LoanDashboard />;
 }
