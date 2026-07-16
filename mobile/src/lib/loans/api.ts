@@ -8,12 +8,16 @@ export async function getLoanOverview(direction: LoanDirectionFilter, status: Lo
   const params = new URLSearchParams({ limit: "100", status });
   if (direction !== "all") params.set("direction", direction);
   const [summary, people, records, accounts] = await Promise.all([
-    getBackendJson<LoanSummary>("loans/summary", "We couldn't load your loan summary."),
+    getLoanSummary(),
     getBackendJson<LoanPersonList>("loans/people?limit=100", "We couldn't load loan contacts."),
     getBackendJson<LoanRecordList>(`loans/records?${params.toString()}`, "We couldn't load loan records."),
     getBackendJson<AccountList>("accounts?limit=100", "We couldn't load your accounts."),
   ]);
   return { accounts: activeAccounts(accounts), people: activePeople(people), records: records.items.filter((record) => record.status !== "archived"), summary };
+}
+
+export function getLoanSummary() {
+  return getBackendJson<LoanSummary>("loans/summary", "We couldn't load your loan summary.");
 }
 
 export async function getLoanEditorData(id?: string) {

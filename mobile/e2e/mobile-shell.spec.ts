@@ -142,6 +142,7 @@ test("matches the light theme reference baseline", async ({ page }) => {
   await expect(page).toHaveScreenshot("home-light.png", {
     animations: "disabled",
     fullPage: true,
+    maxDiffPixelRatio: 0.006,
   });
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Settings2, Trash2, WalletCards } from "lucide-react";
+import { CalendarDays, ChevronRight, Settings2, Trash2, WalletCards } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useState } from "react";
@@ -39,7 +39,8 @@ export function BudgetDashboard() {
     }
   }
 
-  return <MobileShell><div className="standard-page budget-page"><PageHeader backHref={null} title="Budget" trailing={<><label className="plan-month"><span className="sr-only">Budget month</span><input aria-label="Budget month" max={currentMonthKey()} onChange={(event) => setMonth(event.target.value)} type="month" value={month} /></label><Link aria-label="Set up budgets" className="transaction-header-add" href={"/budget/setup" as Route}><Settings2 aria-hidden="true" size={19} /></Link></>} />
+  return <MobileShell><div className="standard-page budget-page"><PageHeader backHref={null} title="Budget" trailing={<Link aria-label="Set up budgets" className="transaction-header-add" href={"/budget/setup" as Route}><Settings2 aria-hidden="true" size={19} /></Link>} />
+    <label className="budget-month-toolbar"><CalendarDays aria-hidden="true" size={17} /><span>Viewing</span><input aria-label="Budget month" max={currentMonthKey()} onChange={(event) => setMonth(event.target.value)} type="month" value={month} /></label>
     <section className="budget-summary-hero"><p className="eyebrow">{reportMonthLabel(month)}</p><h2>Monthly budget</h2><strong>{formatMoney(String(totals.limit), currency)}</strong><div><span><small>Spent</small><strong>{formatMoney(String(totals.spent), currency)}</strong></span><span><small>Remaining</small><strong>{formatMoney(String(totals.remaining), currency)}</strong></span></div><ProgressBar accent={totals.remaining < 0 ? "coral" : "purple"} label="Monthly budget used" value={percent} /><p>{Math.round(percent)}% used</p></section>
     {data.isPending ? <div aria-busy="true" aria-label="Loading budgets" className="plan-loading" role="status"><div /><div /></div> : null}
     {data.isError ? <section className="transaction-history-error" role="alert"><strong>Couldn’t load budgets</strong><p>{data.error.message}</p><button onClick={() => void data.refetch()} type="button">Try again</button></section> : null}

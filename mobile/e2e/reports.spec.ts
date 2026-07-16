@@ -35,11 +35,15 @@ const spending = {
   range,
   total_amount: "8145.7800",
 };
+const account = { archived_at: null, created_at: "2025-01-01T00:00:00Z", currency: "USD", current_balance: "2450.0000", disabled_at: null, id: "33333333-3333-3333-3333-333333333333", is_archived: false, is_default: true, is_disabled: false, name: "Daily wallet", opening_balance: "2000.0000", type: "bank_account", updated_at: "2025-01-01T00:00:00Z" };
+const loanSummary = { currency: "USD", due_loan: "750.0000", total_loan_given: "1000.0000", total_loan_taken: "250.0000" };
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/backend/reports/monthly-summary**", async (route) => route.fulfill({ contentType: "application/json", json: summary }));
   await page.route("**/api/backend/reports/cash-flow**", async (route) => route.fulfill({ contentType: "application/json", json: cashFlow }));
   await page.route("**/api/backend/reports/spending-by-category**", async (route) => route.fulfill({ contentType: "application/json", json: spending }));
+  await page.route("**/api/backend/loans/summary", async (route) => route.fulfill({ contentType: "application/json", json: loanSummary }));
+  await page.route("**/api/backend/accounts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [account], next_cursor: null } }));
 });
 
 test("renders live expense and income report modes", async ({ page }) => {
@@ -49,6 +53,26 @@ test("renders live expense and income report modes", async ({ page }) => {
   await page.getByRole("button", { name: "Income" }).click();
   await expect(page.getByText("$12,000.00").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Income overview" })).toBeVisible();
+});
+
+test("covers budget, goal, loan, and account analytics areas", async ({ page }) => {
+  await page.goto("/analytics");
+  await page.getByRole("button", { name: "Budget" }).click();
+  await expect(page.getByText("45.5%", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open budget planning" })).toHaveAttribute("href", "/budget");
+
+  await page.getByRole("button", { name: "Goal" }).click();
+  await expect(page.getByText("Active savings goals")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open savings goals" })).toHaveAttribute("href", "/goal");
+
+  await page.getByRole("button", { name: "Loan" }).click();
+  await expect(page.getByText("$750.00")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open loan records" })).toHaveAttribute("href", "/loan");
+
+  await page.getByRole("button", { name: "Account" }).click();
+  await expect(page.getByText("Daily wallet")).toBeVisible();
+  await expect(page.getByText("$2,450.00")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open all accounts" })).toHaveAttribute("href", "/accounts");
 });
 
 test("shows a clean report empty state", async ({ page }) => {
