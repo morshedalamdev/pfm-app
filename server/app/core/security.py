@@ -17,6 +17,8 @@ from app.modules.users.models import User
 password_hash = PasswordHash.recommended()
 ACCESS_TOKEN_TYPE = "access"
 REFRESH_TOKEN_BYTES = 48
+OAUTH_LOGIN_EXCHANGE_BYTES = 48
+OAUTH_LOGIN_EXCHANGE_HASH_CONTEXT = b"pfm-oauth-login-exchange\x00"
 
 
 def hash_password(password: str) -> str:
@@ -35,6 +37,18 @@ def hash_refresh_token(token: str, settings: Settings) -> str:
     return hmac.new(
         settings.refresh_token_secret_key.get_secret_value().encode("utf-8"),
         token.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def create_oauth_login_exchange_code() -> str:
+    return secrets.token_urlsafe(OAUTH_LOGIN_EXCHANGE_BYTES)
+
+
+def hash_oauth_login_exchange_code(code: str, settings: Settings) -> str:
+    return hmac.new(
+        settings.oauth_state_secret_key.get_secret_value().encode("utf-8"),
+        OAUTH_LOGIN_EXCHANGE_HASH_CONTEXT + code.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
 

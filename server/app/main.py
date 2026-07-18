@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from app import __version__
 from app.api.v1.router import api_router
@@ -27,6 +28,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+    application.add_middleware(
+        SessionMiddleware,
+        secret_key=app_settings.oauth_state_secret_key.get_secret_value(),
+        session_cookie="pfm_oauth_state",
+        max_age=app_settings.oauth_registration_ticket_expire_minutes * 60,
+        path=f"{app_settings.api_v1_prefix.rstrip('/')}/auth/oauth",
+        same_site="lax",
+        https_only=app_settings.app_env in {"staging", "production"},
     )
     register_exception_handlers(application)
     application.include_router(api_router, prefix=app_settings.api_v1_prefix)

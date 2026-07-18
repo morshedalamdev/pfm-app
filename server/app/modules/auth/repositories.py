@@ -5,7 +5,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.models import RefreshSession
+from app.modules.auth.models import (
+    OAuthIdentity,
+    OAuthLoginExchange,
+    RefreshSession,
+)
 
 
 class RefreshSessionRepository:
@@ -56,3 +60,63 @@ class RefreshSessionRepository:
 
     async def rollback(self) -> None:
         await self._session.rollback()
+
+
+class OAuthIdentityRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_provider_subject(
+        self,
+        provider: str,
+        provider_subject: str,
+    ) -> OAuthIdentity | None:
+        result = await self._session.execute(
+            select(OAuthIdentity).where(
+                OAuthIdentity.provider == provider,
+                OAuthIdentity.provider_subject == provider_subject,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_user_provider(
+        self,
+        user_id: uuid.UUID,
+        provider: str,
+    ) -> OAuthIdentity | None:
+        result = await self._session.execute(
+            select(OAuthIdentity).where(
+                OAuthIdentity.user_id == user_id,
+                OAuthIdentity.provider == provider,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, identity: OAuthIdentity) -> OAuthIdentity:
+        self._session.add(identity)
+        await self._session.flush()
+        return identity
+
+
+class OAuthLoginExchangeRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_code_hash_for_update(
+        self,
+        code_hash: str,
+    ) -> OAuthLoginExchange | None:
+        result = await self._session.execute(
+            select(OAuthLoginExchange)
+            .where(OAuthLoginExchange.code_hash == code_hash)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def create(
+        self,
+        exchange: OAuthLoginExchange,
+    ) -> OAuthLoginExchange:
+        self._session.add(exchange)
+        await self._session.flush()
+        return exchange

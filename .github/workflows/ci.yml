@@ -81,38 +81,7 @@ jobs:
       run:
         working-directory: client
     env:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-      NEXT_TELEMETRY_DISABLED: "1"
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: client/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Optional lint
-        run: npm run lint --if-present
-
-      - name: Optional tests
-        run: npm run test --if-present
-
-  mobile:
-    name: Mobile frontend
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile
-    env:
+      SERVER_API_BASE_URL: https://api.example.com
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - name: Check out repository
@@ -136,18 +105,18 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: client/package-lock.json
 
-      - name: Install mobile dependencies
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Validate mobile application
+      - name: Validate frontend application
         run: npm run check
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Run mobile end-to-end tests
+      - name: Run frontend end-to-end tests
         run: npm run e2e -- --grep-invert "matches the .* theme reference baseline"
 
   api-contract:

@@ -11,6 +11,22 @@ from app.modules.auth.validation import (
     validate_password_strength,
 )
 
+OAuthProvider = Literal["google", "github"]
+EmailAuthDestination = Literal["login", "register"]
+
+
+class EmailAuthRouteRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email_field(cls, email: str) -> str:
+        return normalize_email(email)
+
+
+class EmailAuthRouteResponse(BaseModel):
+    destination: EmailAuthDestination
+
 
 class RegisterUserRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
@@ -65,6 +81,41 @@ class LogoutRequest(BaseModel):
 
 class LogoutResponse(BaseModel):
     status: Literal["ok"]
+
+
+class OAuthRegistrationTicketRequest(BaseModel):
+    registration_ticket: str = Field(min_length=64, max_length=8192)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class OAuthRegistrationPreviewResponse(BaseModel):
+    provider: OAuthProvider
+    email: str
+    full_name: str
+
+
+class OAuthRegisterRequest(BaseModel):
+    registration_ticket: str = Field(min_length=64, max_length=8192)
+    full_name: str | None = Field(default=None, max_length=120)
+    phone_number: str | None = Field(default=None, max_length=32)
+    occupation: str | None = Field(default=None, max_length=80)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("full_name", "phone_number", "occupation")
+    @classmethod
+    def normalize_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+
+class OAuthLoginExchangeRequest(BaseModel):
+    exchange_code: str = Field(min_length=32, max_length=512)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class RegisteredUserResponse(BaseModel):

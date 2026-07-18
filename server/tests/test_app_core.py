@@ -192,3 +192,6 @@ def test_logging_foundation_configures_app_logger() -> None:
     build_test_app()
 
     assert logging.getLogger("app").level == logging.INFO
+    assert logging.getLogger("authlib").level == logging.WARNING
+    assert logging.getLogger("httpcore").level == logging.WARNING
+    assert logging.getLogger("httpx").level == logging.WARNING

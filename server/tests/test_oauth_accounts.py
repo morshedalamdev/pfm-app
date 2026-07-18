@@ -1,0 +1,832 @@
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+
+import pytest
+from alembic.config import Config
+from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select, update
+from starlette.responses import Response
+
+from alembic import command
+from app.core.config import Settings
+from app.core.database import (
+    build_async_engine,
+    build_session_factory,
+    get_session,
+    get_session_from_factory,
+)
+from app.core.security import (
+    decode_access_token,
+    hash_oauth_login_exchange_code,
+)
+from app.main import create_app
+from app.modules.auth.models import (
+    OAuthIdentity,
+    OAuthLoginExchange,
+    RefreshSession,
+)
+from app.modules.auth.oauth import (
+    OAuthProfile,
+    create_oauth_registration_ticket,
+    get_oauth_gateway,
+)
+from app.modules.auth.schemas import OAuthProvider
+from app.modules.users.models import User
+
+
+@dataclass
+class FakeOAuthGateway:
+    profile: OAuthProfile
+
+    async def begin(
+        self,
+        _request: Request,
+        _provider: OAuthProvider,
+        _redirect_uri: str,
+    ) -> Response:
+        raise AssertionError("OAuth start is not used in account-flow tests")
+
+    async def complete(
+        self,
+        _request: Request,
+        _provider: OAuthProvider,
+    ) -> OAuthProfile:
+        return self.profile
+
+
+@dataclass(frozen=True)
+class OAuthAccountTestContext:
+    app: FastAPI
+    client: TestClient
+    database_url: str
+    settings: Settings
+    gateway: FakeOAuthGateway
+
+
+def build_alembic_config(database_url: str) -> Config:
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    return config
+
+
+def build_oauth_account_settings(database_url: str) -> Settings:
+    return Settings(
+        _env_file=None,
+        app_env="test",
+        cors_origins=["https://frontend.example"],
+        database_url=database_url,
+        frontend_base_url="https://frontend.example",
+        oauth_public_api_url="https://api.example",
+        google_oauth_client_id="google-client-id",
+        google_oauth_client_secret="google-client-secret",
+        github_oauth_client_id="github-client-id",
+        github_oauth_client_secret="github-client-secret",
+        oauth_state_secret_key="state-secret-with-at-least-32-characters",
+        oauth_registration_ticket_secret_key=(
+            "ticket-secret-with-at-least-32-characters"
+        ),
+        access_token_secret_key="access-secret-with-at-least-32-characters",
+        refresh_token_secret_key="refresh-secret-with-at-least-32-characters",
+    )
+
+
+@pytest.fixture
+def oauth_account_context(
+    disposable_postgres_url: str,
+) -> Iterator[OAuthAccountTestContext]:
+    command.upgrade(build_alembic_config(disposable_postgres_url), "head")
+    engine = build_async_engine(disposable_postgres_url)
+    session_factory = build_session_factory(engine)
+    settings = build_oauth_account_settings(disposable_postgres_url)
+    gateway = FakeOAuthGateway(
+        OAuthProfile(
+            provider="google",
+            subject="default-subject",
+            email="default@example.com",
+            full_name="Default User",
+        )
+    )
+    app = create_app(settings)
+
+    async def test_session() -> object:
+        async for session in get_session_from_factory(session_factory):
+            yield session
+
+    app.dependency_overrides[get_session] = test_session
+    app.dependency_overrides[get_oauth_gateway] = lambda: gateway
+
+    try:
+        with TestClient(app) as client:
+            yield OAuthAccountTestContext(
+                app=app,
+                client=client,
+                database_url=disposable_postgres_url,
+                settings=settings,
+                gateway=gateway,
+            )
+    finally:
+        asyncio.run(engine.dispose())
+
+
+def test_explicit_oauth_registration_creates_account_identity_and_tokens(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    profile = OAuthProfile(
+        provider="google",
+        subject="register-google-subject",
+        email="oauth-register@example.com",
+        full_name="Provider Name",
+    )
+    ticket = create_oauth_registration_ticket(
+        profile,
+        oauth_account_context.settings,
+    )
+
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={
+            "registration_ticket": ticket,
+            "phone_number": "  +15550001111 ",
+            "occupation": " student ",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["token_type"] == "bearer"
+    assert body["access_token"]
+    assert body["refresh_token"]
+    assert ticket not in response.text
+    claims = decode_access_token(body["access_token"], oauth_account_context.settings)
+    assert claims.email == profile.email
+
+    user = asyncio.run(
+        fetch_user_by_email(oauth_account_context.database_url, profile.email)
+    )
+    identity = asyncio.run(
+        fetch_identity(
+            oauth_account_context.database_url,
+            profile.provider,
+            profile.subject,
+        )
+    )
+    assert user is not None
+    assert user.password_hash is None
+    assert user.full_name == "Provider Name"
+    assert user.phone_number == "+15550001111"
+    assert user.occupation == "student"
+    assert identity is not None
+    assert identity.user_id == user.id
+    assert (
+        asyncio.run(count_refresh_sessions(oauth_account_context.database_url, user.id))
+        == 1
+    )
+
+
+def test_oauth_registration_allows_full_name_override_but_not_email_override(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    profile = OAuthProfile(
+        provider="github",
+        subject="registration-locked-email-subject",
+        email="locked-email@example.com",
+        full_name="GitHub Name",
+    )
+    ticket = create_oauth_registration_ticket(
+        profile,
+        oauth_account_context.settings,
+    )
+
+    rejected = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={
+            "registration_ticket": ticket,
+            "full_name": "Chosen Name",
+            "email": "attacker-controlled@example.com",
+        },
+    )
+    accepted = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={
+            "registration_ticket": ticket,
+            "full_name": "  Chosen Name  ",
+        },
+    )
+
+    assert rejected.status_code == 422
+    assert accepted.status_code == 201
+    user = asyncio.run(
+        fetch_user_by_email(oauth_account_context.database_url, profile.email)
+    )
+    assert user is not None
+    assert user.full_name == "Chosen Name"
+    assert (
+        asyncio.run(
+            fetch_user_by_email(
+                oauth_account_context.database_url,
+                "attacker-controlled@example.com",
+            )
+        )
+        is None
+    )
+
+
+def test_oauth_registration_replay_and_existing_email_are_conflicts(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    profile = OAuthProfile(
+        provider="google",
+        subject="registration-replay-subject",
+        email="registration-replay@example.com",
+        full_name="Replay User",
+    )
+    ticket = create_oauth_registration_ticket(
+        profile,
+        oauth_account_context.settings,
+    )
+
+    first = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={"registration_ticket": ticket},
+    )
+    replay = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={"registration_ticket": ticket},
+    )
+
+    assert first.status_code == 201
+    assert replay.status_code == 409
+    assert replay.json()["error"]["message"] == (
+        "OAuth registration could not be completed"
+    )
+    assert (
+        asyncio.run(
+            count_users_by_email(oauth_account_context.database_url, profile.email)
+        )
+        == 1
+    )
+    assert (
+        asyncio.run(
+            count_identities_by_subject(
+                oauth_account_context.database_url,
+                profile.provider,
+                profile.subject,
+            )
+        )
+        == 1
+    )
+
+
+def test_oauth_registration_does_not_attach_ticket_to_existing_email_account(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "existing-email-ticket@example.com"
+    register_password_user(oauth_account_context.client, email)
+    ticket = create_oauth_registration_ticket(
+        OAuthProfile(
+            provider="github",
+            subject="existing-email-ticket-subject",
+            email=email,
+            full_name="Existing Email",
+        ),
+        oauth_account_context.settings,
+    )
+    before = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={"registration_ticket": ticket},
+    )
+    after = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+
+    assert response.status_code == 409
+    assert after == before
+    assert (
+        asyncio.run(
+            fetch_identity(
+                oauth_account_context.database_url,
+                "github",
+                "existing-email-ticket-subject",
+            )
+        )
+        is None
+    )
+
+
+def test_invalid_registration_ticket_creates_no_account_rows(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    before = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={"registration_ticket": "x" * 80},
+    )
+    after = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+
+    assert response.status_code == 400
+    assert response.json()["error"]["message"] == (
+        "OAuth registration session is invalid or expired"
+    )
+    assert after == before
+
+
+def test_verified_oauth_email_links_existing_account_and_exchanges_once(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "oauth-link@example.com"
+    register_password_user(oauth_account_context.client, email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject="linked-google-subject",
+        email=email,
+        full_name="Linked Provider Name",
+    )
+
+    callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/callback",
+        follow_redirects=False,
+    )
+
+    assert callback.status_code == 303
+    location = urlsplit(callback.headers["location"])
+    fragment = parse_qs(location.fragment)
+    assert "registration_ticket" not in fragment
+    exchange_code = fragment["exchange_code"][0]
+    assert oauth_account_context.gateway.profile.subject not in location.fragment
+
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    identity = asyncio.run(
+        fetch_identity(
+            oauth_account_context.database_url,
+            "google",
+            "linked-google-subject",
+        )
+    )
+    exchange = asyncio.run(
+        fetch_exchange_by_hash(
+            oauth_account_context.database_url,
+            hash_oauth_login_exchange_code(
+                exchange_code,
+                oauth_account_context.settings,
+            ),
+        )
+    )
+    assert user is not None
+    assert identity is not None
+    assert identity.user_id == user.id
+    assert exchange is not None
+    assert exchange.user_id == user.id
+    assert exchange.code_hash != exchange_code
+
+    first_exchange = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/exchange",
+        json={"exchange_code": exchange_code},
+    )
+    replay = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/exchange",
+        json={"exchange_code": exchange_code},
+    )
+
+    assert first_exchange.status_code == 200
+    assert replay.status_code == 401
+    token_claims = decode_access_token(
+        first_exchange.json()["access_token"],
+        oauth_account_context.settings,
+    )
+    assert token_claims.email == email
+
+
+def test_known_identity_logs_into_original_user_when_provider_email_changes(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    original_email = "oauth-stable-subject@example.com"
+    register_password_user(oauth_account_context.client, original_email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="github",
+        subject="stable-github-subject",
+        email=original_email,
+        full_name="Stable User",
+    )
+    first_callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        follow_redirects=False,
+    )
+    assert first_callback.status_code == 303
+
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="github",
+        subject="stable-github-subject",
+        email="new-provider-email@example.com",
+        full_name="Renamed Provider User",
+    )
+    second_callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        follow_redirects=False,
+    )
+    exchange_code = parse_qs(urlsplit(second_callback.headers["location"]).fragment)[
+        "exchange_code"
+    ][0]
+    exchange = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/exchange",
+        json={"exchange_code": exchange_code},
+    )
+
+    assert second_callback.status_code == 303
+    assert exchange.status_code == 200
+    claims = decode_access_token(
+        exchange.json()["access_token"],
+        oauth_account_context.settings,
+    )
+    assert claims.email == original_email
+    assert (
+        asyncio.run(
+            fetch_user_by_email(
+                oauth_account_context.database_url,
+                "new-provider-email@example.com",
+            )
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("attempt", range(3))
+def test_parallel_callbacks_link_identity_once_and_both_get_unique_exchanges(
+    oauth_account_context: OAuthAccountTestContext,
+    attempt: int,
+) -> None:
+    email = f"parallel-oauth-link-{attempt}@example.com"
+    register_password_user(oauth_account_context.client, email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject=f"parallel-link-subject-{attempt}",
+        email=email,
+        full_name="Parallel Link",
+    )
+    before = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+
+    def callback_once() -> tuple[int, str]:
+        response = oauth_account_context.client.get(
+            "/api/v1/auth/oauth/google/callback",
+            follow_redirects=False,
+        )
+        return response.status_code, response.headers["location"]
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _index: callback_once(), range(2)))
+
+    after = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+    assert [status for status, _location in results] == [303, 303]
+    fragments = [parse_qs(urlsplit(location).fragment) for _status, location in results]
+    assert all("exchange_code" in fragment for fragment in fragments), results
+    assert len({fragment["exchange_code"][0] for fragment in fragments}) == 2
+    assert after == (
+        before[0],
+        before[1] + 1,
+        before[2] + 2,
+        before[3],
+    )
+
+
+def test_inactive_existing_user_is_not_linked_or_given_exchange(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "inactive-oauth-link@example.com"
+    register_password_user(oauth_account_context.client, email)
+    asyncio.run(set_user_active(oauth_account_context.database_url, email, False))
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject="inactive-google-subject",
+        email=email,
+        full_name="Inactive User",
+    )
+    before = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+
+    callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/callback",
+        follow_redirects=False,
+    )
+    after = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+
+    assert callback.status_code == 303
+    location = urlsplit(callback.headers["location"])
+    assert parse_qs(location.query)["error"] == ["callback_failed"]
+    assert location.fragment == ""
+    assert after == before
+
+
+def test_existing_provider_link_blocks_different_subject_for_same_user(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "provider-link-conflict@example.com"
+    register_password_user(oauth_account_context.client, email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject="first-provider-subject",
+        email=email,
+        full_name="Provider Conflict",
+    )
+    first = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/callback",
+        follow_redirects=False,
+    )
+    assert "exchange_code" in parse_qs(urlsplit(first.headers["location"]).fragment)
+
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject="second-provider-subject",
+        email=email,
+        full_name="Provider Conflict",
+    )
+    second = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/callback",
+        follow_redirects=False,
+    )
+
+    assert parse_qs(urlsplit(second.headers["location"]).query)["error"] == [
+        "callback_failed"
+    ]
+    assert (
+        asyncio.run(
+            count_identities_for_user_provider(
+                oauth_account_context.database_url,
+                email,
+                "google",
+            )
+        )
+        == 1
+    )
+
+
+def test_expired_oauth_exchange_is_rejected_and_consumed(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "expired-oauth-exchange@example.com"
+    register_password_user(oauth_account_context.client, email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="github",
+        subject="expired-exchange-subject",
+        email=email,
+        full_name="Expired Exchange",
+    )
+    callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        follow_redirects=False,
+    )
+    exchange_code = parse_qs(urlsplit(callback.headers["location"]).fragment)[
+        "exchange_code"
+    ][0]
+    code_hash = hash_oauth_login_exchange_code(
+        exchange_code,
+        oauth_account_context.settings,
+    )
+    asyncio.run(
+        set_exchange_expiry(
+            oauth_account_context.database_url,
+            code_hash,
+            datetime.now(UTC) - timedelta(seconds=1),
+        )
+    )
+
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/exchange",
+        json={"exchange_code": exchange_code},
+    )
+    stored_exchange = asyncio.run(
+        fetch_exchange_by_hash(oauth_account_context.database_url, code_hash)
+    )
+
+    assert response.status_code == 401
+    assert stored_exchange is not None
+    assert stored_exchange.consumed_at is not None
+
+
+def test_parallel_oauth_exchange_attempts_only_issue_one_session(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "parallel-oauth-exchange@example.com"
+    register_password_user(oauth_account_context.client, email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject="parallel-exchange-subject",
+        email=email,
+        full_name="Parallel Exchange",
+    )
+    callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/callback",
+        follow_redirects=False,
+    )
+    exchange_code = parse_qs(urlsplit(callback.headers["location"]).fragment)[
+        "exchange_code"
+    ][0]
+
+    def exchange_once() -> int:
+        return oauth_account_context.client.post(
+            "/api/v1/auth/oauth/exchange",
+            json={"exchange_code": exchange_code},
+        ).status_code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = sorted(executor.map(lambda _index: exchange_once(), range(2)))
+
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    assert statuses == [200, 401]
+    assert (
+        asyncio.run(count_refresh_sessions(oauth_account_context.database_url, user.id))
+        == 1
+    )
+
+
+def test_oauth_exchange_validation_redacts_code(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    exchange_code = "short-secret-code"
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/exchange",
+        json={"exchange_code": exchange_code},
+    )
+
+    assert response.status_code == 422
+    assert exchange_code not in response.text
+    assert "[redacted]" in response.text
+
+
+def register_password_user(client: TestClient, email: str) -> None:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+    assert response.status_code == 201
+
+
+async def fetch_user_by_email(database_url: str, email: str) -> User | None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            result = await session.execute(select(User).where(User.email == email))
+            return result.scalar_one_or_none()
+    finally:
+        await engine.dispose()
+
+
+async def fetch_identity(
+    database_url: str,
+    provider: str,
+    subject: str,
+) -> OAuthIdentity | None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(OAuthIdentity).where(
+                    OAuthIdentity.provider == provider,
+                    OAuthIdentity.provider_subject == subject,
+                )
+            )
+            return result.scalar_one_or_none()
+    finally:
+        await engine.dispose()
+
+
+async def fetch_exchange_by_hash(
+    database_url: str,
+    code_hash: str,
+) -> OAuthLoginExchange | None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(OAuthLoginExchange).where(
+                    OAuthLoginExchange.code_hash == code_hash
+                )
+            )
+            return result.scalar_one_or_none()
+    finally:
+        await engine.dispose()
+
+
+async def auth_row_counts(database_url: str) -> tuple[int, int, int, int]:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            counts = []
+            for model in (User, OAuthIdentity, OAuthLoginExchange, RefreshSession):
+                value = await session.scalar(select(func.count()).select_from(model))
+                counts.append(int(value or 0))
+            return counts[0], counts[1], counts[2], counts[3]
+    finally:
+        await engine.dispose()
+
+
+async def count_users_by_email(database_url: str, email: str) -> int:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            value = await session.scalar(
+                select(func.count()).select_from(User).where(User.email == email)
+            )
+            return int(value or 0)
+    finally:
+        await engine.dispose()
+
+
+async def count_identities_by_subject(
+    database_url: str,
+    provider: str,
+    subject: str,
+) -> int:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            value = await session.scalar(
+                select(func.count())
+                .select_from(OAuthIdentity)
+                .where(
+                    OAuthIdentity.provider == provider,
+                    OAuthIdentity.provider_subject == subject,
+                )
+            )
+            return int(value or 0)
+    finally:
+        await engine.dispose()
+
+
+async def count_identities_for_user_provider(
+    database_url: str,
+    email: str,
+    provider: str,
+) -> int:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            value = await session.scalar(
+                select(func.count())
+                .select_from(OAuthIdentity)
+                .join(User, User.id == OAuthIdentity.user_id)
+                .where(User.email == email, OAuthIdentity.provider == provider)
+            )
+            return int(value or 0)
+    finally:
+        await engine.dispose()
+
+
+async def count_refresh_sessions(database_url: str, user_id: object) -> int:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            value = await session.scalar(
+                select(func.count())
+                .select_from(RefreshSession)
+                .where(RefreshSession.user_id == user_id)
+            )
+            return int(value or 0)
+    finally:
+        await engine.dispose()
+
+
+async def set_user_active(database_url: str, email: str, active: bool) -> None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            await session.execute(
+                update(User).where(User.email == email).values(is_active=active)
+            )
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def set_exchange_expiry(
+    database_url: str,
+    code_hash: str,
+    expires_at: datetime,
+) -> None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            await session.execute(
+                update(OAuthLoginExchange)
+                .where(OAuthLoginExchange.code_hash == code_hash)
+                .values(expires_at=expires_at)
+            )
+            await session.commit()
+    finally:
+        await engine.dispose()

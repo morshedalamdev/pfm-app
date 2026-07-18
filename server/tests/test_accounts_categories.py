@@ -475,9 +475,10 @@ def test_account_default_and_disable_helpers(
     )
     assert set_default_response.status_code == 200
     assert set_default_response.json()["is_default"] is True
-    assert context.client.get("/api/v1/users/me", headers=headers).json()[
-        "base_currency"
-    ] == "EUR"
+    assert (
+        context.client.get("/api/v1/users/me", headers=headers).json()["base_currency"]
+        == "EUR"
+    )
 
     manual_currency_response = context.client.patch(
         "/api/v1/users/me",
@@ -496,9 +497,10 @@ def test_account_default_and_disable_helpers(
     )
     assert update_currency_response.status_code == 200
     assert update_currency_response.json()["currency"] == "GBP"
-    assert context.client.get("/api/v1/users/me", headers=headers).json()[
-        "base_currency"
-    ] == "GBP"
+    assert (
+        context.client.get("/api/v1/users/me", headers=headers).json()["base_currency"]
+        == "GBP"
+    )
 
     list_response = context.client.get("/api/v1/accounts?limit=10", headers=headers)
     assert list_response.status_code == 200
@@ -529,9 +531,10 @@ def test_account_default_and_disable_helpers(
         account for account in fallback_accounts if account["is_default"]
     )
     assert fallback_account["id"] in {first["id"], third["id"]}
-    assert context.client.get("/api/v1/users/me", headers=headers).json()[
-        "base_currency"
-    ] == fallback_account["currency"]
+    assert (
+        context.client.get("/api/v1/users/me", headers=headers).json()["base_currency"]
+        == fallback_account["currency"]
+    )
 
     disabled_default_response = context.client.patch(
         f"/api/v1/accounts/{second['id']}/default",

@@ -93,19 +93,22 @@ The API runs at `http://localhost:8000`, and the frontend runs at
 `http://localhost:3000`. PostgreSQL is published on host port `5433` by
 default so it does not collide with a PostgreSQL server already using `5432`.
 
+When `server/.env` exists, Compose overlays it onto the API container after
+`server/.env.example`. This makes ignored local Google and GitHub OAuth
+credentials available to the API without committing them or exposing them to
+the worker container.
+
 Override host ports without editing committed files:
 
 ```bash
 POSTGRES_PORT=55432 API_PORT=58000 FRONTEND_PORT=53000 docker compose up
 ```
 
-The frontend container writes its browser API origin from
-`NEXT_PUBLIC_API_BASE_URL` at startup. If `NEXT_PUBLIC_API_BASE_URL` is not set,
-Compose derives it from `API_PORT`, so `API_PORT=58000 docker compose up`
-builds and runs the frontend against `http://localhost:58000`. If a Docker
-metadata or registry timeout stops `docker compose build`, rerun the build
-before `docker compose up`; Compose tags the frontend image by API port so a
-stale wrong-port frontend image is not silently reused.
+The frontend container uses the server-only `SERVER_API_BASE_URL=http://api:8000`
+to reach FastAPI over the Compose network. Browser requests stay same-origin
+and go through the frontend's `/api/*` route handlers, so no backend URL is
+embedded in browser JavaScript. If a Docker metadata or registry timeout stops
+`docker compose build`, rerun the build before `docker compose up`.
 
 Compose also derives local API CORS origins from `FRONTEND_PORT` for both
 `localhost` and `127.0.0.1`. Set `CORS_ORIGINS` to an explicit JSON array when
@@ -217,16 +220,13 @@ alembic upgrade head
 Frontend checks from `client/`:
 
 ```bash
-npm run build
-npm run lint --if-present
-npm run test --if-present
-npm run api:check
+npm run check
 npm run e2e
 ```
 
-The current frontend package has no real `lint` or `test` scripts, so those
-commands are expected no-ops until scripts are added. The E2E command starts a
-disposable local PostgreSQL, FastAPI, and Next.js stack.
+`npm run check` validates generated API contract drift, lint, TypeScript, unit
+tests, and a production Next.js build. The E2E suite runs the mobile-width user
+journeys with Playwright.
 
 ## Documentation
 

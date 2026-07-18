@@ -29,6 +29,21 @@ def configure_logging(debug: bool = False) -> None:
                 "handlers": ["console"],
                 "propagate": False,
             },
+            "authlib": {
+                "level": "WARNING",
+                "handlers": ["console"],
+                "propagate": False,
+            },
+            "httpcore": {
+                "level": "WARNING",
+                "handlers": ["console"],
+                "propagate": False,
+            },
+            "httpx": {
+                "level": "WARNING",
+                "handlers": ["console"],
+                "propagate": False,
+            },
         },
     }
     dictConfig(config)
