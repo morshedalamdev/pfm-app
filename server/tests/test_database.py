@@ -25,6 +25,14 @@ def test_database_settings_defaults_are_safe_local_values() -> None:
     assert settings.database_echo is False
     assert settings.database_pool_size == 5
     assert settings.database_max_overflow == 10
+    assert settings.frontend_base_url == "http://localhost:3000"
+    assert settings.oauth_public_api_url == "http://localhost:8000"
+    assert settings.google_oauth_client_id is None
+    assert settings.google_oauth_client_secret is None
+    assert settings.github_oauth_client_id is None
+    assert settings.github_oauth_client_secret is None
+    assert settings.oauth_registration_ticket_expire_minutes == 10
+    assert settings.oauth_login_exchange_expire_seconds == 60
     assert settings.recurring_worker_batch_size == 25
     assert settings.recurring_worker_lock_seconds == 60
     assert settings.recurring_worker_poll_seconds == 30
@@ -78,6 +86,31 @@ def test_database_url_rejects_non_async_postgres_drivers() -> None:
         Settings(_env_file=None, database_url="sqlite+aiosqlite:///pfm.db")
 
 
+def test_oauth_origins_are_normalized_and_must_not_include_paths() -> None:
+    settings = Settings(
+        _env_file=None,
+        frontend_base_url="https://pfm.example.com/",
+        oauth_public_api_url="https://api.pfm.example.com/",
+    )
+
+    assert settings.frontend_base_url == "https://pfm.example.com"
+    assert settings.oauth_public_api_url == "https://api.pfm.example.com"
+
+    with pytest.raises(ValidationError, match=r"absolute HTTP\(S\) origins"):
+        Settings(
+            _env_file=None,
+            frontend_base_url="https://pfm.example.com/auth",
+        )
+
+
+def test_oauth_provider_credentials_must_be_configured_in_pairs() -> None:
+    with pytest.raises(ValidationError, match="configured together"):
+        Settings(
+            _env_file=None,
+            google_oauth_client_id="google-client-id",
+        )
+
+
 def test_production_settings_reject_local_secrets() -> None:
     with pytest.raises(ValidationError, match="ACCESS_TOKEN_SECRET_KEY"):
         Settings(
@@ -95,6 +128,8 @@ def test_production_settings_require_https_cors_origins() -> None:
             cors_origins=["http://pfm.example.com"],
             access_token_secret_key="a" * 32,
             refresh_token_secret_key="b" * 32,
+            oauth_state_secret_key="c" * 32,
+            oauth_registration_ticket_secret_key="d" * 32,
         )
 
 
@@ -104,8 +139,16 @@ def test_production_settings_accept_secure_explicit_values() -> None:
         app_env="production",
         debug=False,
         cors_origins=["https://pfm.example.com"],
+        frontend_base_url="https://pfm.example.com",
+        oauth_public_api_url="https://api.pfm.example.com",
         access_token_secret_key="a" * 32,
         refresh_token_secret_key="b" * 32,
+        oauth_state_secret_key="c" * 32,
+        oauth_registration_ticket_secret_key="d" * 32,
+        google_oauth_client_id="google-client-id",
+        google_oauth_client_secret="google-client-secret",
+        github_oauth_client_id="github-client-id",
+        github_oauth_client_secret="github-client-secret",
     )
 
     assert settings.app_env == "production"

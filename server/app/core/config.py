@@ -13,6 +13,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LOCAL_ACCESS_TOKEN_SECRET = "local-development-access-token-secret-change-me"
 LOCAL_REFRESH_TOKEN_SECRET = "local-development-refresh-token-secret-change-me"
+LOCAL_OAUTH_STATE_SECRET = "local-development-oauth-state-secret-change-me"
+LOCAL_OAUTH_TICKET_SECRET = "local-development-oauth-ticket-secret-change-me"
 
 
 class Settings(BaseSettings):
@@ -36,6 +38,18 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=15, gt=0, le=60)
     refresh_token_secret_key: SecretStr = SecretStr(LOCAL_REFRESH_TOKEN_SECRET)
     refresh_token_expire_days: int = Field(default=30, gt=0, le=365)
+    frontend_base_url: str = "http://localhost:3000"
+    oauth_public_api_url: str = "http://localhost:8000"
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: SecretStr | None = None
+    github_oauth_client_id: str | None = None
+    github_oauth_client_secret: SecretStr | None = None
+    oauth_state_secret_key: SecretStr = SecretStr(LOCAL_OAUTH_STATE_SECRET)
+    oauth_registration_ticket_secret_key: SecretStr = SecretStr(
+        LOCAL_OAUTH_TICKET_SECRET
+    )
+    oauth_registration_ticket_expire_minutes: int = Field(default=10, gt=0, le=30)
+    oauth_login_exchange_expire_seconds: int = Field(default=60, ge=30, le=300)
     recurring_worker_batch_size: int = Field(default=25, gt=0, le=1000)
     recurring_worker_lock_seconds: int = Field(default=60, gt=0, le=3600)
     recurring_worker_poll_seconds: float = Field(default=30.0, gt=0, le=3600)
@@ -103,8 +117,59 @@ class Settings(BaseSettings):
             )
         )
 
+    @field_validator("frontend_base_url", "oauth_public_api_url")
+    @classmethod
+    def normalize_web_origin(cls, value: str) -> str:
+        parsed = urlsplit(value.strip())
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("OAuth web origins must be absolute HTTP(S) origins")
+        return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+
+    @field_validator("google_oauth_client_id", "github_oauth_client_id", mode="before")
+    @classmethod
+    def normalize_optional_client_id(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
+
+    @field_validator(
+        "google_oauth_client_secret",
+        "github_oauth_client_secret",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_client_secret(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @model_validator(mode="after")
     def validate_production_safety(self) -> "Settings":
+        provider_credentials = {
+            "GOOGLE": (
+                self.google_oauth_client_id,
+                self.google_oauth_client_secret,
+            ),
+            "GITHUB": (
+                self.github_oauth_client_id,
+                self.github_oauth_client_secret,
+            ),
+        }
+        for provider, (client_id, client_secret) in provider_credentials.items():
+            if (client_id is None) != (client_secret is None):
+                raise ValueError(
+                    f"{provider}_OAUTH_CLIENT_ID and "
+                    f"{provider}_OAUTH_CLIENT_SECRET must be configured together"
+                )
+
         if self.app_env != "production":
             return self
 
@@ -120,6 +185,14 @@ class Settings(BaseSettings):
                 self.refresh_token_secret_key.get_secret_value(),
                 LOCAL_REFRESH_TOKEN_SECRET,
             ),
+            "OAUTH_STATE_SECRET_KEY": (
+                self.oauth_state_secret_key.get_secret_value(),
+                LOCAL_OAUTH_STATE_SECRET,
+            ),
+            "OAUTH_REGISTRATION_TICKET_SECRET_KEY": (
+                self.oauth_registration_ticket_secret_key.get_secret_value(),
+                LOCAL_OAUTH_TICKET_SECRET,
+            ),
         }
         for name, (value, local_default) in secrets.items():
             if value == local_default or len(value) < 32:
@@ -131,6 +204,18 @@ class Settings(BaseSettings):
             raise ValueError(
                 "CORS_ORIGINS must contain explicit HTTPS origins in production"
             )
+
+        if not self.frontend_base_url.startswith("https://"):
+            raise ValueError("FRONTEND_BASE_URL must use HTTPS in production")
+        if not self.oauth_public_api_url.startswith("https://"):
+            raise ValueError("OAUTH_PUBLIC_API_URL must use HTTPS in production")
+
+        for provider, (client_id, client_secret) in provider_credentials.items():
+            if client_id is None or client_secret is None:
+                raise ValueError(
+                    f"{provider}_OAUTH_CLIENT_ID and "
+                    f"{provider}_OAUTH_CLIENT_SECRET are required in production"
+                )
 
         return self
 

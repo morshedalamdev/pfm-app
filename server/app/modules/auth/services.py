@@ -76,7 +76,10 @@ class AuthService:
         user = await self.users.get_by_email(request.email)
         if user is None:
             raise InvalidCredentialsError
-        if not verify_password(request.password, user.password_hash):
+        if user.password_hash is None or not verify_password(
+            request.password,
+            user.password_hash,
+        ):
             raise InvalidCredentialsError
         if not user.is_active:
             raise InvalidCredentialsError

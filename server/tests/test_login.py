@@ -156,6 +156,26 @@ def test_login_inactive_user_is_rejected_generically(
     assert response.json()["error"]["message"] == "Invalid email or password"
 
 
+def test_password_login_rejects_social_only_user_generically(
+    auth_context: AuthTestContext,
+) -> None:
+    register_user(auth_context, "social-only@example.com", "CorrectHorse42")
+    asyncio.run(
+        clear_user_password(auth_context.database_url, "social-only@example.com")
+    )
+
+    response = auth_context.client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "social-only@example.com",
+            "password": "CorrectHorse42",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["message"] == "Invalid email or password"
+
+
 def test_protected_user_rejects_malformed_token(
     auth_context: AuthTestContext,
 ) -> None:
@@ -301,6 +321,20 @@ async def set_user_active(database_url: str, email: str, is_active: bool) -> Non
             result = await session.execute(select(User).where(User.email == email))
             user = result.scalar_one()
             user.is_active = is_active
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def clear_user_password(database_url: str, email: str) -> None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+
+    try:
+        async with session_factory() as session:
+            result = await session.execute(select(User).where(User.email == email))
+            user = result.scalar_one()
+            user.password_hash = None
             await session.commit()
     finally:
         await engine.dispose()

@@ -9,7 +9,7 @@ from sqlalchemy import Index, UniqueConstraint, inspect
 
 from alembic import command
 from app.core.database import Base, build_async_engine
-from app.modules.auth.models import RefreshSession
+from app.modules.auth.models import OAuthIdentity, OAuthLoginExchange, RefreshSession
 from app.modules.auth.repositories import RefreshSessionRepository
 from app.modules.auth.services import AuthService
 from app.modules.users.models import User
@@ -52,6 +52,7 @@ def test_user_model_schema() -> None:
     }
     assert table.columns.email.type.length == 320
     assert table.columns.password_hash.type.length == 255
+    assert table.columns.password_hash.nullable is True
     assert table.columns.full_name.type.length == 120
     assert table.columns.phone_number.type.length == 32
     assert table.columns.occupation.type.length == 80
@@ -106,6 +107,61 @@ def test_refresh_session_model_schema() -> None:
     }
 
 
+def test_oauth_identity_model_schema() -> None:
+    table = OAuthIdentity.__table__
+
+    assert table.metadata is Base.metadata
+    assert set(table.columns.keys()) == {
+        "id",
+        "user_id",
+        "provider",
+        "provider_subject",
+        "created_at",
+        "updated_at",
+    }
+    assert table.columns.provider.type.length == 20
+    assert table.columns.provider_subject.type.length == 255
+    assert constraint_names(
+        [
+            constraint
+            for constraint in table.constraints
+            if isinstance(constraint, UniqueConstraint)
+        ]
+    ) == {
+        "uq_oauth_identities_provider_subject",
+        "uq_oauth_identities_user_provider",
+    }
+    assert index_names(table.indexes) == {"ix_oauth_identities_user_id"}
+
+
+def test_oauth_login_exchange_model_schema() -> None:
+    table = OAuthLoginExchange.__table__
+
+    assert table.metadata is Base.metadata
+    assert set(table.columns.keys()) == {
+        "id",
+        "user_id",
+        "code_hash",
+        "expires_at",
+        "consumed_at",
+        "created_at",
+    }
+    assert table.columns.code_hash.type.length == 64
+    assert table.columns.consumed_at.nullable is True
+    assert "uq_oauth_login_exchanges_code_hash" in constraint_names(
+        [
+            constraint
+            for constraint in table.constraints
+            if isinstance(constraint, UniqueConstraint)
+        ]
+    )
+    assert index_names(table.indexes) == {
+        "ix_oauth_login_exchanges_user_id",
+        "ix_oauth_login_exchanges_expires_at",
+        "ix_oauth_login_exchanges_consumed_at",
+    }
+
+
 def test_auth_service_composes_repository_skeletons() -> None:
     users = UserRepository.__new__(UserRepository)
     refresh_sessions = RefreshSessionRepository.__new__(RefreshSessionRepository)
@@ -140,6 +196,35 @@ def test_auth_migration_up_down_up_tables(
     )
 
 
+def test_oauth_migration_up_down_up_schema(
+    disposable_postgres_url: str,
+) -> None:
+    config = build_alembic_config(disposable_postgres_url)
+
+    command.upgrade(config, "head")
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_identities"))
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_login_exchanges"))
+    assert asyncio.run(
+        column_is_nullable(disposable_postgres_url, "users", "password_hash")
+    )
+
+    command.downgrade(config, "202607130703")
+    assert not asyncio.run(table_exists(disposable_postgres_url, "oauth_identities"))
+    assert not asyncio.run(
+        table_exists(disposable_postgres_url, "oauth_login_exchanges")
+    )
+    assert not asyncio.run(
+        column_is_nullable(disposable_postgres_url, "users", "password_hash")
+    )
+
+    command.upgrade(config, "head")
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_identities"))
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_login_exchanges"))
+    assert asyncio.run(
+        column_is_nullable(disposable_postgres_url, "users", "password_hash")
+    )
+
+
 async def table_exists(database_url: str, table_name: str) -> bool:
     engine = build_async_engine(database_url)
 
@@ -147,6 +232,27 @@ async def table_exists(database_url: str, table_name: str) -> bool:
         async with engine.connect() as connection:
             return await connection.run_sync(
                 lambda sync_connection: inspect(sync_connection).has_table(table_name)
+            )
+    finally:
+        await engine.dispose()
+
+
+async def column_is_nullable(
+    database_url: str,
+    table_name: str,
+    column_name: str,
+) -> bool:
+    engine = build_async_engine(database_url)
+
+    try:
+        async with engine.connect() as connection:
+            columns = await connection.run_sync(
+                lambda sync_connection: inspect(sync_connection).get_columns(table_name)
+            )
+            return next(
+                bool(column["nullable"])
+                for column in columns
+                if column["name"] == column_name
             )
     finally:
         await engine.dispose()
