@@ -78,7 +78,7 @@ export function AuthOptions({
   }
 
   function continueWithProvider(provider: OAuthProvider) {
-    beginOAuth(provider, nextPath);
+    beginOAuth(provider);
   }
 
   const registrationQuery = new URLSearchParams();

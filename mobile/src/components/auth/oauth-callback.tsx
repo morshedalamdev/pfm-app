@@ -6,10 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import type { AuthResponse } from "@/lib/api/types";
-import {
-  consumeOAuthNextPath,
-  storeOAuthRegistrationTicket,
-} from "@/lib/auth/oauth-client";
+import { storeOAuthRegistrationTicket } from "@/lib/auth/oauth-client";
 import { useAuthStore } from "@/lib/auth/store";
 
 export function OAuthCallback() {
@@ -56,7 +53,7 @@ export function OAuthCallback() {
           return;
         }
         setUser(payload.user);
-        router.replace(consumeOAuthNextPath() as Route);
+        router.replace("/" as Route);
         router.refresh();
       } catch {
         setError("The sign in service is temporarily unavailable.");

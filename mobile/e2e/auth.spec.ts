@@ -59,7 +59,7 @@ test("routes an unknown email to registration with the email prefilled", async (
   );
 });
 
-test("moves an OAuth registration ticket into the explicit account form", async ({ page }) => {
+test("creates a first-time OAuth account and redirects to Home", async ({ page }) => {
   await page.route("**/api/auth/oauth/preview", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -71,6 +71,16 @@ test("moves an OAuth registration ticket into the explicit account form", async 
       status: 200,
     });
   });
+  await page.route("**/api/auth/oauth/register", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: { user },
+      status: 201,
+    });
+  });
+  await page.route("**/api/auth/session", async (route) => {
+    await route.fulfill({ contentType: "application/json", json: { user } });
+  });
 
   await page.goto(`/auth/oauth/callback#registration_ticket=${"t".repeat(64)}`);
   await expect(page).toHaveURL(/\/auth\/register\?oauth=1$/);
@@ -78,6 +88,26 @@ test("moves an OAuth registration ticket into the explicit account form", async 
   await expect(page.getByLabel("Email address")).toHaveValue("oauth@example.com");
   await expect(page.getByLabel("Email address")).toHaveAttribute("readonly", "");
   await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("redirects a returning OAuth user to Home", async ({ page }) => {
+  await page.route("**/api/auth/oauth/exchange", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: { user },
+      status: 200,
+    });
+  });
+  await page.route("**/api/auth/session", async (route) => {
+    await route.fulfill({ contentType: "application/json", json: { user } });
+  });
+
+  await page.goto(`/auth/oauth/callback#exchange_code=${"e".repeat(64)}`);
+
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("validates login details before submission", async ({ page }) => {

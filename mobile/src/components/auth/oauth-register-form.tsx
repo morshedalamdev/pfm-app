@@ -87,7 +87,7 @@ export function OAuthRegisterForm() {
       }
       clearOAuthRegistrationTicket();
       setUser(payload.user);
-      router.replace("/setup" as Route);
+      router.replace("/" as Route);
       router.refresh();
     } catch {
       setError("The registration service is temporarily unavailable.");
