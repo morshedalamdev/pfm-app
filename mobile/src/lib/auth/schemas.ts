@@ -23,5 +23,18 @@ export const registerSchema = z
     path: ["confirmPassword"],
   });
 
+export const oauthExchangeSchema = z.object({
+  exchangeCode: z.string().trim().min(32).max(512),
+});
+
+export const oauthRegistrationTicketSchema = z.object({
+  registrationTicket: z.string().trim().min(32).max(4096),
+});
+
+export const oauthRegisterSchema = oauthRegistrationTicketSchema.extend({
+  fullName: z.string().trim().min(1, "Enter your full name").max(120),
+});
+
 export type LoginValues = z.infer<typeof loginSchema>;
+export type OAuthRegisterValues = z.infer<typeof oauthRegisterSchema>;
 export type RegisterValues = z.infer<typeof registerSchema>;

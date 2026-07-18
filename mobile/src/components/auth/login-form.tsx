@@ -6,30 +6,40 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
 import type { AuthResponse } from "@/lib/api/types";
 import { loginSchema, type LoginValues } from "@/lib/auth/schemas";
 import { useAuthStore } from "@/lib/auth/store";
 
 type LoginFormProps = Readonly<{
+  defaultEmail?: string;
   nextPath: string;
   serviceUnavailable?: boolean;
 }>;
 
-export function LoginForm({ nextPath, serviceUnavailable = false }: LoginFormProps) {
+export function LoginForm({
+  defaultEmail = "",
+  nextPath,
+  serviceUnavailable = false,
+}: LoginFormProps) {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
   const [showPassword, setShowPassword] = useState(false);
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
     setError,
   } = useForm<LoginValues>({
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: defaultEmail, password: "" },
     resolver: zodResolver(loginSchema),
   });
+  const registrationQuery = new URLSearchParams();
+  const currentEmail = useWatch({ control, name: "email" }).trim();
+  if (currentEmail) registrationQuery.set("email", currentEmail);
+  const registrationHref = `/auth/register${registrationQuery.size ? `?${registrationQuery.toString()}` : ""}` as Route;
 
   const onSubmit = handleSubmit(async (values) => {
     try {
@@ -112,7 +122,7 @@ export function LoginForm({ nextPath, serviceUnavailable = false }: LoginFormPro
       </button>
 
       <p className="auth-switch">
-        New to PFM? <Link href={"/auth/register" as Route}>Create an account</Link>
+        New to PFM? <Link href={registrationHref}>Create an account</Link>
       </p>
     </form>
   );

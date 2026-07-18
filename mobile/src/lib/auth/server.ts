@@ -88,7 +88,11 @@ export function hasTrustedOrigin(request: NextRequest): boolean {
 }
 
 export async function requestTokens(
-  path: "/api/v1/auth/login" | "/api/v1/auth/refresh",
+  path:
+    | "/api/v1/auth/login"
+    | "/api/v1/auth/oauth/exchange"
+    | "/api/v1/auth/oauth/register"
+    | "/api/v1/auth/refresh",
   payload: object,
 ): Promise<{ response: Response; tokens: AuthTokens | null }> {
   const response = await fetch(getBackendUrl(path), {

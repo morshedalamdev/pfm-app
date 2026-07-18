@@ -5,7 +5,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import { getSafeNextPath } from "@/lib/auth/safe-next-path";
 
 type LoginPageProps = {
-  searchParams: Promise<{ next?: string; reason?: string }>;
+  searchParams: Promise<{ email?: string; next?: string; reason?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -19,11 +19,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p>Continue to your private finance overview.</p>
       </div>
       <LoginForm
+        defaultEmail={params.email}
         nextPath={getSafeNextPath(params.next)}
         serviceUnavailable={params.reason === "unavailable"}
       />
       <p className="auth-legal">
-        By continuing, you agree to keep your account credentials private. <Link href={"/auth/register" as Route}>Need an account?</Link>
+        By continuing, you agree to keep your account credentials private. <Link href={"/auth" as Route}>Other sign-in options</Link>
       </p>
     </>
   );

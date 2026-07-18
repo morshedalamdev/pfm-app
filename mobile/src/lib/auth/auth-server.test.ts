@@ -4,6 +4,10 @@ import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { POST as login } from "@/app/api/auth/login/route";
+import { POST as exchangeOAuth } from "@/app/api/auth/oauth/exchange/route";
+import { GET as startOAuth } from "@/app/api/auth/oauth/[provider]/start/route";
+import { POST as previewOAuth } from "@/app/api/auth/oauth/preview/route";
+import { POST as registerOAuth } from "@/app/api/auth/oauth/register/route";
 import { POST as registerUser } from "@/app/api/auth/register/route";
 import { GET as proxyBackendGet } from "@/app/api/backend/[...path]/route";
 import {
@@ -111,6 +115,100 @@ describe("auth server boundary", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("starts only supported OAuth providers through the backend", async () => {
+    const response = await startOAuth(
+      new NextRequest("http://localhost/api/auth/oauth/github/start"),
+      { params: Promise.resolve({ provider: "github" }) },
+    );
+    const unsupported = await startOAuth(
+      new NextRequest("http://localhost/api/auth/oauth/facebook/start"),
+      { params: Promise.resolve({ provider: "facebook" }) },
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:8000/api/v1/auth/oauth/github/start",
+    );
+    expect(unsupported.status).toBe(404);
+  });
+
+  it("previews OAuth registration without creating a session", async () => {
+    const preview = {
+      email: "mobile@example.com",
+      full_name: "Mobile User",
+      provider: "github",
+    } as const;
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(preview));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await previewOAuth(
+      new NextRequest("http://localhost/api/auth/oauth/preview", {
+        body: JSON.stringify({ registrationTicket: "t".repeat(64) }),
+        headers: { origin: "http://localhost" },
+        method: "POST",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(preview);
+    expect(response.cookies.get(ACCESS_COOKIE)).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("exchanges a one-time OAuth code into HTTP-only session cookies", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(tokens))
+      .mockResolvedValueOnce(jsonResponse(user));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await exchangeOAuth(
+      new NextRequest("http://localhost/api/auth/oauth/exchange", {
+        body: JSON.stringify({ exchangeCode: "e".repeat(64) }),
+        headers: { origin: "http://localhost" },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(body).toEqual({ user });
+    expect(JSON.stringify(body)).not.toContain(tokens.access_token);
+    expect(response.cookies.get(ACCESS_COOKIE)).toMatchObject({
+      httpOnly: true,
+      value: tokens.access_token,
+    });
+  });
+
+  it("creates an OAuth account only through the explicit registration route", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(tokens, 201))
+      .mockResolvedValueOnce(jsonResponse(user));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await registerOAuth(
+      new NextRequest("http://localhost/api/auth/oauth/register", {
+        body: JSON.stringify({
+          fullName: "Mobile User",
+          registrationTicket: "t".repeat(64),
+        }),
+        headers: { origin: "http://localhost" },
+        method: "POST",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ user });
+    expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe(
+      tokens.refresh_token,
+    );
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      full_name: "Mobile User",
+      registration_ticket: "t".repeat(64),
+    });
+  });
+
   it("rejects cross-origin authentication requests", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -160,7 +258,7 @@ describe("auth server boundary", () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "http://localhost/auth/login?next=%2Freport%3Fperiod%3Dmonth",
+      "http://localhost/auth?next=%2Freport%3Fperiod%3Dmonth",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -231,7 +329,7 @@ describe("auth server boundary", () => {
       "Bearer valid-access",
     );
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "http://127.0.0.1:8000/api/v1/reports/dashboard?period=month",
+      "http://localhost:8000/api/v1/reports/dashboard?period=month",
     );
   });
 });

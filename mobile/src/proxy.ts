@@ -6,7 +6,7 @@ import {
 } from "@/lib/auth/server";
 
 function loginRedirect(request: NextRequest, reason?: string): NextResponse {
-  const url = new URL("/auth/login", request.url);
+  const url = new URL("/auth", request.url);
   url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   if (reason) url.searchParams.set("reason", reason);
   return NextResponse.redirect(url);

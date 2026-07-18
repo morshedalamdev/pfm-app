@@ -46,7 +46,11 @@ const fields = [
   },
 ] as const;
 
-export function RegisterForm() {
+type RegisterFormProps = Readonly<{
+  defaultEmail?: string;
+}>;
+
+export function RegisterForm({ defaultEmail = "" }: RegisterFormProps) {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
   const {
@@ -57,7 +61,7 @@ export function RegisterForm() {
   } = useForm<RegisterValues>({
     defaultValues: {
       confirmPassword: "",
-      email: "",
+      email: defaultEmail,
       fullName: "",
       password: "",
     },
@@ -123,7 +127,7 @@ export function RegisterForm() {
       </button>
 
       <p className="auth-switch">
-        Already have an account? <Link href={"/auth/login" as Route}>Sign in</Link>
+        Already have an account? <Link href={"/auth" as Route}>Sign in</Link>
       </p>
     </form>
   );

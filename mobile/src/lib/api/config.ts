@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
+const DEFAULT_BACKEND_URL = "http://localhost:8000";
 
 export function getBackendBaseUrl(): string {
   const configured = process.env.SERVER_API_BASE_URL?.trim() || DEFAULT_BACKEND_URL;

@@ -16,6 +16,42 @@ const user = {
   phone_number: null,
 };
 
+test("offers email, Google, and GitHub authentication", async ({ page }) => {
+  await page.goto("/auth?next=/analytics");
+
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
+  await expect(page.getByText("Facebook", { exact: false })).toHaveCount(0);
+
+  await page.getByLabel("Email address").fill("mobile@example.com");
+  await page.getByRole("button", { name: "Continue with email" }).click();
+  await expect(page).toHaveURL(
+    /\/auth\/login\?email=mobile%40example\.com&next=%2Fanalytics$/,
+  );
+  await expect(page.getByLabel("Email address")).toHaveValue("mobile@example.com");
+});
+
+test("moves an OAuth registration ticket into the explicit account form", async ({ page }) => {
+  await page.route("**/api/auth/oauth/preview", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        email: "oauth@example.com",
+        full_name: "OAuth User",
+        provider: "github",
+      },
+      status: 200,
+    });
+  });
+
+  await page.goto(`/auth/oauth/callback#registration_ticket=${"t".repeat(64)}`);
+  await expect(page).toHaveURL(/\/auth\/register\?oauth=1$/);
+  await expect(page.getByLabel("Full name")).toHaveValue("OAuth User");
+  await expect(page.getByLabel("Email address")).toHaveValue("oauth@example.com");
+  await expect(page.getByLabel("Email address")).toHaveAttribute("readonly", "");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
+});
+
 test("validates login details before submission", async ({ page }) => {
   await page.goto("/auth/login");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -68,7 +104,12 @@ test("creates an account and opens the guided setup", async ({ page }) => {
 });
 
 test("auth screens have no detectable accessibility violations", async ({ page }) => {
-  for (const route of ["/auth/login", "/auth/register"]) {
+  for (const route of [
+    "/auth",
+    "/auth/login",
+    "/auth/register",
+    "/auth/oauth/callback?error=callback_failed",
+  ]) {
     await page.goto(route);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, `accessibility at ${route}`).toEqual([]);
