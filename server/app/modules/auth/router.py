@@ -2,6 +2,7 @@ from typing import Annotated
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse, Response
 
@@ -11,18 +12,25 @@ from app.modules.auth.oauth import (
     InvalidOAuthRegistrationTicketError,
     OAuthCallbackError,
     OAuthGateway,
+    OAuthProfile,
     OAuthProviderNotConfiguredError,
     create_oauth_registration_ticket,
     decode_oauth_registration_ticket,
     get_oauth_gateway,
 )
-from app.modules.auth.repositories import RefreshSessionRepository
+from app.modules.auth.repositories import (
+    OAuthIdentityRepository,
+    OAuthLoginExchangeRepository,
+    RefreshSessionRepository,
+)
 from app.modules.auth.schemas import (
     AccessTokenResponse,
     LoginRequest,
     LogoutRequest,
     LogoutResponse,
+    OAuthLoginExchangeRequest,
     OAuthProvider,
+    OAuthRegisterRequest,
     OAuthRegistrationPreviewResponse,
     OAuthRegistrationTicketRequest,
     RefreshTokenRequest,
@@ -33,7 +41,11 @@ from app.modules.auth.services import (
     AuthService,
     DuplicateRegistrationError,
     InvalidCredentialsError,
+    InvalidOAuthLoginExchangeError,
     InvalidRefreshTokenError,
+    OAuthAccountUnavailableError,
+    OAuthAuthService,
+    OAuthRegistrationConflictError,
 )
 from app.modules.users.repositories import UserRepository
 
@@ -47,6 +59,15 @@ def build_auth_service(session: AsyncSession) -> AuthService:
     return AuthService(
         users=UserRepository(session),
         refresh_sessions=RefreshSessionRepository(session),
+    )
+
+
+def build_oauth_auth_service(session: AsyncSession) -> OAuthAuthService:
+    return OAuthAuthService(
+        users=UserRepository(session),
+        refresh_sessions=RefreshSessionRepository(session),
+        identities=OAuthIdentityRepository(session),
+        login_exchanges=OAuthLoginExchangeRepository(session),
     )
 
 
@@ -81,6 +102,7 @@ async def complete_oauth(
     request: Request,
     settings: SettingsDependency,
     gateway: OAuthGatewayDependency,
+    session: SessionDependency,
 ) -> RedirectResponse:
     try:
         profile = await gateway.complete(request, provider)
@@ -88,6 +110,19 @@ async def complete_oauth(
         return oauth_callback_error_redirect(settings, provider, "not_configured")
     except OAuthCallbackError:
         return oauth_callback_error_redirect(settings, provider, "callback_failed")
+
+    service = build_oauth_auth_service(session)
+    try:
+        exchange_code = await service.resolve_callback(profile, settings)
+    except (OAuthAccountUnavailableError, SQLAlchemyError):
+        return oauth_callback_error_redirect(settings, provider, "callback_failed")
+
+    if exchange_code is not None:
+        fragment = urlencode({"exchange_code": exchange_code})
+        return RedirectResponse(
+            url=f"{settings.frontend_base_url}/auth/oauth/callback#{fragment}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     registration_ticket = create_oauth_registration_ticket(profile, settings)
     fragment = urlencode({"registration_ticket": registration_ticket})
@@ -120,6 +155,62 @@ async def preview_oauth_registration(
         email=claims.email,
         full_name=claims.full_name,
     )
+
+
+@router.post(
+    "/oauth/register",
+    response_model=AccessTokenResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def register_oauth_user(
+    request: OAuthRegisterRequest,
+    session: SessionDependency,
+    settings: SettingsDependency,
+) -> AccessTokenResponse:
+    try:
+        claims = decode_oauth_registration_ticket(
+            request.registration_ticket,
+            settings,
+        )
+    except InvalidOAuthRegistrationTicketError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OAuth registration session is invalid or expired",
+        ) from exc
+
+    service = build_oauth_auth_service(session)
+    try:
+        return await service.register_oauth_user(
+            OAuthProfile(
+                provider=claims.provider,
+                subject=claims.subject,
+                email=claims.email,
+                full_name=claims.full_name,
+            ),
+            request,
+            settings,
+        )
+    except OAuthRegistrationConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="OAuth registration could not be completed",
+        ) from exc
+
+
+@router.post("/oauth/exchange", response_model=AccessTokenResponse)
+async def exchange_oauth_login_code(
+    request: OAuthLoginExchangeRequest,
+    session: SessionDependency,
+    settings: SettingsDependency,
+) -> AccessTokenResponse:
+    service = build_oauth_auth_service(session)
+    try:
+        return await service.exchange_login_code(request, settings)
+    except InvalidOAuthLoginExchangeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired OAuth login exchange",
+        ) from exc
 
 
 def oauth_callback_error_redirect(

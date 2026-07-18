@@ -16,9 +16,14 @@ from starlette.responses import RedirectResponse, Response
 
 from alembic import command
 from app.core.config import Settings
-from app.core.database import build_async_engine, build_session_factory
+from app.core.database import (
+    build_async_engine,
+    build_session_factory,
+    get_session,
+    get_session_from_factory,
+)
 from app.main import create_app
-from app.modules.auth.models import OAuthIdentity
+from app.modules.auth.models import OAuthIdentity, OAuthLoginExchange
 from app.modules.auth.oauth import (
     InvalidOAuthRegistrationTicketError,
     OAuthCallbackError,
@@ -99,11 +104,25 @@ def build_oauth_settings(database_url: str | None = None) -> Settings:
 
 
 @pytest.fixture
-def oauth_context() -> Iterator[OAuthTestContext]:
-    settings = build_oauth_settings()
+def oauth_context(
+    disposable_postgres_url: str,
+) -> Iterator[OAuthTestContext]:
+    command.upgrade(build_alembic_config(disposable_postgres_url), "head")
+    settings = build_oauth_settings(disposable_postgres_url)
+    engine = build_async_engine(disposable_postgres_url)
+    session_factory = build_session_factory(engine)
     app = create_app(settings)
-    with TestClient(app) as client:
-        yield OAuthTestContext(app=app, client=client, settings=settings)
+
+    async def test_session() -> object:
+        async for session in get_session_from_factory(session_factory):
+            yield session
+
+    app.dependency_overrides[get_session] = test_session
+    try:
+        with TestClient(app) as client:
+            yield OAuthTestContext(app=app, client=client, settings=settings)
+    finally:
+        asyncio.run(engine.dispose())
 
 
 def test_oauth_gateway_registers_only_configured_provider_scopes() -> None:
@@ -298,13 +317,24 @@ def test_unknown_oauth_callback_does_not_write_user_information(
     )
     app = create_app(settings)
     app.dependency_overrides[get_oauth_gateway] = lambda: gateway
+    engine = build_async_engine(disposable_postgres_url)
+    session_factory = build_session_factory(engine)
+
+    async def test_session() -> object:
+        async for session in get_session_from_factory(session_factory):
+            yield session
+
+    app.dependency_overrides[get_session] = test_session
     before = asyncio.run(auth_row_counts(disposable_postgres_url))
 
-    with TestClient(app) as client:
-        response = client.get(
-            "/api/v1/auth/oauth/google/callback",
-            follow_redirects=False,
-        )
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/auth/oauth/google/callback",
+                follow_redirects=False,
+            )
+    finally:
+        asyncio.run(engine.dispose())
 
     after = asyncio.run(auth_row_counts(disposable_postgres_url))
     assert response.status_code == 303
@@ -414,9 +444,14 @@ def test_registration_ticket_rejects_tampering_expiry_and_wrong_audience() -> No
     )
     assert claims.email == "user@example.com"
 
+    tamper_index = len(ticket) // 2
+    replacement = "A" if ticket[tamper_index] != "A" else "B"
+    tampered_ticket = (
+        f"{ticket[:tamper_index]}{replacement}{ticket[tamper_index + 1 :]}"
+    )
     with pytest.raises(InvalidOAuthRegistrationTicketError):
         decode_oauth_registration_ticket(
-            f"{ticket[:-1]}A",
+            tampered_ticket,
             settings,
             now=issued_at + timedelta(minutes=5),
         )
@@ -450,7 +485,7 @@ def test_registration_ticket_validation_error_is_redacted(
     assert "[redacted]" in response.text
 
 
-async def auth_row_counts(database_url: str) -> tuple[int, int]:
+async def auth_row_counts(database_url: str) -> tuple[int, int, int]:
     engine = build_async_engine(database_url)
     session_factory = build_session_factory(engine)
 
@@ -460,6 +495,9 @@ async def auth_row_counts(database_url: str) -> tuple[int, int]:
             identities = await session.scalar(
                 select(func.count()).select_from(OAuthIdentity)
             )
-            return int(users or 0), int(identities or 0)
+            exchanges = await session.scalar(
+                select(func.count()).select_from(OAuthLoginExchange)
+            )
+            return int(users or 0), int(identities or 0), int(exchanges or 0)
     finally:
         await engine.dispose()

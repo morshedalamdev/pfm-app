@@ -8,16 +8,25 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import Settings
 from app.core.security import (
     create_access_token,
+    create_oauth_login_exchange_code,
     create_refresh_token,
+    hash_oauth_login_exchange_code,
     hash_password,
     hash_refresh_token,
     verify_password,
 )
-from app.modules.auth.models import RefreshSession
-from app.modules.auth.repositories import RefreshSessionRepository
+from app.modules.auth.models import OAuthIdentity, OAuthLoginExchange, RefreshSession
+from app.modules.auth.oauth import OAuthProfile
+from app.modules.auth.repositories import (
+    OAuthIdentityRepository,
+    OAuthLoginExchangeRepository,
+    RefreshSessionRepository,
+)
 from app.modules.auth.schemas import (
     AccessTokenResponse,
     LoginRequest,
+    OAuthLoginExchangeRequest,
+    OAuthRegisterRequest,
     RefreshTokenRequest,
     RegisterUserRequest,
 )
@@ -34,6 +43,18 @@ class InvalidCredentialsError(Exception):
 
 
 class InvalidRefreshTokenError(Exception):
+    pass
+
+
+class OAuthAccountUnavailableError(Exception):
+    pass
+
+
+class OAuthRegistrationConflictError(Exception):
+    pass
+
+
+class InvalidOAuthLoginExchangeError(Exception):
     pass
 
 
@@ -202,3 +223,185 @@ class AuthService:
         for refresh_session in sessions:
             refresh_session.revoked_at = revoked_at
             refresh_session.revoked_reason = reason
+
+
+class OAuthAuthService:
+    def __init__(
+        self,
+        users: UserRepository,
+        refresh_sessions: RefreshSessionRepository,
+        identities: OAuthIdentityRepository,
+        login_exchanges: OAuthLoginExchangeRepository,
+    ) -> None:
+        self.users = users
+        self.refresh_sessions = refresh_sessions
+        self.identities = identities
+        self.login_exchanges = login_exchanges
+        self.auth = AuthService(users, refresh_sessions)
+
+    async def resolve_callback(
+        self,
+        profile: OAuthProfile,
+        settings: Settings,
+    ) -> str | None:
+        identity = await self.identities.get_by_provider_subject(
+            profile.provider,
+            profile.subject,
+        )
+        if identity is not None:
+            user = await self.users.get_by_id(identity.user_id)
+            return await self._create_exchange_for_active_user(user, settings)
+
+        user = await self.users.get_by_email(profile.email)
+        if user is None:
+            return None
+        if not user.is_active:
+            raise OAuthAccountUnavailableError
+        user_id = user.id
+
+        provider_identity = await self.identities.get_by_user_provider(
+            user_id,
+            profile.provider,
+        )
+        if provider_identity is not None:
+            if provider_identity.provider_subject != profile.subject:
+                raise OAuthAccountUnavailableError
+            return await self._create_exchange_for_active_user(user, settings)
+
+        try:
+            await self.identities.create(
+                OAuthIdentity(
+                    user_id=user_id,
+                    provider=profile.provider,
+                    provider_subject=profile.subject,
+                )
+            )
+            return await self._create_login_exchange(user, settings, commit=True)
+        except IntegrityError as exc:
+            await self.refresh_sessions.rollback()
+            raced_identity = await self.identities.get_by_provider_subject(
+                profile.provider,
+                profile.subject,
+            )
+            if raced_identity is None or raced_identity.user_id != user_id:
+                raise OAuthAccountUnavailableError from exc
+            raced_user = await self.users.get_by_id(raced_identity.user_id)
+            return await self._create_exchange_for_active_user(raced_user, settings)
+
+    async def register_oauth_user(
+        self,
+        profile: OAuthProfile,
+        request: OAuthRegisterRequest,
+        settings: Settings,
+    ) -> AccessTokenResponse:
+        if (
+            await self.identities.get_by_provider_subject(
+                profile.provider,
+                profile.subject,
+            )
+            is not None
+            or await self.users.get_by_email(profile.email) is not None
+        ):
+            raise OAuthRegistrationConflictError
+
+        user = User(
+            email=profile.email,
+            password_hash=None,
+            full_name=request.full_name or profile.full_name,
+            phone_number=request.phone_number,
+            occupation=request.occupation,
+        )
+        try:
+            await self.users.create(user)
+            await self.identities.create(
+                OAuthIdentity(
+                    user_id=user.id,
+                    provider=profile.provider,
+                    provider_subject=profile.subject,
+                )
+            )
+            refresh_token, _session_id = await self.auth.create_refresh_session(
+                user,
+                settings,
+                commit=False,
+            )
+            await self.refresh_sessions.commit()
+        except IntegrityError as exc:
+            await self.refresh_sessions.rollback()
+            raise OAuthRegistrationConflictError from exc
+
+        return self._token_response(user, refresh_token, settings)
+
+    async def exchange_login_code(
+        self,
+        request: OAuthLoginExchangeRequest,
+        settings: Settings,
+    ) -> AccessTokenResponse:
+        now = datetime.now(UTC)
+        exchange = await self.login_exchanges.get_by_code_hash_for_update(
+            hash_oauth_login_exchange_code(request.exchange_code, settings)
+        )
+        if exchange is None or exchange.consumed_at is not None:
+            raise InvalidOAuthLoginExchangeError
+        if exchange.expires_at <= now:
+            exchange.consumed_at = now
+            await self.refresh_sessions.commit()
+            raise InvalidOAuthLoginExchangeError
+
+        user = await self.users.get_by_id(exchange.user_id)
+        if user is None or not user.is_active:
+            exchange.consumed_at = now
+            await self.refresh_sessions.commit()
+            raise InvalidOAuthLoginExchangeError
+
+        exchange.consumed_at = now
+        refresh_token, _session_id = await self.auth.create_refresh_session(
+            user,
+            settings,
+            now=now,
+            commit=False,
+        )
+        await self.refresh_sessions.commit()
+        return self._token_response(user, refresh_token, settings)
+
+    async def _create_exchange_for_active_user(
+        self,
+        user: User | None,
+        settings: Settings,
+    ) -> str:
+        if user is None or not user.is_active:
+            raise OAuthAccountUnavailableError
+        return await self._create_login_exchange(user, settings, commit=True)
+
+    async def _create_login_exchange(
+        self,
+        user: User,
+        settings: Settings,
+        *,
+        commit: bool,
+    ) -> str:
+        now = datetime.now(UTC)
+        code = create_oauth_login_exchange_code()
+        await self.login_exchanges.create(
+            OAuthLoginExchange(
+                user_id=user.id,
+                code_hash=hash_oauth_login_exchange_code(code, settings),
+                expires_at=now
+                + timedelta(seconds=settings.oauth_login_exchange_expire_seconds),
+            )
+        )
+        if commit:
+            await self.refresh_sessions.commit()
+        return code
+
+    @staticmethod
+    def _token_response(
+        user: User,
+        refresh_token: str,
+        settings: Settings,
+    ) -> AccessTokenResponse:
+        return AccessTokenResponse(
+            access_token=create_access_token(user, settings),
+            refresh_token=refresh_token,
+            expires_in=settings.access_token_expire_minutes * 60,
+        )
