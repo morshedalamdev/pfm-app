@@ -17,6 +17,13 @@ const user = {
 };
 
 test("offers email, Google, and GitHub authentication", async ({ page }) => {
+  await page.route("**/api/auth/email-route", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: { destination: "login" },
+      status: 200,
+    });
+  });
   await page.goto("/auth?next=/analytics");
 
   await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
@@ -29,6 +36,27 @@ test("offers email, Google, and GitHub authentication", async ({ page }) => {
     /\/auth\/login\?email=mobile%40example\.com&next=%2Fanalytics$/,
   );
   await expect(page.getByLabel("Email address")).toHaveValue("mobile@example.com");
+});
+
+test("routes an unknown email to registration with the email prefilled", async ({ page }) => {
+  await page.route("**/api/auth/email-route", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: { destination: "register" },
+      status: 200,
+    });
+  });
+  await page.goto("/auth");
+
+  await page.getByLabel("Email address").fill("new-user@example.com");
+  await page.getByRole("button", { name: "Continue with email" }).click();
+
+  await expect(page).toHaveURL(
+    /\/auth\/register\?email=new-user%40example\.com$/,
+  );
+  await expect(page.getByLabel("Email address")).toHaveValue(
+    "new-user@example.com",
+  );
 });
 
 test("moves an OAuth registration ticket into the explicit account form", async ({ page }) => {

@@ -8,6 +8,7 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { beginOAuth, type OAuthProvider } from "@/lib/auth/oauth-client";
+import type { EmailAuthRouteResponse } from "@/lib/api/types";
 
 type AuthOptionsProps = Readonly<{
   defaultEmail?: string;
@@ -36,15 +37,44 @@ export function AuthOptions({
   const router = useRouter();
   const [email, setEmail] = useState(defaultEmail);
   const [error, setError] = useState<string | null>(null);
+  const [isRoutingEmail, setIsRoutingEmail] = useState(false);
 
-  function continueWithEmail() {
+  async function continueWithEmail() {
     const parsed = emailSchema.safeParse(email);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Enter a valid email address");
       return;
     }
-    const query = new URLSearchParams({ email: parsed.data, next: nextPath });
-    router.push(`/auth/login?${query.toString()}` as Route);
+
+    setError(null);
+    setIsRoutingEmail(true);
+    try {
+      const response = await fetch("/api/auth/email-route", {
+        body: JSON.stringify({ email: parsed.data }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as
+        | EmailAuthRouteResponse
+        | { error?: { message?: string } };
+
+      if (!response.ok || !("destination" in payload)) {
+        setError(
+          "error" in payload && payload.error?.message
+            ? payload.error.message
+            : "Unable to check your account",
+        );
+        return;
+      }
+
+      const query = new URLSearchParams({ email: parsed.data });
+      if (payload.destination === "login") query.set("next", nextPath);
+      router.push(`/auth/${payload.destination}?${query.toString()}` as Route);
+    } catch {
+      setError("Unable to check your account");
+    } finally {
+      setIsRoutingEmail(false);
+    }
   }
 
   function continueWithProvider(provider: OAuthProvider) {
@@ -75,7 +105,7 @@ export function AuthOptions({
               setError(null);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter") continueWithEmail();
+              if (event.key === "Enter") void continueWithEmail();
             }}
             placeholder="you@example.com"
             type="email"
@@ -85,8 +115,13 @@ export function AuthOptions({
         {error ? <small role="alert">{error}</small> : null}
       </label>
 
-      <button className="primary-auth-button" onClick={continueWithEmail} type="button">
-        Continue with email
+      <button
+        className="primary-auth-button"
+        disabled={isRoutingEmail}
+        onClick={() => void continueWithEmail()}
+        type="button"
+      >
+        {isRoutingEmail ? "Checking account…" : "Continue with email"}
       </button>
 
       <p className="auth-switch">

@@ -108,6 +108,35 @@ def test_login_returns_access_token_and_protected_user(
     assert me_response.json()["email"] == "login-success@example.com"
 
 
+def test_email_route_sends_existing_account_to_login(
+    auth_context: AuthTestContext,
+) -> None:
+    register_user(auth_context, "route-existing@example.com", "CorrectHorse42")
+
+    response = auth_context.client.post(
+        "/api/v1/auth/email-route",
+        json={"email": " ROUTE-EXISTING@EXAMPLE.COM "},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"destination": "login"}
+
+
+def test_email_route_sends_unknown_account_to_registration_without_writing(
+    auth_context: AuthTestContext,
+) -> None:
+    email = "route-new@example.com"
+
+    response = auth_context.client.post(
+        "/api/v1/auth/email-route",
+        json={"email": email},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"destination": "register"}
+    assert asyncio.run(fetch_user_by_email(auth_context.database_url, email)) is None
+
+
 def test_login_invalid_credentials_are_generic(
     auth_context: AuthTestContext,
 ) -> None:

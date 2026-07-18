@@ -12,6 +12,20 @@ from app.modules.auth.validation import (
 )
 
 OAuthProvider = Literal["google", "github"]
+EmailAuthDestination = Literal["login", "register"]
+
+
+class EmailAuthRouteRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email_field(cls, email: str) -> str:
+        return normalize_email(email)
+
+
+class EmailAuthRouteResponse(BaseModel):
+    destination: EmailAuthDestination
 
 
 class RegisterUserRequest(BaseModel):

@@ -949,6 +949,38 @@
         "title": "DashboardReportResponse",
         "type": "object"
       },
+      "EmailAuthRouteRequest": {
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "EmailAuthRouteRequest",
+        "type": "object"
+      },
+      "EmailAuthRouteResponse": {
+        "properties": {
+          "destination": {
+            "enum": [
+              "login",
+              "register"
+            ],
+            "title": "Destination",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination"
+        ],
+        "title": "EmailAuthRouteResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4878,6 +4910,47 @@
         "summary": "Disable Account",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/api/v1/auth/email-route": {
+      "post": {
+        "operationId": "route_email_auth_api_v1_auth_email_route_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailAuthRouteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAuthRouteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route Email Auth",
+        "tags": [
+          "auth"
         ]
       }
     },

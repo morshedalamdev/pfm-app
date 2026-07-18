@@ -15,3 +15,7 @@ export type AuthResponse = Readonly<{
 export type SessionResponse = Readonly<{
   user: User | null;
 }>;
+
+export type EmailAuthRouteResponse = Readonly<{
+  destination: "login" | "register";
+}>;

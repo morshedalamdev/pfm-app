@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { POST as login } from "@/app/api/auth/login/route";
+import { POST as routeEmailAuth } from "@/app/api/auth/email-route/route";
 import { POST as exchangeOAuth } from "@/app/api/auth/oauth/exchange/route";
 import { GET as startOAuth } from "@/app/api/auth/oauth/[provider]/start/route";
 import { POST as previewOAuth } from "@/app/api/auth/oauth/preview/route";
@@ -50,6 +51,36 @@ afterEach(() => {
 });
 
 describe("auth server boundary", () => {
+  it.each(["login", "register"] as const)(
+    "routes an email to %s without creating a session",
+    async (destination) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(jsonResponse({ destination }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      const response = await routeEmailAuth(
+        new NextRequest("http://localhost/api/auth/email-route", {
+          body: JSON.stringify({ email: " MOBILE@EXAMPLE.COM " }),
+          headers: {
+            "content-type": "application/json",
+            origin: "http://localhost",
+          },
+          method: "POST",
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ destination });
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({
+        email: "mobile@example.com",
+      });
+      expect(response.cookies.get(ACCESS_COOKIE)).toBeUndefined();
+      expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
+    },
+  );
+
   it("returns an anonymous session without a console-level HTTP error", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

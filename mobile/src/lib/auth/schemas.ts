@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+export const emailRouteSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email address")
+    .max(320)
+    .transform((email) => email.toLowerCase()),
+});
+
 export const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address").max(320),
   password: z.string().min(1, "Enter your password").max(128),

@@ -25,6 +25,8 @@ from app.modules.auth.repositories import (
 )
 from app.modules.auth.schemas import (
     AccessTokenResponse,
+    EmailAuthRouteRequest,
+    EmailAuthRouteResponse,
     LoginRequest,
     LogoutRequest,
     LogoutResponse,
@@ -68,6 +70,17 @@ def build_oauth_auth_service(session: AsyncSession) -> OAuthAuthService:
         refresh_sessions=RefreshSessionRepository(session),
         identities=OAuthIdentityRepository(session),
         login_exchanges=OAuthLoginExchangeRepository(session),
+    )
+
+
+@router.post("/email-route", response_model=EmailAuthRouteResponse)
+async def route_email_auth(
+    request: EmailAuthRouteRequest,
+    session: SessionDependency,
+) -> EmailAuthRouteResponse:
+    user = await UserRepository(session).get_by_email(request.email)
+    return EmailAuthRouteResponse(
+        destination="login" if user is not None else "register"
     )
 
 

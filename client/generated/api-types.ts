@@ -92,6 +92,23 @@ export interface paths {
         patch: operations["disable_account_api_v1_accounts__account_id__disable_patch"];
         trace?: never;
     };
+    "/api/v1/auth/email-route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Route Email Auth */
+        post: operations["route_email_auth_api_v1_auth_email_route_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -1295,6 +1312,19 @@ export interface components {
             period: components["schemas"]["DashboardPeriod"];
             range: components["schemas"]["ReportRangeResponse"];
             type: components["schemas"]["ReportTransactionType"];
+        };
+        /** EmailAuthRouteRequest */
+        EmailAuthRouteRequest: {
+            /** Email */
+            email: string;
+        };
+        /** EmailAuthRouteResponse */
+        EmailAuthRouteResponse: {
+            /**
+             * Destination
+             * @enum {string}
+             */
+            destination: "login" | "register";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2804,6 +2834,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    route_email_auth_api_v1_auth_email_route_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailAuthRouteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAuthRouteResponse"];
                 };
             };
             /** @description Validation Error */
