@@ -75,13 +75,13 @@ def test_budget_crud_progress_and_period_boundaries(
 ) -> None:
     context = budget_context
     headers = auth_headers(context, "budget-progress@example.com")
-    account = create_account(context, headers, "Budget Checking", "bank", "0")
+    account = create_account(context, headers, "Budget Checking", "bank", "100")
     foreign_account = create_account(
         context,
         headers,
         "Foreign Budget Account",
         "bank",
-        "0",
+        "100",
         currency="BDT",
     )
     food_category = create_category(context, headers, "Food", "expense", "utensils")
@@ -456,7 +456,7 @@ def test_budget_utc_boundaries_and_cursor_errors(
 ) -> None:
     context = budget_context
     headers = auth_headers(context, "budget-boundaries@example.com")
-    account = create_account(context, headers, "Boundary Checking", "bank", "0")
+    account = create_account(context, headers, "Boundary Checking", "bank", "100")
     category = create_category(context, headers, "Boundary Food", "expense", "food")
 
     january_budget = create_budget(

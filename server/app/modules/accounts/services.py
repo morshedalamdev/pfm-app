@@ -64,6 +64,8 @@ class AccountService:
             is_default=not await self.accounts.has_active_default(current_user.id),
         )
         await self.accounts.create(account)
+        if account.is_default:
+            current_user.base_currency = account.currency
         await self.accounts.commit()
         await self.accounts.refresh(account)
         return account
@@ -81,16 +83,17 @@ class AccountService:
         except InvalidCursorError as exc:
             raise InvalidAccountCursorError from exc
 
-        if (
-            cursor is None
-            and await ensure_default_account(
+        defaults_changed = False
+        if cursor is None:
+            defaults_changed = await ensure_default_account(
                 self.accounts,
                 current_user.id,
                 currency=current_user.base_currency,
             )
-            or cursor is None
-            and await self.ensure_active_default(current_user.id)
-        ):
+            defaults_changed = (
+                await self.ensure_active_default(current_user.id) or defaults_changed
+            )
+        if await self.sync_default_currency(current_user) or defaults_changed:
             await self.accounts.commit()
 
         accounts = await self.accounts.list_owned(
@@ -138,6 +141,12 @@ class AccountService:
 
         for field_name, value in update_data.items():
             setattr(account, field_name, value)
+        if (
+            account.is_default
+            and not account.is_disabled
+            and account.archived_at is None
+        ):
+            current_user.base_currency = account.currency
         await self.accounts.commit()
         await self.accounts.refresh(account)
         return account
@@ -160,6 +169,7 @@ class AccountService:
                     current_user.id,
                     exclude_account_id=account.id,
                 )
+                await self.sync_default_currency(current_user)
             await self.accounts.commit()
             await self.accounts.refresh(account)
         return account
@@ -182,6 +192,7 @@ class AccountService:
                     current_user.id,
                     exclude_account_id=account.id,
                 )
+                await self.sync_default_currency(current_user)
             await self.accounts.commit()
             await self.accounts.refresh(account)
         return account
@@ -198,17 +209,20 @@ class AccountService:
         await self.accounts.clear_default_accounts(current_user.id)
         await self.accounts.flush()
         account.is_default = True
+        current_user.base_currency = account.currency
         await self.accounts.commit()
         await self.accounts.refresh(account)
         return account
 
     async def get_default_account(self, current_user: User) -> Account | None:
-        if await self.ensure_active_default(current_user.id):
+        defaults_changed = await self.ensure_active_default(current_user.id)
+        if await self.sync_default_currency(current_user) or defaults_changed:
             await self.accounts.commit()
         return await self.accounts.get_default(current_user.id)
 
     async def list_active_accounts(self, current_user: User) -> list[Account]:
-        if await self.ensure_active_default(current_user.id):
+        defaults_changed = await self.ensure_active_default(current_user.id)
+        if await self.sync_default_currency(current_user) or defaults_changed:
             await self.accounts.commit()
         return await self.accounts.list_active(current_user.id)
 
@@ -246,3 +260,13 @@ class AccountService:
             account.is_default = True
             return True
         return False
+
+    async def sync_default_currency(self, current_user: User) -> bool:
+        default_account = await self.accounts.get_default(current_user.id)
+        if (
+            default_account is None
+            or current_user.base_currency == default_account.currency
+        ):
+            return False
+        current_user.base_currency = default_account.currency
+        return True

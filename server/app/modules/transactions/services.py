@@ -4,6 +4,7 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import cast
 
 from fastapi.encoders import jsonable_encoder
@@ -57,6 +58,10 @@ class InvalidTransactionReferenceError(Exception):
 
 
 class InvalidTransferRequestError(Exception):
+    pass
+
+
+class InsufficientAccountBalanceError(Exception):
     pass
 
 
@@ -120,6 +125,8 @@ class TransactionService:
             current_user,
             request.type,
         )
+        if request.type == "expense":
+            self.ensure_sufficient_balance(account, request.amount)
 
         transaction = Transaction(
             user_id=current_user.id,
@@ -305,6 +312,7 @@ class TransactionService:
         )
         if credit_amount is None:
             raise InvalidTransferRequestError
+        self.ensure_sufficient_balance(from_account, request.amount)
 
         debit_transaction = Transaction(
             user_id=current_user.id,
@@ -544,6 +552,11 @@ class TransactionService:
         if account is None or account.archived_at is not None or account.is_disabled:
             raise InvalidTransactionReferenceError
         return account
+
+    @staticmethod
+    def ensure_sufficient_balance(account: Account, amount: Decimal) -> None:
+        if amount > account.current_balance:
+            raise InsufficientAccountBalanceError
 
     async def get_active_category(
         self,

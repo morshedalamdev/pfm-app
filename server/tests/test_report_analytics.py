@@ -152,9 +152,9 @@ def test_analytics_reports_aggregate_source_records_and_isolate_users(
     context = report_context
     headers = auth_headers(context, "analytics-owner@example.com")
     other_headers = auth_headers(context, "analytics-other@example.com")
-    account = create_account(context, headers, "Analytics Checking", "bank", "0")
+    account = create_account(context, headers, "Analytics Checking", "bank", "500")
     other_account = create_account(
-        context, other_headers, "Other Checking", "bank", "0"
+        context, other_headers, "Other Checking", "bank", "1000"
     )
     food = create_category(context, headers, "Food", "expense", "utensils")
     rent = create_category(context, headers, "Rent", "expense", "home")
@@ -514,9 +514,11 @@ def test_analytics_reports_cover_multiple_accounts_categories_and_periods(
     headers = auth_headers(context, "analytics-matrix-owner@example.com")
     other_headers = auth_headers(context, "analytics-matrix-other@example.com")
 
-    checking = create_account(context, headers, "Checking", "bank", "0")
-    card = create_account(context, headers, "Rewards Card", "card", "0")
-    other_account = create_account(context, other_headers, "Other Account", "bank", "0")
+    checking = create_account(context, headers, "Checking", "bank", "1000")
+    card = create_account(context, headers, "Rewards Card", "card", "50")
+    other_account = create_account(
+        context, other_headers, "Other Account", "bank", "1000"
+    )
 
     groceries = create_category(context, headers, "Groceries", "expense", "cart")
     utilities = create_category(context, headers, "Utilities", "expense", "bolt")

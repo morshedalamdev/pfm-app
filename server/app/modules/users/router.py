@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.modules.accounts.repositories import AccountRepository
 from app.modules.auth.dependencies import CurrentUserDependency
 from app.modules.users.repositories import UserRepository
 from app.modules.users.schemas import UserResponse, UserUpdateRequest
@@ -34,6 +35,18 @@ async def update_current_user(
         updates["home_balance_source_id"] = None
 
     requested_currency = updates.get("base_currency")
+    default_account = (
+        await AccountRepository(session).get_default(current_user.id)
+        if isinstance(requested_currency, str)
+        else None
+    )
+    if default_account is not None:
+        if requested_currency != default_account.currency:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="System currency follows the default account.",
+            )
+        requested_currency = None
     if (
         isinstance(requested_currency, str)
         and requested_currency != current_user.base_currency

@@ -26,6 +26,7 @@ from app.modules.transactions.schemas import (
 from app.modules.transactions.services import (
     IdempotencyConflictError,
     IdempotencyInProgressError,
+    InsufficientAccountBalanceError,
     InvalidSavingsTransferRequestError,
     InvalidTransactionCursorError,
     InvalidTransactionFilterError,
@@ -73,6 +74,8 @@ async def create_transaction(
         )
     except InvalidTransactionReferenceError as exc:
         raise invalid_reference_error() from exc
+    except InsufficientAccountBalanceError as exc:
+        raise insufficient_balance_error() from exc
     except IdempotencyConflictError as exc:
         raise idempotency_conflict_error() from exc
     except IdempotencyInProgressError as exc:
@@ -137,6 +140,8 @@ async def create_transfer(
         raise invalid_transfer_error() from exc
     except InvalidTransferRequestError as exc:
         raise invalid_transfer_error() from exc
+    except InsufficientAccountBalanceError as exc:
+        raise insufficient_balance_error() from exc
     except IdempotencyConflictError as exc:
         raise idempotency_conflict_error() from exc
     except IdempotencyInProgressError as exc:
@@ -288,6 +293,13 @@ def invalid_transfer_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="Transfer accounts or amounts are invalid",
+    )
+
+
+def insufficient_balance_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="The selected account does not have enough balance",
     )
 
 
