@@ -641,9 +641,9 @@ def test_loan_settlements_apply_to_the_selected_account(
         settled_at="2026-07-02T10:00:00+00:00",
     )
     assert given_settlement["account_id"] == settlement_account["id"]
-    assert get_account_balance(
-        context, headers, settlement_account["id"]
-    ) == Decimal("107.0000")
+    assert get_account_balance(context, headers, settlement_account["id"]) == Decimal(
+        "107.0000"
+    )
 
     taken_record = create_record(
         context,
@@ -666,9 +666,9 @@ def test_loan_settlements_apply_to_the_selected_account(
         settled_at="2026-07-04T10:00:00+00:00",
     )
     assert taken_settlement["account_id"] == settlement_account["id"]
-    assert get_account_balance(
-        context, headers, settlement_account["id"]
-    ) == Decimal("103.0000")
+    assert get_account_balance(context, headers, settlement_account["id"]) == Decimal(
+        "103.0000"
+    )
 
 
 def auth_headers(context: LoanApiContext, email: str) -> dict[str, str]:
