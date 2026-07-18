@@ -16,6 +16,7 @@ SENSITIVE_VALIDATION_FIELDS = frozenset(
         "token",
         "access_token",
         "refresh_token",
+        "registration_ticket",
     }
 )
 

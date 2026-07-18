@@ -11,6 +11,8 @@ from app.modules.auth.validation import (
     validate_password_strength,
 )
 
+OAuthProvider = Literal["google", "github"]
+
 
 class RegisterUserRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
@@ -65,6 +67,16 @@ class LogoutRequest(BaseModel):
 
 class LogoutResponse(BaseModel):
     status: Literal["ok"]
+
+
+class OAuthRegistrationTicketRequest(BaseModel):
+    registration_ticket: str = Field(min_length=64, max_length=8192)
+
+
+class OAuthRegistrationPreviewResponse(BaseModel):
+    provider: OAuthProvider
+    email: str
+    full_name: str
 
 
 class RegisteredUserResponse(BaseModel):
