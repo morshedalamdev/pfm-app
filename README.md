@@ -93,6 +93,11 @@ The API runs at `http://localhost:8000`, and the frontend runs at
 `http://localhost:3000`. PostgreSQL is published on host port `5433` by
 default so it does not collide with a PostgreSQL server already using `5432`.
 
+When `server/.env` exists, Compose overlays it onto the API container after
+`server/.env.example`. This makes ignored local Google and GitHub OAuth
+credentials available to the API without committing them or exposing them to
+the worker container.
+
 Override host ports without editing committed files:
 
 ```bash

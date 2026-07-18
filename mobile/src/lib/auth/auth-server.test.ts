@@ -9,6 +9,7 @@ import { GET as startOAuth } from "@/app/api/auth/oauth/[provider]/start/route";
 import { POST as previewOAuth } from "@/app/api/auth/oauth/preview/route";
 import { POST as registerOAuth } from "@/app/api/auth/oauth/register/route";
 import { POST as registerUser } from "@/app/api/auth/register/route";
+import { GET as getSession } from "@/app/api/auth/session/route";
 import { GET as proxyBackendGet } from "@/app/api/backend/[...path]/route";
 import {
   ACCESS_COOKIE,
@@ -49,6 +50,19 @@ afterEach(() => {
 });
 
 describe("auth server boundary", () => {
+  it("returns an anonymous session without a console-level HTTP error", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await getSession(
+      new NextRequest("http://localhost/api/auth/session"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ user: null });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("sets HTTP-only cookies without exposing tokens in the login response", async () => {
     const fetchMock = vi
       .fn()

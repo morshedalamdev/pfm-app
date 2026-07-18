@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError } from "@/lib/api/errors";
-import type { AuthResponse } from "@/lib/api/types";
+import type { SessionResponse } from "@/lib/api/types";
 import {
   applySessionResult,
   authenticatedBackendFetch,
@@ -17,14 +17,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const user = await parseSessionUser(result.response);
 
     if (!user) {
-      const response = NextResponse.json(apiError("Authentication required"), {
-        status: 401,
-      });
+      const response = NextResponse.json<SessionResponse>({ user: null });
       applySessionResult(response, result);
       return response;
     }
 
-    const response = NextResponse.json<AuthResponse>({ user });
+    const response = NextResponse.json<SessionResponse>({ user });
     applySessionResult(response, result);
     return response;
   } catch {

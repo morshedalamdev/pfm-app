@@ -11,3 +11,7 @@ export type User = components["schemas"]["UserResponse"];
 export type AuthResponse = Readonly<{
   user: User;
 }>;
+
+export type SessionResponse = Readonly<{
+  user: User | null;
+}>;

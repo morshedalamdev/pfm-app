@@ -23,7 +23,9 @@ services:
     build:
       context: ./server
     env_file:
-      - ./server/.env.example
+      - path: ./server/.env.example
+      - path: ./server/.env
+        required: false
     environment:
       APP_ENV: development
       DEBUG: ${DEBUG:-false}

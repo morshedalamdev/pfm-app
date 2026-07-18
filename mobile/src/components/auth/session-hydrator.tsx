@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import type { AuthResponse } from "@/lib/api/types";
+import type { SessionResponse } from "@/lib/api/types";
 import { useAuthStore } from "@/lib/auth/store";
 
 export function SessionHydrator() {
@@ -21,8 +21,12 @@ export function SessionHydrator() {
           return;
         }
 
-        const payload = (await response.json()) as AuthResponse;
-        useAuthStore.getState().setUser(payload.user);
+        const payload = (await response.json()) as SessionResponse;
+        if (payload.user) {
+          useAuthStore.getState().setUser(payload.user);
+        } else {
+          useAuthStore.getState().setAnonymous();
+        }
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           useAuthStore.getState().setAnonymous();
