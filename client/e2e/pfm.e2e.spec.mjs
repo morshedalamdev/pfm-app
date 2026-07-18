@@ -13,6 +13,43 @@ const viewports = [
   { height: 800, label: "desktop", width: 1280 },
 ];
 
+test("auth entry routes email users and handles OAuth callback errors", async ({
+  page,
+}) => {
+  await page.setViewportSize(viewports[0]);
+  await page.goto("/auth");
+
+  await expect(
+    page.getByRole("button", { name: "Continue with Google" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Continue with GitHub" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Continue with Facebook" }),
+  ).toHaveCount(0);
+
+  await page.getByPlaceholder("Email address").fill("auth-flow@example.test");
+  await page.getByRole("button", { name: "Continue with email" }).click();
+  await expect(page).toHaveURL(
+    `${appBaseUrl}/auth/login?email=auth-flow%40example.test`,
+  );
+  await expect(page.getByPlaceholder("Email")).toHaveValue(
+    "auth-flow@example.test",
+  );
+  await expect(
+    page.getByRole("link", { name: "Need an account? Create one" }),
+  ).toHaveAttribute("href", "/auth/register?email=auth-flow%40example.test");
+
+  await page.goto("/auth/oauth/callback?provider=google&error=callback_failed");
+  await expect(
+    page.getByText("We could not complete that sign in. Please try again."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Return to sign in" }),
+  ).toHaveAttribute("href", "/auth");
+});
+
 test("recurring expense actions and income achievement popup are safe", async ({
   page,
 }) => {

@@ -8,17 +8,31 @@ import { useAuthStore } from "@/lib/auth/store";
 import { ICONS } from "@/lib/imageConstant";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, type FormEvent, useEffect, useState } from "react";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<AuthPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
   const status = useAuthStore((state) => state.status);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const isLoading = status === "loading";
+  const nextPath = searchParams.get("next");
+
+  useEffect(() => {
+    setEmail(searchParams.get("email") ?? "");
+  }, [searchParams]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,7 +40,6 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      const nextPath = new URLSearchParams(window.location.search).get("next");
       router.replace(isSafeNextPath(nextPath) ? nextPath : "/");
     } catch (err) {
       if (err instanceof ApiError && err.kind === "unauthorized") {
@@ -80,9 +93,22 @@ export default function LoginPage() {
             <Field className="text-center">
               <Link href="/auth/forgot-password">Forgot Password?</Link>
             </Field>
+            <Field className="text-center">
+              <Link href={`/auth/register?email=${encodeURIComponent(email.trim())}`}>
+                Need an account? Create one
+              </Link>
+            </Field>
           </FieldGroup>
         </FieldSet>
       </form>
+    </section>
+  );
+}
+
+function AuthPageFallback() {
+  return (
+    <section className="flex h-full items-center justify-center px-3 pb-9">
+      <p className="text-sm text-muted-foreground">Loading sign in...</p>
     </section>
   );
 }

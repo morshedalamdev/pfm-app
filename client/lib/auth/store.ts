@@ -13,6 +13,9 @@ import type { components } from "@/generated/api-types";
 
 type LoginRequest = components["schemas"]["LoginRequest"];
 type RegisterRequest = components["schemas"]["RegisterUserRequest"];
+type OAuthRegisterRequest = components["schemas"]["OAuthRegisterRequest"];
+type OAuthLoginExchangeRequest =
+  components["schemas"]["OAuthLoginExchangeRequest"];
 type User = components["schemas"]["UserResponse"];
 type AccessTokenResponse = components["schemas"]["AccessTokenResponse"];
 type LogoutRequest = components["schemas"]["LogoutRequest"];
@@ -28,6 +31,8 @@ type AuthState = {
   hydrate: () => Promise<void>;
   login: (request: LoginRequest) => Promise<void>;
   register: (request: RegisterRequest) => Promise<void>;
+  registerOAuth: (request: OAuthRegisterRequest) => Promise<void>;
+  completeOAuthLogin: (exchangeCode: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 };
@@ -113,6 +118,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           password: request.password,
         },
       );
+      setStoredTokens({
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiresIn: tokens.expires_in,
+      });
+      const user = await apiGet<User>("/api/v1/users/me");
+      set({ user, status: "authenticated", error: null });
+    } catch (error) {
+      const apiError = error instanceof ApiError ? error : mapApiError(error);
+      clearStoredTokens();
+      set({ user: null, status: "unauthenticated", error: apiError });
+      throw apiError;
+    }
+  },
+
+  registerOAuth: async (request) => {
+    hydratePromise = null;
+    set({ status: "loading", error: null });
+    try {
+      const tokens = await apiPost<OAuthRegisterRequest, AccessTokenResponse>(
+        "/api/v1/auth/oauth/register",
+        request,
+      );
+      setStoredTokens({
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiresIn: tokens.expires_in,
+      });
+      const user = await apiGet<User>("/api/v1/users/me");
+      set({ user, status: "authenticated", error: null });
+    } catch (error) {
+      const apiError = error instanceof ApiError ? error : mapApiError(error);
+      clearStoredTokens();
+      set({ user: null, status: "unauthenticated", error: apiError });
+      throw apiError;
+    }
+  },
+
+  completeOAuthLogin: async (exchangeCode) => {
+    hydratePromise = null;
+    set({ status: "loading", error: null });
+    try {
+      const tokens = await apiPost<
+        OAuthLoginExchangeRequest,
+        AccessTokenResponse
+      >("/api/v1/auth/oauth/exchange", { exchange_code: exchangeCode });
       setStoredTokens({
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,

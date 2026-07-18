@@ -166,7 +166,7 @@ function isAuthRequest(config: AxiosRequestConfig): boolean {
   return url.includes("/api/v1/auth/");
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
     const runtimeApiBaseUrl = window.__PFM_RUNTIME_CONFIG__?.apiBaseUrl?.trim();
     if (runtimeApiBaseUrl) {
