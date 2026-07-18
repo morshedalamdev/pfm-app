@@ -1,16 +1,11 @@
-# Generated API Contract
+# Generated API contract
 
-`openapi.json` and `api-types.ts` are generated from the FastAPI OpenAPI schema.
-Do not hand-edit them.
+`openapi.json` is exported from the existing FastAPI application in `server`.
+`api-types.ts` is generated from that schema. Do not edit either file by hand.
 
-Regenerate from `client/`:
+Regenerate and verify the contract from `mobile`:
 
 ```bash
 npm run api:generate
-```
-
-Check for drift from `client/`:
-
-```bash
 npm run api:check
 ```

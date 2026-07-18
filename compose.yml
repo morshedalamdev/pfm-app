@@ -76,15 +76,13 @@ services:
       - local_storage:/var/lib/pfm/storage
 
   frontend:
-    image: pfm-app-frontend:api-${API_PORT:-8000}
+    image: pfm-app-frontend:local
     build:
       context: ./client
-      args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${API_PORT:-8000}}
     env_file:
       - ./client/.env.example
     environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${API_PORT:-8000}}
+      SERVER_API_BASE_URL: http://api:8000
     depends_on:
       api:
         condition: service_healthy

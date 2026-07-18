@@ -13,7 +13,7 @@ Run these services as separate production units:
 
 | Service | Responsibility | Notes |
 |---|---|---|
-| Frontend | Serves the Next.js application. | Set `NEXT_PUBLIC_API_BASE_URL` to the public API origin. The known live frontend domain is `https://pfm.morshedalam.dev`. |
+| Frontend | Serves the Next.js application. | Set the server-only `SERVER_API_BASE_URL` to the public API origin. The known live frontend domain is `https://pfm.morshedalam.dev`. |
 | API | Serves the FastAPI app under `/api/v1`. | Run `uvicorn app.main:app --host 0.0.0.0 --port 8000` behind TLS termination. |
 | Worker | Runs durable scheduled work outside request handlers. | Start with `python -m app.workers.recurring`. Keep it on the same release image and database as the API. |
 | PostgreSQL | System of record for users, finance records, sessions, receipts metadata, notifications, recurring rules, and outbox rows. | Use managed PostgreSQL or an equivalent production service with backups and restore testing. |
@@ -63,10 +63,24 @@ Backend API and worker:
 - `RECEIPT_ALLOWED_CONTENT_TYPES`
 - `PORT`
 - `RUN_MIGRATIONS`
+- `FRONTEND_BASE_URL`
+- `OAUTH_PUBLIC_API_URL`
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `GITHUB_OAUTH_CLIENT_ID`
+- `GITHUB_OAUTH_CLIENT_SECRET`
+- `OAUTH_STATE_SECRET_KEY`
+- `OAUTH_REGISTRATION_TICKET_SECRET_KEY`
+- `OAUTH_REGISTRATION_TICKET_EXPIRE_MINUTES`
+- `OAUTH_LOGIN_EXCHANGE_EXPIRE_SECONDS`
 
 Frontend:
 
-- `NEXT_PUBLIC_API_BASE_URL`
+- `SERVER_API_BASE_URL`
+
+`SERVER_API_BASE_URL` is intentionally not a `NEXT_PUBLIC_` variable. The
+mobile Next.js application calls FastAPI only from its server routes so backend
+topology does not need to be embedded in browser JavaScript.
 
 Provider variables intentionally deferred until provider adapters are selected:
 

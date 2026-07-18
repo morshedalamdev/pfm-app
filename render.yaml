@@ -1,12 +1,31 @@
 services:
   - type: web
+    name: pfm-web
+    runtime: docker
+    plan: starter
+    region: singapore
+    branch: main
+    dockerContext: ./client
+    dockerfilePath: ./client/Dockerfile
+    healthCheckPath: /auth
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: SERVER_API_BASE_URL
+        value: https://pfm-app-obn3.onrender.com
+
+  - type: web
     name: pfm-api
     runtime: docker
-    plan: free
+    plan: starter
     region: singapore
     branch: main
     dockerContext: ./server
     dockerfilePath: ./server/Dockerfile
+    preDeployCommand: alembic upgrade head
     healthCheckPath: /api/v1/health/ready
     autoDeployTrigger: checksPass
     envVars:
@@ -33,9 +52,9 @@ services:
       - key: GITHUB_OAUTH_CLIENT_SECRET
         sync: false
       - key: OAUTH_STATE_SECRET_KEY
-        sync: false
+        generateValue: true
       - key: OAUTH_REGISTRATION_TICKET_SECRET_KEY
-        sync: false
+        generateValue: true
       - key: OAUTH_REGISTRATION_TICKET_EXPIRE_MINUTES
         value: "10"
       - key: OAUTH_LOGIN_EXCHANGE_EXPIRE_SECONDS
@@ -61,7 +80,7 @@ services:
       - key: REFRESH_TOKEN_EXPIRE_DAYS
         value: "30"
       - key: RUN_MIGRATIONS
-        value: "true"
+        value: "false"
       - key: STORAGE_BACKEND
         value: local
       - key: LOCAL_STORAGE_ROOT

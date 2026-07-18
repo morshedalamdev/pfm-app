@@ -64,6 +64,7 @@ OAUTH_REGISTRATION_TICKET_EXPIRE_MINUTES
 OAUTH_LOGIN_EXCHANGE_EXPIRE_SECONDS
 ```
 
-Generate the two local-only secret keys with a cryptographically secure random
-generator. They must be unique, at least 32 bytes, and different from the JWT
-access and refresh token secrets.
+Generate the two secret keys with a cryptographically secure random generator
+for any environment not managed by the Render Blueprint. They must be unique,
+at least 32 bytes, and different from the JWT access and refresh token secrets.
+For a new Blueprint-managed service, Render generates and persists these values.
