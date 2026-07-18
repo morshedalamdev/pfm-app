@@ -20,6 +20,22 @@ services:
         value: /api/v1
       - key: CORS_ORIGINS
         value: '["https://pfm.morshedalam.dev"]'
+      - key: FRONTEND_BASE_URL
+        value: https://pfm.morshedalam.dev
+      - key: OAUTH_PUBLIC_API_URL
+        value: https://pfm-app-obn3.onrender.com
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_OAUTH_CLIENT_ID
+        sync: false
+      - key: GITHUB_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: OAUTH_STATE_SECRET_KEY
+        sync: false
+      - key: OAUTH_REGISTRATION_TICKET_SECRET_KEY
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: MIGRATION_DATABASE_URL
