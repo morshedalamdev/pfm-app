@@ -2,7 +2,7 @@ services:
   - type: web
     name: pfm-web
     runtime: docker
-    plan: starter
+    plan: free
     region: singapore
     branch: main
     dockerContext: ./client
@@ -20,12 +20,11 @@ services:
   - type: web
     name: pfm-api
     runtime: docker
-    plan: starter
+    plan: free
     region: singapore
     branch: main
     dockerContext: ./server
     dockerfilePath: ./server/Dockerfile
-    preDeployCommand: alembic upgrade head
     healthCheckPath: /api/v1/health/ready
     autoDeployTrigger: checksPass
     envVars:
@@ -80,7 +79,10 @@ services:
       - key: REFRESH_TOKEN_EXPIRE_DAYS
         value: "30"
       - key: RUN_MIGRATIONS
-        value: "false"
+        # Render Free does not provide pre-deploy commands or a shell. Run
+        # Alembic before Uvicorn starts instead; the free service has one
+        # instance, and Alembic skips revisions that are already applied.
+        value: "true"
       - key: STORAGE_BACKEND
         value: local
       - key: LOCAL_STORAGE_ROOT

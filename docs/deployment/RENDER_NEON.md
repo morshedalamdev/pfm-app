@@ -14,10 +14,10 @@ identifiers: a different name can create another service instead of updating
 the existing one.
 
 The Blueprint deploys `main`. Merge the reviewed release into `main` before
-deploying. It uses the paid `starter` instance because Render documents Free
-instances as preview/hobby infrastructure rather than production infrastructure.
-Changing or applying this plan can start billing, so review the Render price in
-the dashboard before applying it.
+deploying. It uses Render's `free` plan, so the API runs migrations in its
+container startup command instead of relying on paid pre-deploy commands.
+Review Render's current plan limits before treating a free service as
+production infrastructure.
 
 ## 2. Configure Neon
 
@@ -74,15 +74,19 @@ For a new service:
 2. Connect the repository.
 3. Select branch `main` and the repository-root `render.yaml`.
 4. Enter every prompted secret from sections 2 and 3.
-5. Review that the service plan is `starter`, then apply the Blueprint.
+5. Review that the service plan is `free`, then apply the Blueprint.
 
 For the existing service, synchronize its Blueprint from the dashboard only
 after confirming the service name and manually setting every secret above.
 
-The paid service runs `alembic upgrade head` as a pre-deploy command. A failed
-migration prevents the new release from replacing the last healthy release.
-The application container starts with `RUN_MIGRATIONS=false`, so migrations are
-not repeated during restarts or horizontal scaling.
+The API container starts with `RUN_MIGRATIONS=true`, so `scripts/start.sh` runs
+`alembic upgrade head` before Uvicorn. This is compatible with Render Free,
+which does not provide Shell access or pre-deploy commands. Alembic records
+applied revisions, so normal restarts do not reapply completed migrations.
+
+For an existing Render service, set `RUN_MIGRATIONS=true` manually in its
+Environment page and deploy the latest commit. Blueprint changes do not update
+an existing service until it is synchronized.
 
 ## 5. Connect the frontend
 
