@@ -44,6 +44,20 @@ export const oauthRegisterSchema = oauthRegistrationTicketSchema.extend({
   fullName: z.string().trim().min(1, "Enter your full name").max(120),
 });
 
+const strongPasswordSchema = z
+  .string()
+  .min(12, "Use at least 12 characters")
+  .max(128, "Use no more than 128 characters")
+  .regex(/[a-z]/, "Add a lowercase letter")
+  .regex(/[A-Z]/, "Add an uppercase letter")
+  .regex(/\d/, "Add a number");
+
+export const passwordUpdateSchema = z.object({
+  currentPassword: z.string().max(128).optional(),
+  newPassword: strongPasswordSchema,
+});
+
 export type LoginValues = z.infer<typeof loginSchema>;
 export type OAuthRegisterValues = z.infer<typeof oauthRegisterSchema>;
+export type PasswordUpdateValues = z.infer<typeof passwordUpdateSchema>;
 export type RegisterValues = z.infer<typeof registerSchema>;

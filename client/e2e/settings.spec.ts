@@ -21,6 +21,7 @@ const profile = { about: "Planning one calm month at a time.", base_currency: "U
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/backend/users/me", async (route) => route.fulfill({ contentType: "application/json", json: route.request().method() === "PATCH" ? { ...profile, ...route.request().postDataJSON() } : profile }));
+  await page.route("**/api/backend/auth/methods", async (route) => route.fulfill({ contentType: "application/json", json: { connected_providers: ["google"], password_enabled: false } }));
   await page.route("**/api/backend/accounts?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [account], next_cursor: null } }));
   await page.route("**/api/backend/categories?**", async (route) => route.fulfill({ contentType: "application/json", json: { has_more: false, items: [category, incomeCategory], next_cursor: null } }));
   await page.route("**/api/backend/loans/summary", async (route) => route.fulfill({ contentType: "application/json", json: { currency: "USD", due_loan: "400.0000", total_loan_given: "500.0000", total_loan_taken: "0.0000" } }));
@@ -74,6 +75,7 @@ test("uses clear settings paths and edits and archives a custom category in a dr
 
   await page.goto("/settings");
   await expect(page.getByRole("link", { name: /Profile/ })).toHaveAttribute("href", "/profile");
+  await expect(page.getByRole("link", { name: /Sign-in & security/ })).toHaveAttribute("href", "/settings/security");
   await expect(page.getByRole("link", { name: /Accounts/ })).toHaveAttribute("href", "/accounts");
   await expect(page.getByRole("link", { name: /Categories/ })).toHaveAttribute("href", "/settings/categories");
   await page.getByRole("link", { name: /Categories/ }).click();
@@ -94,9 +96,59 @@ test("uses clear settings paths and edits and archives a custom category in a dr
   expect(archived).toBe(true);
 });
 
+test("shows connected sign-in methods and explicitly links another provider", async ({ page }) => {
+  let linkedProvider: string | null = null;
+  await page.route("**/api/auth/oauth/github/link", async (route) => {
+    linkedProvider = "github";
+    await route.fulfill({
+      contentType: "application/json",
+      json: { redirect_url: "/settings/security?provider=github&oauth_link=connected" },
+    });
+  });
+
+  await page.goto("/settings/security");
+  await expect(page.getByText("Google", { exact: true })).toBeVisible();
+  await expect(page.getByText("Connected to this account")).toBeVisible();
+  await page.getByRole("button", { name: "Connect" }).click();
+
+  await expect(page).toHaveURL(/provider=github&oauth_link=connected/);
+  await expect(page.getByText("GitHub is now connected to this account.")).toBeVisible();
+  expect(linkedProvider).toBe("github");
+});
+
+test("sets a first password and requires a fresh email sign-in", async ({ page }) => {
+  let payload: Record<string, unknown> | null = null;
+  await page.route("**/api/auth/password", async (route) => {
+    payload = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ contentType: "application/json", json: { reauthentication_required: true, status: "updated" } });
+  });
+
+  await page.goto("/settings/security");
+  await page.getByLabel("New password", { exact: true }).fill("NewCorrectHorse42");
+  await page.getByLabel("Confirm new password").fill("NewCorrectHorse42");
+  await page.getByRole("button", { name: "Set password" }).click();
+
+  await expect(page).toHaveURL(/\/auth\/login\?password_updated=1/);
+  await expect(page.getByText("Password updated. Sign in again with your email and new password.")).toBeVisible();
+  expect(payload).toEqual({ newPassword: "NewCorrectHorse42" });
+});
+
+test("requires the current password when changing an existing password", async ({ page }) => {
+  await page.route("**/api/backend/auth/methods", async (route) => route.fulfill({ contentType: "application/json", json: { connected_providers: ["google", "github"], password_enabled: true } }));
+  await page.goto("/settings/security");
+
+  await expect(page.getByLabel("Current password")).toBeVisible();
+  await page.getByLabel("New password", { exact: true }).fill("AnotherHorse42");
+  await page.getByLabel("Confirm new password").fill("AnotherHorse42");
+  await page.getByRole("button", { name: "Change password" }).click();
+  await expect(page.getByText("Enter your current password.")).toBeVisible();
+});
+
 test("keeps profile, settings, and categories accessible and overflow-free", async ({ page }) => {
-  for (const route of ["/settings", "/profile", "/settings/categories"]) {
+  for (const route of ["/settings", "/settings/security", "/profile", "/settings/categories"]) {
     await page.goto(route);
+    await expect(page.locator("main")).toBeVisible();
+    await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   }

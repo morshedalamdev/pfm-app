@@ -7,8 +7,10 @@ import { POST as login } from "@/app/api/auth/login/route";
 import { POST as routeEmailAuth } from "@/app/api/auth/email-route/route";
 import { POST as exchangeOAuth } from "@/app/api/auth/oauth/exchange/route";
 import { GET as startOAuth } from "@/app/api/auth/oauth/[provider]/start/route";
+import { POST as linkOAuth } from "@/app/api/auth/oauth/[provider]/link/route";
 import { POST as previewOAuth } from "@/app/api/auth/oauth/preview/route";
 import { POST as registerOAuth } from "@/app/api/auth/oauth/register/route";
+import { PUT as updatePassword } from "@/app/api/auth/password/route";
 import { POST as registerUser } from "@/app/api/auth/register/route";
 import { GET as getSession } from "@/app/api/auth/session/route";
 import { GET as proxyBackendGet } from "@/app/api/backend/[...path]/route";
@@ -177,6 +179,58 @@ describe("auth server boundary", () => {
     expect(unsupported.status).toBe(404);
   });
 
+  it("creates an authenticated one-time intent before linking an OAuth provider", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        expires_at: "2026-07-21T12:15:00Z",
+        link_intent: "l".repeat(64),
+        provider: "github",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await linkOAuth(
+      new NextRequest("http://localhost/api/auth/oauth/github/link", {
+        headers: {
+          cookie: `${ACCESS_COOKIE}=valid-access`,
+          origin: "http://localhost",
+        },
+        method: "POST",
+      }),
+      { params: Promise.resolve({ provider: "github" }) },
+    );
+    const payload = await response.json();
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      redirect_url: `http://localhost:8000/api/v1/auth/oauth/github/start?link_intent=${"l".repeat(64)}`,
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8000/api/v1/auth/oauth/link-intents",
+    );
+    expect(new Headers(init.headers).get("authorization")).toBe(
+      "Bearer valid-access",
+    );
+    expect(JSON.parse(String(init.body))).toEqual({ provider: "github" });
+  });
+
+  it("rejects cross-origin OAuth linking before creating an intent", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await linkOAuth(
+      new NextRequest("http://localhost/api/auth/oauth/google/link", {
+        headers: { origin: "https://evil.example" },
+        method: "POST",
+      }),
+      { params: Promise.resolve({ provider: "google" }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("previews OAuth registration without creating a session", async () => {
     const preview = {
       email: "mobile@example.com",
@@ -252,6 +306,64 @@ describe("auth server boundary", () => {
       full_name: "Mobile User",
       registration_ticket: "t".repeat(64),
     });
+  });
+
+  it("updates a password server-side and clears both session cookies", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ reauthentication_required: true, status: "updated" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await updatePassword(
+      new NextRequest("http://localhost/api/auth/password", {
+        body: JSON.stringify({
+          currentPassword: "ExistingHorse42",
+          newPassword: "NewCorrectHorse42",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ACCESS_COOKIE}=valid-access; ${REFRESH_COOKIE}=valid-refresh`,
+          origin: "http://localhost",
+        },
+        method: "PUT",
+      }),
+    );
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      reauthentication_required: true,
+      status: "updated",
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8000/api/v1/auth/password",
+    );
+    expect(JSON.parse(String(init.body))).toEqual({
+      current_password: "ExistingHorse42",
+      new_password: "NewCorrectHorse42",
+    });
+    expect(response.cookies.get(ACCESS_COOKIE)?.value).toBe("");
+    expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("");
+  });
+
+  it("does not echo invalid password values in a boundary error", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await updatePassword(
+      new NextRequest("http://localhost/api/auth/password", {
+        body: JSON.stringify({ newPassword: "secret" }),
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost",
+        },
+        method: "PUT",
+      }),
+    );
+
+    expect(response.status).toBe(422);
+    expect(await response.text()).not.toContain("secret");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects cross-origin authentication requests", async () => {

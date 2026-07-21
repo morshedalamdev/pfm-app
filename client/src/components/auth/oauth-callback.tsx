@@ -22,7 +22,9 @@ export function OAuthCallback() {
       window.history.replaceState(null, "", window.location.pathname);
 
       if (query.has("error")) {
-        setError("We could not complete that sign in. Please try again.");
+        setError(query.get("error") === "link_required"
+          ? "This provider is not connected yet. Sign in with an existing method, then connect it from Settings → Sign-in & security."
+          : "We could not complete that sign in. Please try again.");
         return;
       }
 

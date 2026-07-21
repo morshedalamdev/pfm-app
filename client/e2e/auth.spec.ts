@@ -110,6 +110,14 @@ test("redirects a returning OAuth user to Home", async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
+test("explains how to connect an unrecognized OAuth identity", async ({ page }) => {
+  await page.goto("/auth/oauth/callback?provider=google&error=link_required");
+
+  await expect(page.getByRole("heading", { name: "Sign in not completed" })).toBeVisible();
+  await expect(page.getByText(/sign in with an existing method/i)).toBeVisible();
+  await expect(page.getByText(/Settings → Sign-in & security/)).toBeVisible();
+});
+
 test("validates login details before submission", async ({ page }) => {
   await page.goto("/auth/login");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -167,6 +175,7 @@ test("auth screens have no detectable accessibility violations", async ({ page }
     "/auth/login",
     "/auth/register",
     "/auth/oauth/callback?error=callback_failed",
+    "/auth/oauth/callback?error=link_required",
   ]) {
     await page.goto(route);
     const results = await new AxeBuilder({ page }).analyze();

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CalendarClock, ChevronRight, CircleUserRound, Landmark, Tags, type LucideIcon } from "lucide-react";
+import { Bell, CalendarClock, ChevronRight, CircleUserRound, Landmark, ShieldCheck, Tags, type LucideIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 const setupLinks = [
   { description: "Names, contact details, and currency", href: "/profile", icon: CircleUserRound, label: "Profile" },
+  { description: "Password and connected sign-in providers", href: "/settings/security", icon: ShieldCheck, label: "Sign-in & security" },
   { description: "Accounts, cards, cash, and defaults", href: "/accounts", icon: Landmark, label: "Accounts" },
   { description: "Labels used for income and spending", href: "/settings/categories", icon: Tags, label: "Categories" },
 ] as const;

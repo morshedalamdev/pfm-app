@@ -384,7 +384,7 @@ def oauth_link_result_redirect(
 ) -> RedirectResponse:
     query = urlencode({"provider": provider, "oauth_link": result})
     return RedirectResponse(
-        url=f"{settings.frontend_base_url}/settings?{query}",
+        url=f"{settings.frontend_base_url}/settings/security?{query}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
 

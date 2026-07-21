@@ -15,12 +15,14 @@ import { useAuthStore } from "@/lib/auth/store";
 type LoginFormProps = Readonly<{
   defaultEmail?: string;
   nextPath: string;
+  passwordUpdated?: boolean;
   serviceUnavailable?: boolean;
 }>;
 
 export function LoginForm({
   defaultEmail = "",
   nextPath,
+  passwordUpdated = false,
   serviceUnavailable = false,
 }: LoginFormProps) {
   const router = useRouter();
@@ -75,6 +77,11 @@ export function LoginForm({
       {serviceUnavailable ? (
         <p className="auth-notice" role="status">
           Your session could not be checked. Please sign in again.
+        </p>
+      ) : null}
+      {passwordUpdated ? (
+        <p className="auth-notice" role="status">
+          Password updated. Sign in again with your email and new password.
         </p>
       ) : null}
 

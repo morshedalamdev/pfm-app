@@ -5,7 +5,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import { getSafeNextPath } from "@/lib/auth/safe-next-path";
 
 type LoginPageProps = {
-  searchParams: Promise<{ email?: string; next?: string; reason?: string }>;
+  searchParams: Promise<{ email?: string; next?: string; password_updated?: string; reason?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -21,6 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <LoginForm
         defaultEmail={params.email}
         nextPath={getSafeNextPath(params.next)}
+        passwordUpdated={params.password_updated === "1"}
         serviceUnavailable={params.reason === "unavailable"}
       />
       <p className="auth-legal">

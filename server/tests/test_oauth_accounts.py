@@ -547,7 +547,7 @@ def test_explicit_link_flow_connects_google_and_github_to_one_user(
         assert link_intent not in replay.text
         assert callback.status_code == 303
         location = urlsplit(callback.headers["location"])
-        assert location.path == "/settings"
+        assert location.path == "/settings/security"
         assert parse_qs(location.query) == {
             "provider": [profile.provider],
             "oauth_link": ["connected"],
