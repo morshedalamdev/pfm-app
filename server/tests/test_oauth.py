@@ -45,6 +45,7 @@ class FakeOAuthGateway:
     profile: OAuthProfile | None = None
     callback_error: bool = False
     started_provider: OAuthProvider | None = None
+    started_state: str | None = None
     redirect_uri: str | None = None
 
     async def begin(
@@ -52,8 +53,11 @@ class FakeOAuthGateway:
         request: Request,
         provider: OAuthProvider,
         redirect_uri: str,
+        *,
+        state: str | None = None,
     ) -> Response:
         self.started_provider = provider
+        self.started_state = state
         self.redirect_uri = redirect_uri
         request.session["test_oauth_state"] = "state-value"
         return RedirectResponse("https://identity.example/authorize")
@@ -213,6 +217,8 @@ def test_oauth_start_uses_exact_backend_callback_and_state_cookie(
     assert response.status_code == 307
     assert response.headers["location"] == "https://identity.example/authorize"
     assert gateway.started_provider == "google"
+    assert gateway.started_state is not None
+    assert len(gateway.started_state) >= 32
     assert gateway.redirect_uri == (
         "https://api.example/api/v1/auth/oauth/google/callback"
     )

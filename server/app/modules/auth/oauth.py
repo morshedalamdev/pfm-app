@@ -99,9 +99,13 @@ class OAuthGateway:
         request: Request,
         provider: OAuthProvider,
         redirect_uri: str,
+        *,
+        state: str | None = None,
     ) -> Response:
         client = self._require_client(provider)
         authorize_kwargs: dict[str, str] = {}
+        if state is not None:
+            authorize_kwargs["state"] = state
         if provider == "google":
             authorize_kwargs["nonce"] = secrets.token_urlsafe(32)
 

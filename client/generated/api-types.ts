@@ -3195,7 +3195,9 @@ export interface operations {
     };
     start_oauth_api_v1_auth_oauth__provider__start_get: {
         parameters: {
-            query?: never;
+            query?: {
+                link_intent?: string | null;
+            };
             header?: never;
             path: {
                 provider: "google" | "github";

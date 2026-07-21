@@ -106,6 +106,12 @@ class OAuthIdentityRepository:
         await self._session.flush()
         return identity
 
+    async def commit(self) -> None:
+        await self._session.commit()
+
+    async def rollback(self) -> None:
+        await self._session.rollback()
+
 
 class OAuthLoginExchangeRepository:
     def __init__(self, session: AsyncSession) -> None:

@@ -62,6 +62,10 @@ class OAuthAccountUnavailableError(Exception):
     pass
 
 
+class OAuthLinkRequiredError(Exception):
+    pass
+
+
 class OAuthRegistrationConflictError(Exception):
     pass
 
@@ -75,6 +79,10 @@ class OAuthProviderAlreadyLinkedError(Exception):
 
 
 class InvalidOAuthLinkIntentError(Exception):
+    pass
+
+
+class OAuthIdentityAlreadyInUseError(Exception):
     pass
 
 
@@ -277,36 +285,7 @@ class OAuthAuthService:
             return None
         if not user.is_active:
             raise OAuthAccountUnavailableError
-        user_id = user.id
-
-        provider_identity = await self.identities.get_by_user_provider(
-            user_id,
-            profile.provider,
-        )
-        if provider_identity is not None:
-            if provider_identity.provider_subject != profile.subject:
-                raise OAuthAccountUnavailableError
-            return await self._create_exchange_for_active_user(user, settings)
-
-        try:
-            await self.identities.create(
-                OAuthIdentity(
-                    user_id=user_id,
-                    provider=profile.provider,
-                    provider_subject=profile.subject,
-                )
-            )
-            return await self._create_login_exchange(user, settings, commit=True)
-        except IntegrityError as exc:
-            await self.refresh_sessions.rollback()
-            raced_identity = await self.identities.get_by_provider_subject(
-                profile.provider,
-                profile.subject,
-            )
-            if raced_identity is None or raced_identity.user_id != user_id:
-                raise OAuthAccountUnavailableError from exc
-            raced_user = await self.users.get_by_id(raced_identity.user_id)
-            return await self._create_exchange_for_active_user(raced_user, settings)
+        raise OAuthLinkRequiredError
 
     async def register_oauth_user(
         self,
@@ -516,3 +495,63 @@ class OAuthLinkService:
         intent.consumed_at = consumed_at
         await self.link_intents.commit()
         return intent
+
+    async def link_identity(
+        self,
+        user_id: uuid.UUID,
+        profile: OAuthProfile,
+    ) -> None:
+        user = await self.users.get_by_id(user_id)
+        if user is None or not user.is_active:
+            raise OAuthAccountUnavailableError
+
+        subject_identity = await self.identities.get_by_provider_subject(
+            profile.provider,
+            profile.subject,
+        )
+        if subject_identity is not None:
+            if subject_identity.user_id != user_id:
+                raise OAuthIdentityAlreadyInUseError
+            return
+
+        provider_identity = await self.identities.get_by_user_provider(
+            user_id,
+            profile.provider,
+        )
+        if provider_identity is not None:
+            if provider_identity.provider_subject != profile.subject:
+                raise OAuthProviderAlreadyLinkedError
+            return
+
+        try:
+            await self.identities.create(
+                OAuthIdentity(
+                    user_id=user_id,
+                    provider=profile.provider,
+                    provider_subject=profile.subject,
+                )
+            )
+            await self.identities.commit()
+        except IntegrityError as exc:
+            await self.identities.rollback()
+            raced_subject = await self.identities.get_by_provider_subject(
+                profile.provider,
+                profile.subject,
+            )
+            if raced_subject is not None:
+                if raced_subject.user_id == user_id:
+                    return
+                raise OAuthIdentityAlreadyInUseError from exc
+
+            raced_provider = await self.identities.get_by_user_provider(
+                user_id,
+                profile.provider,
+            )
+            if (
+                raced_provider is not None
+                and raced_provider.provider_subject == profile.subject
+            ):
+                return
+            if raced_provider is not None:
+                raise OAuthProviderAlreadyLinkedError from exc
+            raise

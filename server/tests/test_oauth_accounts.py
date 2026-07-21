@@ -14,7 +14,7 @@ from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, update
-from starlette.responses import Response
+from starlette.responses import RedirectResponse, Response
 
 from alembic import command
 from app.core.config import Settings
@@ -54,14 +54,20 @@ from app.modules.users.repositories import UserRepository
 @dataclass
 class FakeOAuthGateway:
     profile: OAuthProfile
+    started_provider: OAuthProvider | None = None
+    started_state: str | None = None
 
     async def begin(
         self,
         _request: Request,
-        _provider: OAuthProvider,
+        provider: OAuthProvider,
         _redirect_uri: str,
+        *,
+        state: str | None = None,
     ) -> Response:
-        raise AssertionError("OAuth start is not used in account-flow tests")
+        self.started_provider = provider
+        self.started_state = state
+        return RedirectResponse("https://identity.example/authorize")
 
     async def complete(
         self,
@@ -396,6 +402,242 @@ def test_parallel_link_intent_consumption_succeeds_once(
     assert outcomes == ["consumed", "rejected"]
 
 
+def test_explicit_link_flow_connects_google_and_github_to_one_user(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "multi-provider-owner@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+
+    provider_profiles = [
+        OAuthProfile(
+            provider="google",
+            subject="multi-provider-google-subject",
+            email="different-google-email@example.com",
+            full_name="Google Identity",
+        ),
+        OAuthProfile(
+            provider="github",
+            subject="multi-provider-github-subject",
+            email="different-github-email@example.com",
+            full_name="GitHub Identity",
+        ),
+    ]
+    for profile in provider_profiles:
+        oauth_account_context.gateway.profile = profile
+        link_intent, state = begin_provider_link(
+            oauth_account_context,
+            access_token,
+            profile.provider,
+        )
+        replay = oauth_account_context.client.get(
+            f"/api/v1/auth/oauth/{profile.provider}/start",
+            params={"link_intent": link_intent},
+            follow_redirects=False,
+        )
+        callback = oauth_account_context.client.get(
+            f"/api/v1/auth/oauth/{profile.provider}/callback",
+            params={"state": state},
+            follow_redirects=False,
+        )
+
+        assert replay.status_code == 400
+        assert link_intent not in replay.text
+        assert callback.status_code == 303
+        location = urlsplit(callback.headers["location"])
+        assert location.path == "/settings"
+        assert parse_qs(location.query) == {
+            "provider": [profile.provider],
+            "oauth_link": ["connected"],
+        }
+        assert link_intent not in callback.headers["location"]
+
+    google = asyncio.run(
+        fetch_identity(
+            oauth_account_context.database_url,
+            "google",
+            "multi-provider-google-subject",
+        )
+    )
+    github = asyncio.run(
+        fetch_identity(
+            oauth_account_context.database_url,
+            "github",
+            "multi-provider-github-subject",
+        )
+    )
+    methods = oauth_account_context.client.get(
+        "/api/v1/auth/methods",
+        headers={"authorization": f"Bearer {access_token}"},
+    )
+    assert google is not None and google.user_id == user.id
+    assert github is not None and github.user_id == user.id
+    assert methods.json() == {
+        "password_enabled": True,
+        "connected_providers": ["github", "google"],
+    }
+
+    for profile in provider_profiles:
+        oauth_account_context.gateway.profile = profile
+        login_callback = oauth_account_context.client.get(
+            f"/api/v1/auth/oauth/{profile.provider}/callback",
+            follow_redirects=False,
+        )
+        exchange_code = parse_qs(urlsplit(login_callback.headers["location"]).fragment)[
+            "exchange_code"
+        ][0]
+        exchange = oauth_account_context.client.post(
+            "/api/v1/auth/oauth/exchange",
+            json={"exchange_code": exchange_code},
+        )
+        assert exchange.status_code == 200
+        claims = decode_access_token(
+            exchange.json()["access_token"],
+            oauth_account_context.settings,
+        )
+        assert claims.subject == user.id
+        assert claims.email == email
+
+
+def test_link_flow_rejects_identity_owned_by_another_user(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    first_email = "provider-owner@example.com"
+    second_email = "provider-claimant@example.com"
+    register_password_user(oauth_account_context.client, first_email)
+    register_password_user(oauth_account_context.client, second_email)
+    first_user = asyncio.run(
+        fetch_user_by_email(oauth_account_context.database_url, first_email)
+    )
+    second_user = asyncio.run(
+        fetch_user_by_email(oauth_account_context.database_url, second_email)
+    )
+    assert first_user is not None and second_user is not None
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            first_user.id,
+            "github",
+            "owned-github-subject",
+        )
+    )
+    access_token = login_access_token(oauth_account_context.client, second_email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="github",
+        subject="owned-github-subject",
+        email="provider-account@example.com",
+        full_name="Owned Provider",
+    )
+    _link_intent, state = begin_provider_link(
+        oauth_account_context,
+        access_token,
+        "github",
+    )
+
+    callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        params={"state": state},
+        follow_redirects=False,
+    )
+    identity = asyncio.run(
+        fetch_identity(
+            oauth_account_context.database_url,
+            "github",
+            "owned-github-subject",
+        )
+    )
+
+    assert callback.status_code == 303
+    assert parse_qs(urlsplit(callback.headers["location"]).query) == {
+        "provider": ["github"],
+        "oauth_link": ["provider_in_use"],
+    }
+    assert identity is not None and identity.user_id == first_user.id
+    assert identity.user_id != second_user.id
+
+
+def test_link_flow_does_not_replace_provider_connected_during_callback(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "link-callback-race@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject="callback-new-google-subject",
+        email="new-google@example.com",
+        full_name="New Google",
+    )
+    _link_intent, state = begin_provider_link(
+        oauth_account_context,
+        access_token,
+        "google",
+    )
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "google",
+            "callback-existing-google-subject",
+        )
+    )
+
+    callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/callback",
+        params={"state": state},
+        follow_redirects=False,
+    )
+
+    assert callback.status_code == 303
+    assert parse_qs(urlsplit(callback.headers["location"]).query) == {
+        "provider": ["google"],
+        "oauth_link": ["already_linked"],
+    }
+    assert (
+        asyncio.run(
+            count_identities_for_user_provider(
+                oauth_account_context.database_url,
+                email,
+                "google",
+            )
+        )
+        == 1
+    )
+    assert (
+        asyncio.run(
+            fetch_identity(
+                oauth_account_context.database_url,
+                "google",
+                "callback-new-google-subject",
+            )
+        )
+        is None
+    )
+
+
+def test_invalid_link_intent_never_starts_provider_authorization(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    invalid_intent = "sensitive-invalid-link-intent" * 3
+    oauth_account_context.gateway.started_provider = None
+    oauth_account_context.gateway.started_state = None
+
+    response = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/start",
+        params={"link_intent": invalid_intent},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert invalid_intent not in response.text
+    assert oauth_account_context.gateway.started_provider is None
+    assert oauth_account_context.gateway.started_state is None
+
+
 def test_explicit_oauth_registration_creates_account_identity_and_tokens(
     oauth_account_context: OAuthAccountTestContext,
 ) -> None:
@@ -598,70 +840,44 @@ def test_invalid_registration_ticket_creates_no_account_rows(
     assert after == before
 
 
-def test_verified_oauth_email_links_existing_account_and_exchanges_once(
+def test_matching_verified_email_requires_explicit_connection(
     oauth_account_context: OAuthAccountTestContext,
 ) -> None:
-    email = "oauth-link@example.com"
+    email = "oauth-link-required@example.com"
     register_password_user(oauth_account_context.client, email)
     oauth_account_context.gateway.profile = OAuthProfile(
         provider="google",
-        subject="linked-google-subject",
+        subject="unlinked-google-subject",
         email=email,
-        full_name="Linked Provider Name",
+        full_name="Unlinked Provider Name",
     )
+    before = asyncio.run(auth_row_counts(oauth_account_context.database_url))
 
     callback = oauth_account_context.client.get(
         "/api/v1/auth/oauth/google/callback",
         follow_redirects=False,
     )
+    after = asyncio.run(auth_row_counts(oauth_account_context.database_url))
 
     assert callback.status_code == 303
     location = urlsplit(callback.headers["location"])
-    fragment = parse_qs(location.fragment)
-    assert "registration_ticket" not in fragment
-    exchange_code = fragment["exchange_code"][0]
-    assert oauth_account_context.gateway.profile.subject not in location.fragment
-
-    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
-    identity = asyncio.run(
-        fetch_identity(
-            oauth_account_context.database_url,
-            "google",
-            "linked-google-subject",
+    assert location.path == "/auth/oauth/callback"
+    assert parse_qs(location.query) == {
+        "provider": ["google"],
+        "error": ["link_required"],
+    }
+    assert location.fragment == ""
+    assert after == before
+    assert (
+        asyncio.run(
+            fetch_identity(
+                oauth_account_context.database_url,
+                "google",
+                "unlinked-google-subject",
+            )
         )
+        is None
     )
-    exchange = asyncio.run(
-        fetch_exchange_by_hash(
-            oauth_account_context.database_url,
-            hash_oauth_login_exchange_code(
-                exchange_code,
-                oauth_account_context.settings,
-            ),
-        )
-    )
-    assert user is not None
-    assert identity is not None
-    assert identity.user_id == user.id
-    assert exchange is not None
-    assert exchange.user_id == user.id
-    assert exchange.code_hash != exchange_code
-
-    first_exchange = oauth_account_context.client.post(
-        "/api/v1/auth/oauth/exchange",
-        json={"exchange_code": exchange_code},
-    )
-    replay = oauth_account_context.client.post(
-        "/api/v1/auth/oauth/exchange",
-        json={"exchange_code": exchange_code},
-    )
-
-    assert first_exchange.status_code == 200
-    assert replay.status_code == 401
-    token_claims = decode_access_token(
-        first_exchange.json()["access_token"],
-        oauth_account_context.settings,
-    )
-    assert token_claims.email == email
 
 
 def test_known_identity_logs_into_original_user_when_provider_email_changes(
@@ -675,11 +891,18 @@ def test_known_identity_logs_into_original_user_when_provider_email_changes(
         email=original_email,
         full_name="Stable User",
     )
-    first_callback = oauth_account_context.client.get(
-        "/api/v1/auth/oauth/github/callback",
-        follow_redirects=False,
+    user = asyncio.run(
+        fetch_user_by_email(oauth_account_context.database_url, original_email)
     )
-    assert first_callback.status_code == 303
+    assert user is not None
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "github",
+            "stable-github-subject",
+        )
+    )
 
     oauth_account_context.gateway.profile = OAuthProfile(
         provider="github",
@@ -718,7 +941,7 @@ def test_known_identity_logs_into_original_user_when_provider_email_changes(
 
 
 @pytest.mark.parametrize("attempt", range(3))
-def test_parallel_callbacks_link_identity_once_and_both_get_unique_exchanges(
+def test_parallel_known_identity_callbacks_get_unique_exchanges(
     oauth_account_context: OAuthAccountTestContext,
     attempt: int,
 ) -> None:
@@ -729,6 +952,16 @@ def test_parallel_callbacks_link_identity_once_and_both_get_unique_exchanges(
         subject=f"parallel-link-subject-{attempt}",
         email=email,
         full_name="Parallel Link",
+    )
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "google",
+            f"parallel-link-subject-{attempt}",
+        )
     )
     before = asyncio.run(auth_row_counts(oauth_account_context.database_url))
 
@@ -749,7 +982,7 @@ def test_parallel_callbacks_link_identity_once_and_both_get_unique_exchanges(
     assert len({fragment["exchange_code"][0] for fragment in fragments}) == 2
     assert after == (
         before[0],
-        before[1] + 1,
+        before[1],
         before[2] + 2,
         before[3],
     )
@@ -782,7 +1015,7 @@ def test_inactive_existing_user_is_not_linked_or_given_exchange(
     assert after == before
 
 
-def test_existing_provider_link_blocks_different_subject_for_same_user(
+def test_unlinked_subject_does_not_replace_existing_provider_connection(
     oauth_account_context: OAuthAccountTestContext,
 ) -> None:
     email = "provider-link-conflict@example.com"
@@ -793,11 +1026,16 @@ def test_existing_provider_link_blocks_different_subject_for_same_user(
         email=email,
         full_name="Provider Conflict",
     )
-    first = oauth_account_context.client.get(
-        "/api/v1/auth/oauth/google/callback",
-        follow_redirects=False,
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "google",
+            "first-provider-subject",
+        )
     )
-    assert "exchange_code" in parse_qs(urlsplit(first.headers["location"]).fragment)
 
     oauth_account_context.gateway.profile = OAuthProfile(
         provider="google",
@@ -811,7 +1049,7 @@ def test_existing_provider_link_blocks_different_subject_for_same_user(
     )
 
     assert parse_qs(urlsplit(second.headers["location"]).query)["error"] == [
-        "callback_failed"
+        "link_required"
     ]
     assert (
         asyncio.run(
@@ -835,6 +1073,16 @@ def test_expired_oauth_exchange_is_rejected_and_consumed(
         subject="expired-exchange-subject",
         email=email,
         full_name="Expired Exchange",
+    )
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "github",
+            "expired-exchange-subject",
+        )
     )
     callback = oauth_account_context.client.get(
         "/api/v1/auth/oauth/github/callback",
@@ -879,6 +1127,16 @@ def test_parallel_oauth_exchange_attempts_only_issue_one_session(
         email=email,
         full_name="Parallel Exchange",
     )
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "google",
+            "parallel-exchange-subject",
+        )
+    )
     callback = oauth_account_context.client.get(
         "/api/v1/auth/oauth/google/callback",
         follow_redirects=False,
@@ -896,8 +1154,6 @@ def test_parallel_oauth_exchange_attempts_only_issue_one_session(
     with ThreadPoolExecutor(max_workers=2) as executor:
         statuses = sorted(executor.map(lambda _index: exchange_once(), range(2)))
 
-    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
-    assert user is not None
     assert statuses == [200, 401]
     assert (
         asyncio.run(count_refresh_sessions(oauth_account_context.database_url, user.id))
@@ -934,6 +1190,30 @@ def login_access_token(client: TestClient, email: str) -> str:
     )
     assert response.status_code == 200
     return str(response.json()["access_token"])
+
+
+def begin_provider_link(
+    context: OAuthAccountTestContext,
+    access_token: str,
+    provider: OAuthProvider,
+) -> tuple[str, str]:
+    intent_response = context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        headers={"authorization": f"Bearer {access_token}"},
+        json={"provider": provider},
+    )
+    assert intent_response.status_code == 201
+    link_intent = str(intent_response.json()["link_intent"])
+
+    start = context.client.get(
+        f"/api/v1/auth/oauth/{provider}/start",
+        params={"link_intent": link_intent},
+        follow_redirects=False,
+    )
+    assert start.status_code == 307
+    assert context.gateway.started_provider == provider
+    assert context.gateway.started_state is not None
+    return link_intent, context.gateway.started_state
 
 
 async def attach_identity(

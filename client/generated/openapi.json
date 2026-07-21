@@ -5362,6 +5362,24 @@
               "title": "Provider",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "link_intent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "minLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Link Intent"
+            }
           }
         ],
         "responses": {

@@ -1,7 +1,10 @@
+import secrets
+import uuid
+from dataclasses import dataclass
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse, Response
@@ -48,10 +51,13 @@ from app.modules.auth.services import (
     AuthService,
     DuplicateRegistrationError,
     InvalidCredentialsError,
+    InvalidOAuthLinkIntentError,
     InvalidOAuthLoginExchangeError,
     InvalidRefreshTokenError,
     OAuthAccountUnavailableError,
     OAuthAuthService,
+    OAuthIdentityAlreadyInUseError,
+    OAuthLinkRequiredError,
     OAuthLinkService,
     OAuthProviderAlreadyLinkedError,
     OAuthRegistrationConflictError,
@@ -62,6 +68,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 SessionDependency = Annotated[AsyncSession, Depends(get_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
 OAuthGatewayDependency = Annotated[OAuthGateway, Depends(get_oauth_gateway)]
+OAuthLinkIntentQuery = Annotated[
+    str | None,
+    Query(min_length=32, max_length=512),
+]
+OAUTH_LINK_FLOW_PREFIX = "pfm_oauth_link_flow_"
+
+
+@dataclass(frozen=True)
+class OAuthLinkFlow:
+    user_id: uuid.UUID
+    provider: OAuthProvider
 
 
 def build_auth_service(session: AsyncSession) -> AuthService:
@@ -138,19 +155,47 @@ async def start_oauth(
     request: Request,
     settings: SettingsDependency,
     gateway: OAuthGatewayDependency,
+    session: SessionDependency,
+    link_intent: OAuthLinkIntentQuery = None,
 ) -> Response:
     redirect_uri = (
         f"{settings.oauth_public_api_url}{settings.api_v1_prefix}"
         f"/auth/oauth/{provider}/callback"
     )
+    state = secrets.token_urlsafe(32)
+    link_flow: OAuthLinkFlow | None = None
+    if link_intent is not None:
+        try:
+            intent = await build_oauth_link_service(session).consume_link_intent(
+                link_intent,
+                provider,
+                settings,
+            )
+        except InvalidOAuthLinkIntentError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OAuth account connection session is invalid or expired",
+            ) from exc
+        link_flow = OAuthLinkFlow(user_id=intent.user_id, provider=provider)
+        store_oauth_link_flow(request, state, link_flow)
+
     try:
-        return await gateway.begin(request, provider, redirect_uri)
+        return await gateway.begin(
+            request,
+            provider,
+            redirect_uri,
+            state=state,
+        )
     except OAuthProviderNotConfiguredError as exc:
+        if link_flow is not None:
+            clear_oauth_link_flow(request, state, provider)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OAuth provider is not configured",
         ) from exc
     except OAuthCallbackError as exc:
+        if link_flow is not None:
+            clear_oauth_link_flow(request, state, provider)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="OAuth authentication could not be started",
@@ -166,15 +211,37 @@ async def complete_oauth(
     session: SessionDependency,
 ) -> RedirectResponse:
     try:
+        link_flow = pop_oauth_link_flow(request, provider)
+    except ValueError:
+        return oauth_callback_error_redirect(settings, provider, "callback_failed")
+
+    try:
         profile = await gateway.complete(request, provider)
     except OAuthProviderNotConfiguredError:
         return oauth_callback_error_redirect(settings, provider, "not_configured")
     except OAuthCallbackError:
         return oauth_callback_error_redirect(settings, provider, "callback_failed")
 
-    service = build_oauth_auth_service(session)
+    if profile.provider != provider:
+        return oauth_callback_error_redirect(settings, provider, "callback_failed")
+
+    if link_flow is not None:
+        link_service = build_oauth_link_service(session)
+        try:
+            await link_service.link_identity(link_flow.user_id, profile)
+        except OAuthIdentityAlreadyInUseError:
+            return oauth_link_result_redirect(settings, provider, "provider_in_use")
+        except OAuthProviderAlreadyLinkedError:
+            return oauth_link_result_redirect(settings, provider, "already_linked")
+        except (OAuthAccountUnavailableError, SQLAlchemyError):
+            return oauth_link_result_redirect(settings, provider, "callback_failed")
+        return oauth_link_result_redirect(settings, provider, "connected")
+
+    login_service = build_oauth_auth_service(session)
     try:
-        exchange_code = await service.resolve_callback(profile, settings)
+        exchange_code = await login_service.resolve_callback(profile, settings)
+    except OAuthLinkRequiredError:
+        return oauth_callback_error_redirect(settings, provider, "link_required")
     except (OAuthAccountUnavailableError, SQLAlchemyError):
         return oauth_callback_error_redirect(settings, provider, "callback_failed")
 
@@ -284,6 +351,67 @@ def oauth_callback_error_redirect(
         url=f"{settings.frontend_base_url}/auth/oauth/callback?{query}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
+
+
+def oauth_link_result_redirect(
+    settings: Settings,
+    provider: OAuthProvider,
+    result: str,
+) -> RedirectResponse:
+    query = urlencode({"provider": provider, "oauth_link": result})
+    return RedirectResponse(
+        url=f"{settings.frontend_base_url}/settings?{query}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+def oauth_link_flow_key(state: str, provider: OAuthProvider) -> str:
+    return f"{OAUTH_LINK_FLOW_PREFIX}{provider}_{state}"
+
+
+def store_oauth_link_flow(
+    request: Request,
+    state: str,
+    flow: OAuthLinkFlow,
+) -> None:
+    provider_prefix = f"{OAUTH_LINK_FLOW_PREFIX}{flow.provider}_"
+    for key in list(request.session):
+        if key.startswith(provider_prefix):
+            request.session.pop(key, None)
+    request.session[oauth_link_flow_key(state, flow.provider)] = {
+        "provider": flow.provider,
+        "user_id": str(flow.user_id),
+    }
+
+
+def clear_oauth_link_flow(
+    request: Request,
+    state: str,
+    provider: OAuthProvider,
+) -> None:
+    request.session.pop(oauth_link_flow_key(state, provider), None)
+
+
+def pop_oauth_link_flow(
+    request: Request,
+    provider: OAuthProvider,
+) -> OAuthLinkFlow | None:
+    state = request.query_params.get("state")
+    if state is None:
+        return None
+    raw_flow = request.session.pop(oauth_link_flow_key(state, provider), None)
+    if raw_flow is None:
+        return None
+    if not isinstance(raw_flow, dict) or raw_flow.get("provider") != provider:
+        raise ValueError("Invalid OAuth link flow")
+    raw_user_id = raw_flow.get("user_id")
+    if not isinstance(raw_user_id, str):
+        raise ValueError("Invalid OAuth link flow")
+    try:
+        user_id = uuid.UUID(raw_user_id)
+    except ValueError as exc:
+        raise ValueError("Invalid OAuth link flow") from exc
+    return OAuthLinkFlow(user_id=user_id, provider=provider)
 
 
 @router.post(
