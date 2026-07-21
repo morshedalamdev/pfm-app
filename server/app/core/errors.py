@@ -13,6 +13,8 @@ SENSITIVE_VALIDATION_FIELDS = frozenset(
     {
         "password",
         "password_hash",
+        "current_password",
+        "new_password",
         "token",
         "access_token",
         "refresh_token",

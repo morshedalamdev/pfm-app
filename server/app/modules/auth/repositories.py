@@ -48,6 +48,20 @@ class RefreshSessionRepository:
         )
         return list(result.scalars().all())
 
+    async def list_active_by_user_for_update(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[RefreshSession]:
+        result = await self._session.execute(
+            select(RefreshSession)
+            .where(
+                RefreshSession.user_id == user_id,
+                RefreshSession.revoked_at.is_(None),
+            )
+            .with_for_update()
+        )
+        return list(result.scalars().all())
+
     def add(self, refresh_session: RefreshSession) -> None:
         self._session.add(refresh_session)
 

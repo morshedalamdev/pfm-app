@@ -38,6 +38,8 @@ from app.modules.auth.schemas import (
     OAuthLoginExchangeRequest,
     OAuthProvider,
     OAuthRegisterRequest,
+    PasswordUpdateRequest,
+    PasswordUpdateResponse,
     RefreshTokenRequest,
     RegisterUserRequest,
     SignInMethodsResponse,
@@ -55,6 +57,14 @@ class InvalidCredentialsError(Exception):
 
 
 class InvalidRefreshTokenError(Exception):
+    pass
+
+
+class InvalidCurrentPasswordError(Exception):
+    pass
+
+
+class PasswordReuseError(Exception):
     pass
 
 
@@ -212,6 +222,41 @@ class AuthService:
             refresh_session.revoked_at = datetime.now(UTC)
             refresh_session.revoked_reason = "logout"
         await self.refresh_sessions.commit()
+
+    async def update_password(
+        self,
+        user: User,
+        request: PasswordUpdateRequest,
+    ) -> PasswordUpdateResponse:
+        locked_user = await self.users.get_by_id_for_update(user.id)
+        if locked_user is None or not locked_user.is_active:
+            await self.users.rollback()
+            raise InvalidCurrentPasswordError
+
+        existing_hash = locked_user.password_hash
+        if existing_hash is not None:
+            if request.current_password is None or not verify_password(
+                request.current_password,
+                existing_hash,
+            ):
+                await self.users.rollback()
+                raise InvalidCurrentPasswordError
+            if verify_password(request.new_password, existing_hash):
+                await self.users.rollback()
+                raise PasswordReuseError
+
+        now = datetime.now(UTC)
+        revoked_reason = "password_set" if existing_hash is None else "password_changed"
+        sessions = await self.refresh_sessions.list_active_by_user_for_update(
+            locked_user.id
+        )
+        for refresh_session in sessions:
+            refresh_session.revoked_at = now
+            refresh_session.revoked_reason = revoked_reason
+
+        locked_user.password_hash = hash_password(request.new_password)
+        await self.users.commit()
+        return PasswordUpdateResponse()
 
     async def create_refresh_session(
         self,

@@ -42,6 +42,8 @@ from app.modules.auth.schemas import (
     OAuthRegisterRequest,
     OAuthRegistrationPreviewResponse,
     OAuthRegistrationTicketRequest,
+    PasswordUpdateRequest,
+    PasswordUpdateResponse,
     RefreshTokenRequest,
     RegisteredUserResponse,
     RegisterUserRequest,
@@ -51,6 +53,7 @@ from app.modules.auth.services import (
     AuthService,
     DuplicateRegistrationError,
     InvalidCredentialsError,
+    InvalidCurrentPasswordError,
     InvalidOAuthLinkIntentError,
     InvalidOAuthLoginExchangeError,
     InvalidRefreshTokenError,
@@ -61,6 +64,7 @@ from app.modules.auth.services import (
     OAuthLinkService,
     OAuthProviderAlreadyLinkedError,
     OAuthRegistrationConflictError,
+    PasswordReuseError,
 )
 from app.modules.users.repositories import UserRepository
 
@@ -147,6 +151,26 @@ async def route_email_auth(
     return EmailAuthRouteResponse(
         destination="login" if user is not None else "register"
     )
+
+
+@router.put("/password", response_model=PasswordUpdateResponse)
+async def update_password(
+    request: PasswordUpdateRequest,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> PasswordUpdateResponse:
+    try:
+        return await build_auth_service(session).update_password(current_user, request)
+    except InvalidCurrentPasswordError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        ) from exc
+    except PasswordReuseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from the current password",
+        ) from exc
 
 
 @router.get("/oauth/{provider}/start")

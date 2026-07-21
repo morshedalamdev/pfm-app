@@ -266,6 +266,161 @@ def test_revoked_refresh_token_cannot_be_reused_successfully(
     assert refresh_response.status_code == 401
 
 
+def test_password_change_requires_current_password_and_revokes_all_sessions(
+    refresh_context: RefreshTestContext,
+) -> None:
+    email = "change-password@example.com"
+    first_login = register_and_login(refresh_context, email)
+    second_login_response = refresh_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+    assert second_login_response.status_code == 200
+    second_login = second_login_response.json()
+    headers = {"authorization": f"Bearer {second_login['access_token']}"}
+
+    unauthenticated = refresh_context.client.put(
+        "/api/v1/auth/password",
+        json={"new_password": "BetterHorse43"},
+    )
+    wrong_current = refresh_context.client.put(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={
+            "current_password": "WrongHorse42",
+            "new_password": "BetterHorse43",
+        },
+    )
+    reused = refresh_context.client.put(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={
+            "current_password": "CorrectHorse42",
+            "new_password": "CorrectHorse42",
+        },
+    )
+    first_session_before = asyncio.run(
+        fetch_refresh_session(refresh_context, str(first_login["refresh_token"]))
+    )
+    second_session_before = asyncio.run(
+        fetch_refresh_session(refresh_context, str(second_login["refresh_token"]))
+    )
+    changed = refresh_context.client.put(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={
+            "current_password": "CorrectHorse42",
+            "new_password": "BetterHorse43",
+        },
+    )
+
+    assert unauthenticated.status_code == 401
+    assert wrong_current.status_code == 400
+    assert wrong_current.json()["error"]["message"] == "Current password is incorrect"
+    assert reused.status_code == 400
+    assert reused.json()["error"]["message"] == (
+        "New password must be different from the current password"
+    )
+    assert first_session_before is not None
+    assert second_session_before is not None
+    assert first_session_before.revoked_at is None
+    assert second_session_before.revoked_at is None
+    assert changed.status_code == 200
+    assert changed.json() == {
+        "status": "updated",
+        "reauthentication_required": True,
+    }
+
+    for login in (first_login, second_login):
+        refresh_token = str(login["refresh_token"])
+        refresh = refresh_context.client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+        stored = asyncio.run(fetch_refresh_session(refresh_context, refresh_token))
+        assert refresh.status_code == 401
+        assert stored is not None
+        assert stored.revoked_at is not None
+        assert stored.revoked_reason == "password_changed"
+
+    old_login = refresh_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+    new_login = refresh_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "BetterHorse43"},
+    )
+    assert old_login.status_code == 401
+    assert new_login.status_code == 200
+
+
+def test_password_update_validation_redacts_both_password_fields(
+    refresh_context: RefreshTestContext,
+) -> None:
+    email = "password-redaction@example.com"
+    login = register_and_login(refresh_context, email)
+    headers = {"authorization": f"Bearer {login['access_token']}"}
+
+    weak_new = refresh_context.client.put(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={
+            "current_password": "CorrectHorse42",
+            "new_password": "revealed-weak-value",
+        },
+    )
+    empty_current = refresh_context.client.put(
+        "/api/v1/auth/password",
+        headers=headers,
+        json={"current_password": "", "new_password": "BetterHorse43"},
+    )
+
+    assert weak_new.status_code == 422
+    assert weak_new.json()["error"]["details"][0]["input"] == "[redacted]"
+    assert "revealed-weak-value" not in weak_new.text
+    assert empty_current.status_code == 422
+    assert empty_current.json()["error"]["details"][0]["input"] == "[redacted]"
+
+
+def test_parallel_password_changes_only_accept_current_password_once(
+    refresh_context: RefreshTestContext,
+) -> None:
+    email = "parallel-password-change@example.com"
+    login = register_and_login(refresh_context, email)
+    headers = {"authorization": f"Bearer {login['access_token']}"}
+    new_passwords = ["ParallelHorse43", "ParallelHorse44"]
+
+    def change_password(new_password: str) -> int:
+        return refresh_context.client.put(
+            "/api/v1/auth/password",
+            headers=headers,
+            json={
+                "current_password": "CorrectHorse42",
+                "new_password": new_password,
+            },
+        ).status_code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = sorted(executor.map(change_password, new_passwords))
+
+    successful_logins = [
+        refresh_context.client.post(
+            "/api/v1/auth/login",
+            json={"email": email, "password": password},
+        ).status_code
+        for password in new_passwords
+    ]
+    old_login = refresh_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+
+    assert statuses == [200, 400]
+    assert sorted(successful_logins) == [200, 401]
+    assert old_login.status_code == 401
+
+
 def register_and_login(
     refresh_context: RefreshTestContext,
     email: str,

@@ -262,6 +262,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Password */
+        put: operations["update_password_api_v1_auth_password_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -1818,6 +1835,28 @@ export interface components {
             /** Registration Ticket */
             registration_ticket: string;
         };
+        /** PasswordUpdateRequest */
+        PasswordUpdateRequest: {
+            /** Current Password */
+            current_password?: string | null;
+            /** New Password */
+            new_password: string;
+        };
+        /** PasswordUpdateResponse */
+        PasswordUpdateResponse: {
+            /**
+             * Reauthentication Required
+             * @default true
+             * @constant
+             */
+            reauthentication_required: true;
+            /**
+             * Status
+             * @default updated
+             * @constant
+             */
+            status: "updated";
+        };
         /** ReadyHealthResponse */
         ReadyHealthResponse: {
             /**
@@ -3213,6 +3252,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_password_api_v1_auth_password_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordUpdateResponse"];
                 };
             };
             /** @description Validation Error */

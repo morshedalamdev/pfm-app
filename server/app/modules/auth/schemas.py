@@ -83,6 +83,23 @@ class LogoutResponse(BaseModel):
     status: Literal["ok"]
 
 
+class PasswordUpdateRequest(BaseModel):
+    current_password: str | None = Field(default=None, min_length=1, max_length=128)
+    new_password: str = Field(min_length=1, max_length=128)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, password: str) -> str:
+        return validate_password_strength(password)
+
+
+class PasswordUpdateResponse(BaseModel):
+    status: Literal["updated"] = "updated"
+    reauthentication_required: Literal[True] = True
+
+
 class OAuthRegistrationTicketRequest(BaseModel):
     registration_ticket: str = Field(min_length=64, max_length=8192)
 

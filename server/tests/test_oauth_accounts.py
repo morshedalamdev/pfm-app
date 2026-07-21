@@ -28,6 +28,7 @@ from app.core.security import (
     decode_access_token,
     hash_oauth_link_intent_code,
     hash_oauth_login_exchange_code,
+    hash_refresh_token,
 )
 from app.main import create_app
 from app.modules.auth.models import (
@@ -229,6 +230,105 @@ def test_oauth_only_account_reports_password_disabled(
         "password_enabled": False,
         "connected_providers": ["google"],
     }
+
+
+def test_oauth_only_user_sets_password_and_keeps_same_account_for_both_logins(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    profile = OAuthProfile(
+        provider="google",
+        subject="set-password-google-subject",
+        email="set-password-oauth@example.com",
+        full_name="Set Password OAuth",
+    )
+    ticket = create_oauth_registration_ticket(
+        profile,
+        oauth_account_context.settings,
+    )
+    registration = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={"registration_ticket": ticket},
+    )
+    assert registration.status_code == 201
+    original_tokens = registration.json()
+    user = asyncio.run(
+        fetch_user_by_email(oauth_account_context.database_url, profile.email)
+    )
+    assert user is not None
+
+    password_update = oauth_account_context.client.put(
+        "/api/v1/auth/password",
+        headers={
+            "authorization": f"Bearer {original_tokens['access_token']}",
+        },
+        json={"new_password": "NewOAuthHorse42"},
+    )
+    old_refresh = oauth_account_context.client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": original_tokens["refresh_token"]},
+    )
+    password_login = oauth_account_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": profile.email, "password": "NewOAuthHorse42"},
+    )
+
+    assert password_update.status_code == 200
+    assert password_update.json() == {
+        "status": "updated",
+        "reauthentication_required": True,
+    }
+    assert old_refresh.status_code == 401
+    original_session = asyncio.run(
+        fetch_refresh_session_by_token(
+            oauth_account_context.database_url,
+            str(original_tokens["refresh_token"]),
+            oauth_account_context.settings,
+        )
+    )
+    assert original_session is not None
+    assert original_session.revoked_reason == "password_set"
+    assert password_login.status_code == 200
+    password_claims = decode_access_token(
+        password_login.json()["access_token"],
+        oauth_account_context.settings,
+    )
+    assert password_claims.subject == user.id
+
+    methods = oauth_account_context.client.get(
+        "/api/v1/auth/methods",
+        headers={
+            "authorization": f"Bearer {password_login.json()['access_token']}",
+        },
+    )
+    assert methods.json() == {
+        "password_enabled": True,
+        "connected_providers": ["google"],
+    }
+
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google",
+        subject=profile.subject,
+        email="changed-provider-email@example.com",
+        full_name="Changed Provider Email",
+    )
+    oauth_callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/google/callback",
+        follow_redirects=False,
+    )
+    exchange_code = parse_qs(urlsplit(oauth_callback.headers["location"]).fragment)[
+        "exchange_code"
+    ][0]
+    oauth_login = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/exchange",
+        json={"exchange_code": exchange_code},
+    )
+    assert oauth_login.status_code == 200
+    oauth_claims = decode_access_token(
+        oauth_login.json()["access_token"],
+        oauth_account_context.settings,
+    )
+    assert oauth_claims.subject == user.id
+    assert oauth_claims.email == profile.email
 
 
 def test_link_intent_is_hashed_and_bound_to_authenticated_user_and_provider(
@@ -1300,6 +1400,26 @@ async def fetch_exchange_by_hash(
             result = await session.execute(
                 select(OAuthLoginExchange).where(
                     OAuthLoginExchange.code_hash == code_hash
+                )
+            )
+            return result.scalar_one_or_none()
+    finally:
+        await engine.dispose()
+
+
+async def fetch_refresh_session_by_token(
+    database_url: str,
+    refresh_token: str,
+    settings: Settings,
+) -> RefreshSession | None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(RefreshSession).where(
+                    RefreshSession.token_hash
+                    == hash_refresh_token(refresh_token, settings)
                 )
             )
             return result.scalar_one_or_none()
