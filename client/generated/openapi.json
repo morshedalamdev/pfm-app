@@ -2128,6 +2128,52 @@
         "title": "NotificationUnreadCountResponse",
         "type": "object"
       },
+      "OAuthLinkIntentCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "enum": [
+              "google",
+              "github"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "OAuthLinkIntentCreateRequest",
+        "type": "object"
+      },
+      "OAuthLinkIntentResponse": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "link_intent": {
+            "title": "Link Intent",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "google",
+              "github"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_intent",
+          "provider",
+          "expires_at"
+        ],
+        "title": "OAuthLinkIntentResponse",
+        "type": "object"
+      },
       "OAuthLoginExchangeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3733,6 +3779,31 @@
         "title": "SavingsTransferResponse",
         "type": "object"
       },
+      "SignInMethodsResponse": {
+        "properties": {
+          "connected_providers": {
+            "items": {
+              "enum": [
+                "google",
+                "github"
+              ],
+              "type": "string"
+            },
+            "title": "Connected Providers",
+            "type": "array"
+          },
+          "password_enabled": {
+            "title": "Password Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "password_enabled",
+          "connected_providers"
+        ],
+        "title": "SignInMethodsResponse",
+        "type": "object"
+      },
       "SpendingByCategoryItemResponse": {
         "properties": {
           "amount": {
@@ -5036,6 +5107,32 @@
         ]
       }
     },
+    "/api/v1/auth/methods": {
+      "get": {
+        "operationId": "read_sign_in_methods_api_v1_auth_methods_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInMethodsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read Sign In Methods",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/oauth/exchange": {
       "post": {
         "operationId": "exchange_oauth_login_code_api_v1_auth_oauth_exchange_post",
@@ -5072,6 +5169,52 @@
           }
         },
         "summary": "Exchange Oauth Login Code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oauth/link-intents": {
+      "post": {
+        "operationId": "create_oauth_link_intent_api_v1_auth_oauth_link_intents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthLinkIntentCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthLinkIntentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Oauth Link Intent",
         "tags": [
           "auth"
         ]

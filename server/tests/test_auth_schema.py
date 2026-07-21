@@ -9,7 +9,12 @@ from sqlalchemy import Index, UniqueConstraint, inspect
 
 from alembic import command
 from app.core.database import Base, build_async_engine
-from app.modules.auth.models import OAuthIdentity, OAuthLoginExchange, RefreshSession
+from app.modules.auth.models import (
+    OAuthIdentity,
+    OAuthLinkIntent,
+    OAuthLoginExchange,
+    RefreshSession,
+)
 from app.modules.auth.repositories import RefreshSessionRepository
 from app.modules.auth.services import AuthService
 from app.modules.users.models import User
@@ -162,6 +167,36 @@ def test_oauth_login_exchange_model_schema() -> None:
     }
 
 
+def test_oauth_link_intent_model_schema() -> None:
+    table = OAuthLinkIntent.__table__
+
+    assert table.metadata is Base.metadata
+    assert set(table.columns.keys()) == {
+        "id",
+        "user_id",
+        "provider",
+        "code_hash",
+        "expires_at",
+        "consumed_at",
+        "created_at",
+    }
+    assert table.columns.provider.type.length == 20
+    assert table.columns.code_hash.type.length == 64
+    assert table.columns.consumed_at.nullable is True
+    assert "uq_oauth_link_intents_code_hash" in constraint_names(
+        [
+            constraint
+            for constraint in table.constraints
+            if isinstance(constraint, UniqueConstraint)
+        ]
+    )
+    assert index_names(table.indexes) == {
+        "ix_oauth_link_intents_user_id",
+        "ix_oauth_link_intents_expires_at",
+        "ix_oauth_link_intents_consumed_at",
+    }
+
+
 def test_auth_service_composes_repository_skeletons() -> None:
     users = UserRepository.__new__(UserRepository)
     refresh_sessions = RefreshSessionRepository.__new__(RefreshSessionRepository)
@@ -204,15 +239,23 @@ def test_oauth_migration_up_down_up_schema(
     command.upgrade(config, "head")
     assert asyncio.run(table_exists(disposable_postgres_url, "oauth_identities"))
     assert asyncio.run(table_exists(disposable_postgres_url, "oauth_login_exchanges"))
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_link_intents"))
     assert asyncio.run(
         column_is_nullable(disposable_postgres_url, "users", "password_hash")
     )
 
+    command.downgrade(config, "202607180901")
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_identities"))
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_login_exchanges"))
+    assert not asyncio.run(table_exists(disposable_postgres_url, "oauth_link_intents"))
+
+    command.upgrade(config, "head")
     command.downgrade(config, "202607130703")
     assert not asyncio.run(table_exists(disposable_postgres_url, "oauth_identities"))
     assert not asyncio.run(
         table_exists(disposable_postgres_url, "oauth_login_exchanges")
     )
+    assert not asyncio.run(table_exists(disposable_postgres_url, "oauth_link_intents"))
     assert not asyncio.run(
         column_is_nullable(disposable_postgres_url, "users", "password_hash")
     )
@@ -220,6 +263,7 @@ def test_oauth_migration_up_down_up_schema(
     command.upgrade(config, "head")
     assert asyncio.run(table_exists(disposable_postgres_url, "oauth_identities"))
     assert asyncio.run(table_exists(disposable_postgres_url, "oauth_login_exchanges"))
+    assert asyncio.run(table_exists(disposable_postgres_url, "oauth_link_intents"))
     assert asyncio.run(
         column_is_nullable(disposable_postgres_url, "users", "password_hash")
     )

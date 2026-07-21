@@ -118,6 +118,23 @@ class OAuthLoginExchangeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SignInMethodsResponse(BaseModel):
+    password_enabled: bool
+    connected_providers: list[OAuthProvider]
+
+
+class OAuthLinkIntentCreateRequest(BaseModel):
+    provider: OAuthProvider
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class OAuthLinkIntentResponse(BaseModel):
+    link_intent: str
+    provider: OAuthProvider
+    expires_at: datetime
+
+
 class RegisteredUserResponse(BaseModel):
     id: uuid.UUID
     email: str

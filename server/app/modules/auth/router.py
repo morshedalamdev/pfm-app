@@ -8,6 +8,7 @@ from starlette.responses import RedirectResponse, Response
 
 from app.core.config import Settings, get_settings
 from app.core.database import get_session
+from app.modules.auth.dependencies import CurrentUserDependency
 from app.modules.auth.oauth import (
     InvalidOAuthRegistrationTicketError,
     OAuthCallbackError,
@@ -20,6 +21,7 @@ from app.modules.auth.oauth import (
 )
 from app.modules.auth.repositories import (
     OAuthIdentityRepository,
+    OAuthLinkIntentRepository,
     OAuthLoginExchangeRepository,
     RefreshSessionRepository,
 )
@@ -30,6 +32,8 @@ from app.modules.auth.schemas import (
     LoginRequest,
     LogoutRequest,
     LogoutResponse,
+    OAuthLinkIntentCreateRequest,
+    OAuthLinkIntentResponse,
     OAuthLoginExchangeRequest,
     OAuthProvider,
     OAuthRegisterRequest,
@@ -38,6 +42,7 @@ from app.modules.auth.schemas import (
     RefreshTokenRequest,
     RegisteredUserResponse,
     RegisterUserRequest,
+    SignInMethodsResponse,
 )
 from app.modules.auth.services import (
     AuthService,
@@ -47,6 +52,8 @@ from app.modules.auth.services import (
     InvalidRefreshTokenError,
     OAuthAccountUnavailableError,
     OAuthAuthService,
+    OAuthLinkService,
+    OAuthProviderAlreadyLinkedError,
     OAuthRegistrationConflictError,
 )
 from app.modules.users.repositories import UserRepository
@@ -71,6 +78,47 @@ def build_oauth_auth_service(session: AsyncSession) -> OAuthAuthService:
         identities=OAuthIdentityRepository(session),
         login_exchanges=OAuthLoginExchangeRepository(session),
     )
+
+
+def build_oauth_link_service(session: AsyncSession) -> OAuthLinkService:
+    return OAuthLinkService(
+        users=UserRepository(session),
+        identities=OAuthIdentityRepository(session),
+        link_intents=OAuthLinkIntentRepository(session),
+    )
+
+
+@router.get("/methods", response_model=SignInMethodsResponse)
+async def read_sign_in_methods(
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+) -> SignInMethodsResponse:
+    return await build_oauth_link_service(session).get_sign_in_methods(current_user)
+
+
+@router.post(
+    "/oauth/link-intents",
+    response_model=OAuthLinkIntentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_oauth_link_intent(
+    request: OAuthLinkIntentCreateRequest,
+    current_user: CurrentUserDependency,
+    session: SessionDependency,
+    settings: SettingsDependency,
+) -> OAuthLinkIntentResponse:
+    try:
+        return await build_oauth_link_service(session).create_link_intent(
+            current_user,
+            request,
+            settings,
+        )
+    except OAuthProviderAlreadyLinkedError as exc:
+        provider_label = "Google" if request.provider == "google" else "GitHub"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{provider_label} is already connected",
+        ) from exc
 
 
 @router.post("/email-route", response_model=EmailAuthRouteResponse)

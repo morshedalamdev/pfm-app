@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     )
     oauth_registration_ticket_expire_minutes: int = Field(default=10, gt=0, le=30)
     oauth_login_exchange_expire_seconds: int = Field(default=60, ge=30, le=300)
+    oauth_link_intent_expire_seconds: int = Field(default=300, ge=60, le=900)
     recurring_worker_batch_size: int = Field(default=25, gt=0, le=1000)
     recurring_worker_lock_seconds: int = Field(default=60, gt=0, le=3600)
     recurring_worker_poll_seconds: float = Field(default=30.0, gt=0, le=3600)

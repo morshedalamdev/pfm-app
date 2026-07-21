@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -25,11 +26,13 @@ from app.core.database import (
 )
 from app.core.security import (
     decode_access_token,
+    hash_oauth_link_intent_code,
     hash_oauth_login_exchange_code,
 )
 from app.main import create_app
 from app.modules.auth.models import (
     OAuthIdentity,
+    OAuthLinkIntent,
     OAuthLoginExchange,
     RefreshSession,
 )
@@ -38,8 +41,14 @@ from app.modules.auth.oauth import (
     create_oauth_registration_ticket,
     get_oauth_gateway,
 )
+from app.modules.auth.repositories import (
+    OAuthIdentityRepository,
+    OAuthLinkIntentRepository,
+)
 from app.modules.auth.schemas import OAuthProvider
+from app.modules.auth.services import InvalidOAuthLinkIntentError, OAuthLinkService
 from app.modules.users.models import User
+from app.modules.users.repositories import UserRepository
 
 
 @dataclass
@@ -134,6 +143,257 @@ def oauth_account_context(
             )
     finally:
         asyncio.run(engine.dispose())
+
+
+def test_sign_in_methods_require_auth_and_report_all_connected_methods(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "sign-in-methods@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+
+    unauthenticated = oauth_account_context.client.get("/api/v1/auth/methods")
+    password_only = oauth_account_context.client.get(
+        "/api/v1/auth/methods",
+        headers={"authorization": f"Bearer {access_token}"},
+    )
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "github",
+            "methods-github-subject",
+        )
+    )
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "google",
+            "methods-google-subject",
+        )
+    )
+    all_methods = oauth_account_context.client.get(
+        "/api/v1/auth/methods",
+        headers={"authorization": f"Bearer {access_token}"},
+    )
+
+    assert unauthenticated.status_code == 401
+    assert password_only.status_code == 200
+    assert password_only.json() == {
+        "password_enabled": True,
+        "connected_providers": [],
+    }
+    assert all_methods.status_code == 200
+    assert all_methods.json() == {
+        "password_enabled": True,
+        "connected_providers": ["github", "google"],
+    }
+
+
+def test_oauth_only_account_reports_password_disabled(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    profile = OAuthProfile(
+        provider="google",
+        subject="methods-oauth-only-subject",
+        email="methods-oauth-only@example.com",
+        full_name="OAuth Only",
+    )
+    ticket = create_oauth_registration_ticket(
+        profile,
+        oauth_account_context.settings,
+    )
+    registration = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={"registration_ticket": ticket},
+    )
+    response = oauth_account_context.client.get(
+        "/api/v1/auth/methods",
+        headers={
+            "authorization": f"Bearer {registration.json()['access_token']}",
+        },
+    )
+
+    assert registration.status_code == 201
+    assert response.status_code == 200
+    assert response.json() == {
+        "password_enabled": False,
+        "connected_providers": ["google"],
+    }
+
+
+def test_link_intent_is_hashed_and_bound_to_authenticated_user_and_provider(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "link-intent-owner@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    headers = {"authorization": f"Bearer {access_token}"}
+
+    rejected_override = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        headers=headers,
+        json={"provider": "google", "user_id": "00000000-0000-0000-0000-000000000000"},
+    )
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        headers=headers,
+        json={"provider": "google"},
+    )
+
+    assert rejected_override.status_code == 422
+    assert response.status_code == 201
+    body = response.json()
+    assert body["provider"] == "google"
+    assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
+    stored = asyncio.run(
+        fetch_link_intent(
+            oauth_account_context.database_url,
+            hash_oauth_link_intent_code(
+                body["link_intent"],
+                oauth_account_context.settings,
+            ),
+        )
+    )
+    assert stored is not None
+    assert stored.user_id == user.id
+    assert stored.provider == "google"
+    assert stored.code_hash != body["link_intent"]
+    assert body["link_intent"] not in stored.code_hash
+
+
+def test_link_intent_rejects_connected_provider_without_creating_secret(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "already-linked-intent@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    user = asyncio.run(fetch_user_by_email(oauth_account_context.database_url, email))
+    assert user is not None
+    asyncio.run(
+        attach_identity(
+            oauth_account_context.database_url,
+            user.id,
+            "github",
+            "already-linked-intent-subject",
+        )
+    )
+    before = asyncio.run(count_link_intents(oauth_account_context.database_url))
+
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        headers={"authorization": f"Bearer {access_token}"},
+        json={"provider": "github"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["message"] == "GitHub is already connected"
+    assert asyncio.run(count_link_intents(oauth_account_context.database_url)) == before
+
+
+def test_link_intent_provider_mismatch_expiry_and_replay_are_rejected(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "link-intent-lifecycle@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    headers = {"authorization": f"Bearer {access_token}"}
+    first = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        headers=headers,
+        json={"provider": "google"},
+    ).json()["link_intent"]
+
+    with pytest.raises(InvalidOAuthLinkIntentError):
+        asyncio.run(
+            consume_link_intent(
+                oauth_account_context.database_url,
+                first,
+                "github",
+                oauth_account_context.settings,
+            )
+        )
+    consumed = asyncio.run(
+        consume_link_intent(
+            oauth_account_context.database_url,
+            first,
+            "google",
+            oauth_account_context.settings,
+        )
+    )
+    assert consumed.consumed_at is not None
+    with pytest.raises(InvalidOAuthLinkIntentError):
+        asyncio.run(
+            consume_link_intent(
+                oauth_account_context.database_url,
+                first,
+                "google",
+                oauth_account_context.settings,
+            )
+        )
+
+    second = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        headers=headers,
+        json={"provider": "github"},
+    ).json()["link_intent"]
+    second_hash = hash_oauth_link_intent_code(
+        second,
+        oauth_account_context.settings,
+    )
+    asyncio.run(
+        set_link_intent_expiry(
+            oauth_account_context.database_url,
+            second_hash,
+            datetime.now(UTC) - timedelta(seconds=1),
+        )
+    )
+    with pytest.raises(InvalidOAuthLinkIntentError):
+        asyncio.run(
+            consume_link_intent(
+                oauth_account_context.database_url,
+                second,
+                "github",
+                oauth_account_context.settings,
+            )
+        )
+
+
+def test_parallel_link_intent_consumption_succeeds_once(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "parallel-link-intent@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    code = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        headers={"authorization": f"Bearer {access_token}"},
+        json={"provider": "google"},
+    ).json()["link_intent"]
+
+    def consume_once() -> str:
+        try:
+            asyncio.run(
+                consume_link_intent(
+                    oauth_account_context.database_url,
+                    code,
+                    "google",
+                    oauth_account_context.settings,
+                )
+            )
+        except InvalidOAuthLinkIntentError:
+            return "rejected"
+        return "consumed"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = sorted(executor.map(lambda _index: consume_once(), range(2)))
+
+    assert outcomes == ["consumed", "rejected"]
 
 
 def test_explicit_oauth_registration_creates_account_identity_and_tokens(
@@ -667,6 +927,57 @@ def register_password_user(client: TestClient, email: str) -> None:
     assert response.status_code == 201
 
 
+def login_access_token(client: TestClient, email: str) -> str:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+    assert response.status_code == 200
+    return str(response.json()["access_token"])
+
+
+async def attach_identity(
+    database_url: str,
+    user_id: uuid.UUID,
+    provider: str,
+    subject: str,
+) -> None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            session.add(
+                OAuthIdentity(
+                    user_id=user_id,
+                    provider=provider,
+                    provider_subject=subject,
+                )
+            )
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def consume_link_intent(
+    database_url: str,
+    code: str,
+    provider: OAuthProvider,
+    settings: Settings,
+) -> OAuthLinkIntent:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            service = OAuthLinkService(
+                users=UserRepository(session),
+                identities=OAuthIdentityRepository(session),
+                link_intents=OAuthLinkIntentRepository(session),
+            )
+            return await service.consume_link_intent(code, provider, settings)
+    finally:
+        await engine.dispose()
+
+
 async def fetch_user_by_email(database_url: str, email: str) -> User | None:
     engine = build_async_engine(database_url)
     session_factory = build_session_factory(engine)
@@ -710,6 +1021,22 @@ async def fetch_exchange_by_hash(
                 select(OAuthLoginExchange).where(
                     OAuthLoginExchange.code_hash == code_hash
                 )
+            )
+            return result.scalar_one_or_none()
+    finally:
+        await engine.dispose()
+
+
+async def fetch_link_intent(
+    database_url: str,
+    code_hash: str,
+) -> OAuthLinkIntent | None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(OAuthLinkIntent).where(OAuthLinkIntent.code_hash == code_hash)
             )
             return result.scalar_one_or_none()
     finally:
@@ -785,6 +1112,19 @@ async def count_identities_for_user_provider(
         await engine.dispose()
 
 
+async def count_link_intents(database_url: str) -> int:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            value = await session.scalar(
+                select(func.count()).select_from(OAuthLinkIntent)
+            )
+            return int(value or 0)
+    finally:
+        await engine.dispose()
+
+
 async def count_refresh_sessions(database_url: str, user_id: object) -> int:
     engine = build_async_engine(database_url)
     session_factory = build_session_factory(engine)
@@ -825,6 +1165,25 @@ async def set_exchange_expiry(
             await session.execute(
                 update(OAuthLoginExchange)
                 .where(OAuthLoginExchange.code_hash == code_hash)
+                .values(expires_at=expires_at)
+            )
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+async def set_link_intent_expiry(
+    database_url: str,
+    code_hash: str,
+    expires_at: datetime,
+) -> None:
+    engine = build_async_engine(database_url)
+    session_factory = build_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            await session.execute(
+                update(OAuthLinkIntent)
+                .where(OAuthLinkIntent.code_hash == code_hash)
                 .values(expires_at=expires_at)
             )
             await session.commit()

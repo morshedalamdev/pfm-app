@@ -18,6 +18,7 @@ SENSITIVE_VALIDATION_FIELDS = frozenset(
         "refresh_token",
         "registration_ticket",
         "exchange_code",
+        "link_intent",
     }
 )
 

@@ -143,3 +143,39 @@ class OAuthLoginExchange(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class OAuthLinkIntent(Base):
+    __tablename__ = "oauth_link_intents"
+    __table_args__ = (
+        CheckConstraint(
+            "provider IN ('google', 'github')",
+            name="oauth_link_intent_provider_supported",
+        ),
+        Index("ix_oauth_link_intents_user_id", "user_id"),
+        Index("ix_oauth_link_intents_expires_at", "expires_at"),
+        Index("ix_oauth_link_intents_consumed_at", "consumed_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

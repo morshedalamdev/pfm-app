@@ -143,6 +143,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Sign In Methods */
+        get: operations["read_sign_in_methods_api_v1_auth_methods_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/oauth/exchange": {
         parameters: {
             query?: never;
@@ -154,6 +171,23 @@ export interface paths {
         put?: never;
         /** Exchange Oauth Login Code */
         post: operations["exchange_oauth_login_code_api_v1_auth_oauth_exchange_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oauth/link-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Oauth Link Intent */
+        post: operations["create_oauth_link_intent_api_v1_auth_oauth_link_intents_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1728,6 +1762,29 @@ export interface components {
             /** Unread Count */
             unread_count: number;
         };
+        /** OAuthLinkIntentCreateRequest */
+        OAuthLinkIntentCreateRequest: {
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "google" | "github";
+        };
+        /** OAuthLinkIntentResponse */
+        OAuthLinkIntentResponse: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Link Intent */
+            link_intent: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "google" | "github";
+        };
         /** OAuthLoginExchangeRequest */
         OAuthLoginExchangeRequest: {
             /** Exchange Code */
@@ -2322,6 +2379,13 @@ export interface components {
              * Format: date-time
              */
             transaction_at: string;
+        };
+        /** SignInMethodsResponse */
+        SignInMethodsResponse: {
+            /** Connected Providers */
+            connected_providers: ("google" | "github")[];
+            /** Password Enabled */
+            password_enabled: boolean;
         };
         /** SpendingByCategoryItemResponse */
         SpendingByCategoryItemResponse: {
@@ -2946,6 +3010,26 @@ export interface operations {
             };
         };
     };
+    read_sign_in_methods_api_v1_auth_methods_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInMethodsResponse"];
+                };
+            };
+        };
+    };
     exchange_oauth_login_code_api_v1_auth_oauth_exchange_post: {
         parameters: {
             query?: never;
@@ -2966,6 +3050,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccessTokenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_oauth_link_intent_api_v1_auth_oauth_link_intents_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthLinkIntentCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthLinkIntentResponse"];
                 };
             };
             /** @description Validation Error */

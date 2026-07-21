@@ -8,27 +8,39 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import Settings
 from app.core.security import (
     create_access_token,
+    create_oauth_link_intent_code,
     create_oauth_login_exchange_code,
     create_refresh_token,
+    hash_oauth_link_intent_code,
     hash_oauth_login_exchange_code,
     hash_password,
     hash_refresh_token,
     verify_password,
 )
-from app.modules.auth.models import OAuthIdentity, OAuthLoginExchange, RefreshSession
+from app.modules.auth.models import (
+    OAuthIdentity,
+    OAuthLinkIntent,
+    OAuthLoginExchange,
+    RefreshSession,
+)
 from app.modules.auth.oauth import OAuthProfile
 from app.modules.auth.repositories import (
     OAuthIdentityRepository,
+    OAuthLinkIntentRepository,
     OAuthLoginExchangeRepository,
     RefreshSessionRepository,
 )
 from app.modules.auth.schemas import (
     AccessTokenResponse,
     LoginRequest,
+    OAuthLinkIntentCreateRequest,
+    OAuthLinkIntentResponse,
     OAuthLoginExchangeRequest,
+    OAuthProvider,
     OAuthRegisterRequest,
     RefreshTokenRequest,
     RegisterUserRequest,
+    SignInMethodsResponse,
 )
 from app.modules.users.models import User
 from app.modules.users.repositories import UserRepository
@@ -55,6 +67,14 @@ class OAuthRegistrationConflictError(Exception):
 
 
 class InvalidOAuthLoginExchangeError(Exception):
+    pass
+
+
+class OAuthProviderAlreadyLinkedError(Exception):
+    pass
+
+
+class InvalidOAuthLinkIntentError(Exception):
     pass
 
 
@@ -405,3 +425,94 @@ class OAuthAuthService:
             refresh_token=refresh_token,
             expires_in=settings.access_token_expire_minutes * 60,
         )
+
+
+class OAuthLinkService:
+    def __init__(
+        self,
+        users: UserRepository,
+        identities: OAuthIdentityRepository,
+        link_intents: OAuthLinkIntentRepository,
+    ) -> None:
+        self.users = users
+        self.identities = identities
+        self.link_intents = link_intents
+
+    async def get_sign_in_methods(self, user: User) -> SignInMethodsResponse:
+        identities = await self.identities.list_by_user(user.id)
+        connected: list[OAuthProvider] = []
+        for identity in identities:
+            if identity.provider == "google":
+                connected.append("google")
+            elif identity.provider == "github":
+                connected.append("github")
+        return SignInMethodsResponse(
+            password_enabled=user.password_hash is not None,
+            connected_providers=connected,
+        )
+
+    async def create_link_intent(
+        self,
+        user: User,
+        request: OAuthLinkIntentCreateRequest,
+        settings: Settings,
+        *,
+        now: datetime | None = None,
+    ) -> OAuthLinkIntentResponse:
+        if (
+            await self.identities.get_by_user_provider(user.id, request.provider)
+            is not None
+        ):
+            raise OAuthProviderAlreadyLinkedError
+
+        created_at = now or datetime.now(UTC)
+        code = create_oauth_link_intent_code()
+        intent = OAuthLinkIntent(
+            user_id=user.id,
+            provider=request.provider,
+            code_hash=hash_oauth_link_intent_code(code, settings),
+            expires_at=created_at
+            + timedelta(seconds=settings.oauth_link_intent_expire_seconds),
+        )
+        try:
+            await self.link_intents.create(intent)
+            await self.link_intents.commit()
+        except IntegrityError:
+            await self.link_intents.rollback()
+            raise
+
+        return OAuthLinkIntentResponse(
+            link_intent=code,
+            provider=request.provider,
+            expires_at=intent.expires_at,
+        )
+
+    async def consume_link_intent(
+        self,
+        code: str,
+        provider: OAuthProvider,
+        settings: Settings,
+        *,
+        now: datetime | None = None,
+    ) -> OAuthLinkIntent:
+        consumed_at = now or datetime.now(UTC)
+        intent = await self.link_intents.get_by_code_hash_for_update(
+            hash_oauth_link_intent_code(code, settings)
+        )
+        if (
+            intent is None
+            or intent.consumed_at is not None
+            or intent.expires_at <= consumed_at
+            or intent.provider != provider
+        ):
+            await self.link_intents.rollback()
+            raise InvalidOAuthLinkIntentError
+
+        user = await self.users.get_by_id(intent.user_id)
+        if user is None or not user.is_active:
+            await self.link_intents.rollback()
+            raise InvalidOAuthLinkIntentError
+
+        intent.consumed_at = consumed_at
+        await self.link_intents.commit()
+        return intent

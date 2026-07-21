@@ -19,6 +19,8 @@ ACCESS_TOKEN_TYPE = "access"
 REFRESH_TOKEN_BYTES = 48
 OAUTH_LOGIN_EXCHANGE_BYTES = 48
 OAUTH_LOGIN_EXCHANGE_HASH_CONTEXT = b"pfm-oauth-login-exchange\x00"
+OAUTH_LINK_INTENT_BYTES = 48
+OAUTH_LINK_INTENT_HASH_CONTEXT = b"pfm-oauth-link-intent\x00"
 
 
 def hash_password(password: str) -> str:
@@ -49,6 +51,18 @@ def hash_oauth_login_exchange_code(code: str, settings: Settings) -> str:
     return hmac.new(
         settings.oauth_state_secret_key.get_secret_value().encode("utf-8"),
         OAUTH_LOGIN_EXCHANGE_HASH_CONTEXT + code.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def create_oauth_link_intent_code() -> str:
+    return secrets.token_urlsafe(OAUTH_LINK_INTENT_BYTES)
+
+
+def hash_oauth_link_intent_code(code: str, settings: Settings) -> str:
+    return hmac.new(
+        settings.oauth_state_secret_key.get_secret_value().encode("utf-8"),
+        OAUTH_LINK_INTENT_HASH_CONTEXT + code.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
 
