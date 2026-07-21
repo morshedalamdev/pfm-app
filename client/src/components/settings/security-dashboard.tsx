@@ -3,10 +3,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Chrome, Github, KeyRound, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { PageHeader } from "@/components/layout/page-header";
+import { BackendRequestError } from "@/lib/api/client";
 import type { OAuthProvider } from "@/lib/auth/oauth-client";
 import {
   beginOAuthLink,
@@ -28,11 +29,26 @@ type SecurityDashboardProps = Readonly<{
 }>;
 
 const providers = [
-  { icon: Chrome, label: "Google", provider: "google" },
-  { icon: Github, label: "GitHub", provider: "github" },
+  { label: "Google", provider: "google" },
+  { label: "GitHub", provider: "github" },
 ] as const;
 
-function linkNotice(provider: string | undefined, result: string | undefined) {
+function requiresAuthentication(cause: unknown): boolean {
+  return cause instanceof BackendRequestError && cause.status === 401;
+}
+
+function returnToAuthentication(clearSession: () => void): void {
+  clearSession();
+  window.location.assign("/auth?next=%2Fsettings%2Fsecurity");
+}
+
+function linkNotice(
+  provider: string | undefined,
+  result: string | undefined,
+  connectedProviders: readonly OAuthProvider[] | undefined,
+) {
+  if (provider !== "google" && provider !== "github") return null;
+  if (result === "connected" && !connectedProviders?.includes(provider)) return null;
   const label = provider === "github" ? "GitHub" : "Google";
   const messages: Partial<Record<OAuthLinkResult, string>> = {
     already_linked: `${label} is already connected to this account with a different identity.`,
@@ -53,6 +69,7 @@ function ProviderRow({
   label: string;
   provider: OAuthProvider;
 }) {
+  const clearSession = useAuthStore((state) => state.clearSession);
   const [error, setError] = useState<string | null>(null);
   const connect = useMutation({ mutationFn: () => beginOAuthLink(provider) });
   const Icon = provider === "github" ? Github : Chrome;
@@ -62,6 +79,10 @@ function ProviderRow({
     try {
       await connect.mutateAsync();
     } catch (cause) {
+      if (requiresAuthentication(cause)) {
+        returnToAuthentication(clearSession);
+        return;
+      }
       setError(cause instanceof Error ? cause.message : `We couldn't connect ${label}.`);
     }
   }
@@ -77,7 +98,7 @@ function ProviderRow({
       {connected ? (
         <span className="status-pill">Connected</span>
       ) : (
-        <button disabled={connect.isPending} onClick={() => void handleConnect()} type="button">
+        <button aria-label={`Connect ${label}`} disabled={connect.isPending} onClick={() => void handleConnect()} type="button">
           {connect.isPending ? "Connecting…" : "Connect"}
         </button>
       )}
@@ -122,6 +143,10 @@ function PasswordForm({ passwordEnabled }: { passwordEnabled: boolean }) {
       if (email) query.set("email", email);
       window.location.assign(`/auth/login?${query.toString()}`);
     } catch (cause) {
+      if (requiresAuthentication(cause)) {
+        returnToAuthentication(clearSession);
+        return;
+      }
       setError(cause instanceof Error ? cause.message : "Your password could not be updated.");
     }
   }
@@ -131,13 +156,13 @@ function PasswordForm({ passwordEnabled }: { passwordEnabled: boolean }) {
       <div className="settings-hub-heading">
         <p className="eyebrow">PASSWORD</p>
         <h2>{passwordEnabled ? "Change your password" : "Add email and password sign-in"}</h2>
-        <p>{passwordEnabled ? "Changing it signs you out on every device." : "Use your account email and this password as another way to sign in."}</p>
+        <p>{passwordEnabled ? "After saving, sign in again. Other devices lose access as their current sessions expire." : "Use your account email and this password as another way to sign in. Saving ends current refresh sessions."}</p>
       </div>
       <div className="form-card">
         {passwordEnabled ? <label className="transaction-field"><span>Current password</span><input autoComplete="current-password" name="currentPassword" type="password" /></label> : null}
-        <label className="transaction-field"><span>New password</span><input autoComplete="new-password" name="newPassword" type="password" /></label>
-        <label className="transaction-field"><span>Confirm new password</span><input autoComplete="new-password" name="confirmPassword" type="password" /></label>
-        <p className="security-password-help">Use 12–128 characters with uppercase, lowercase, and a number.</p>
+        <label className="transaction-field"><span>New password</span><input aria-describedby="security-password-requirements" autoComplete="new-password" name="newPassword" type="password" /></label>
+        <label className="transaction-field"><span>Confirm new password</span><input aria-describedby="security-password-requirements" autoComplete="new-password" name="confirmPassword" type="password" /></label>
+        <p className="security-password-help" id="security-password-requirements">Use 12–128 characters with uppercase, lowercase, and a number.</p>
       </div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       <button className="save-transaction-button" disabled={save.isPending} type="submit">{save.isPending ? "Updating…" : passwordEnabled ? "Change password" : "Set password"}</button>
@@ -146,8 +171,21 @@ function PasswordForm({ passwordEnabled }: { passwordEnabled: boolean }) {
 }
 
 export function SecurityDashboard({ oauthLink, provider }: SecurityDashboardProps) {
+  const clearSession = useAuthStore((state) => state.clearSession);
   const methods = useQuery({ queryFn: getSignInMethods, queryKey: ["auth", "methods"] });
-  const notice = linkNotice(provider, oauthLink);
+  const notice = linkNotice(provider, oauthLink, methods.data?.connected_providers);
+
+  useEffect(() => {
+    if (oauthLink || provider) {
+      window.history.replaceState(null, "", "/settings/security");
+    }
+  }, [oauthLink, provider]);
+
+  useEffect(() => {
+    if (requiresAuthentication(methods.error)) {
+      returnToAuthentication(clearSession);
+    }
+  }, [clearSession, methods.error]);
 
   return (
     <MobileShell><div className="standard-page security-page"><PageHeader backHref={"/settings" as Route} title="Sign-in & security" />

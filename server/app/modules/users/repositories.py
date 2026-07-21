@@ -16,6 +16,15 @@ class UserRepository:
         result = await self._session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
+    async def get_by_email_for_update(self, email: str) -> User | None:
+        result = await self._session.execute(
+            select(User)
+            .where(User.email == email)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_id(self, user_id: uuid.UUID) -> User | None:
         result = await self._session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()

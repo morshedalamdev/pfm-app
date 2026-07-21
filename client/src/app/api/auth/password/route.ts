@@ -61,9 +61,14 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       await result.response.clone().json().catch(() => null),
     );
     if (!responsePayload.success) {
-      return NextResponse.json(apiError("Your password could not be updated"), {
-        status: 502,
+      // The upstream accepted the credential mutation, so force the same safe
+      // reauthentication path even if deployment skew malformed its response.
+      const response = NextResponse.json({
+        reauthentication_required: true,
+        status: "updated",
       });
+      clearSessionCookies(response);
+      return response;
     }
 
     const response = NextResponse.json(responsePayload.data);

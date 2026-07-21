@@ -38,6 +38,7 @@ from app.modules.auth.models import (
     RefreshSession,
 )
 from app.modules.auth.oauth import (
+    OAuthCallbackError,
     OAuthProfile,
     create_oauth_registration_ticket,
     get_oauth_gateway,
@@ -55,6 +56,7 @@ from app.modules.users.repositories import UserRepository
 @dataclass
 class FakeOAuthGateway:
     profile: OAuthProfile
+    callback_error: bool = False
     started_provider: OAuthProvider | None = None
     started_state: str | None = None
 
@@ -75,6 +77,8 @@ class FakeOAuthGateway:
         _request: Request,
         _provider: OAuthProvider,
     ) -> OAuthProfile:
+        if self.callback_error:
+            raise OAuthCallbackError
         return self.profile
 
 
@@ -331,6 +335,202 @@ def test_oauth_only_user_sets_password_and_keeps_same_account_for_both_logins(
     assert oauth_claims.email == profile.email
 
 
+def test_google_github_and_password_converge_on_one_canonical_account(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    google_profile = OAuthProfile(
+        provider="google",
+        subject="convergence-google-subject",
+        email="convergence-owner@example.com",
+        full_name="Convergence Owner",
+    )
+    registration_ticket = create_oauth_registration_ticket(
+        google_profile,
+        oauth_account_context.settings,
+    )
+    registration = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/register",
+        json={"registration_ticket": registration_ticket},
+    )
+    assert registration.status_code == 201
+    registration_tokens = registration.json()
+    user = asyncio.run(
+        fetch_user_by_email(
+            oauth_account_context.database_url,
+            google_profile.email,
+        )
+    )
+    assert user is not None
+
+    github_profile = OAuthProfile(
+        provider="github",
+        subject="convergence-github-subject",
+        email="different-github-convergence@example.com",
+        full_name="Convergence GitHub",
+    )
+    oauth_account_context.gateway.profile = github_profile
+    _link_intent, state = begin_provider_link(
+        oauth_account_context,
+        str(registration_tokens["access_token"]),
+        "github",
+    )
+    linked = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        params={"state": state},
+        follow_redirects=False,
+    )
+    linked_location = urlsplit(linked.headers["location"])
+    assert linked.status_code == 303
+    assert linked_location.path == "/settings/security"
+    assert parse_qs(linked_location.query) == {
+        "provider": ["github"],
+        "oauth_link": ["connected"],
+    }
+
+    password_update = oauth_account_context.client.put(
+        "/api/v1/auth/password",
+        headers={
+            "authorization": f"Bearer {registration_tokens['access_token']}",
+        },
+        json={"new_password": "UnifiedHorse42"},
+    )
+    revoked_registration = oauth_account_context.client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": registration_tokens["refresh_token"]},
+    )
+    password_login = oauth_account_context.client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": google_profile.email,
+            "password": "UnifiedHorse42",
+        },
+    )
+    assert password_update.status_code == 200
+    assert revoked_registration.status_code == 401
+    assert password_login.status_code == 200
+    registration_session = asyncio.run(
+        fetch_refresh_session_by_token(
+            oauth_account_context.database_url,
+            str(registration_tokens["refresh_token"]),
+            oauth_account_context.settings,
+        )
+    )
+    assert registration_session is not None
+    assert registration_session.revoked_reason == "password_set"
+
+    password_claims = decode_access_token(
+        password_login.json()["access_token"],
+        oauth_account_context.settings,
+    )
+    assert password_claims.subject == user.id
+    assert password_claims.email == google_profile.email
+
+    provider_claims = []
+    for profile in (
+        OAuthProfile(
+            provider="google",
+            subject=google_profile.subject,
+            email="changed-google-convergence@example.com",
+            full_name="Changed Google",
+        ),
+        OAuthProfile(
+            provider="github",
+            subject=github_profile.subject,
+            email="changed-github-convergence@example.com",
+            full_name="Changed GitHub",
+        ),
+    ):
+        oauth_account_context.gateway.profile = profile
+        callback = oauth_account_context.client.get(
+            f"/api/v1/auth/oauth/{profile.provider}/callback",
+            follow_redirects=False,
+        )
+        exchange_code = parse_qs(urlsplit(callback.headers["location"]).fragment)[
+            "exchange_code"
+        ][0]
+        exchange = oauth_account_context.client.post(
+            "/api/v1/auth/oauth/exchange",
+            json={"exchange_code": exchange_code},
+        )
+        assert exchange.status_code == 200
+        provider_claims.append(
+            decode_access_token(
+                exchange.json()["access_token"],
+                oauth_account_context.settings,
+            )
+        )
+
+    assert [claims.subject for claims in provider_claims] == [user.id, user.id]
+    assert [claims.email for claims in provider_claims] == [
+        google_profile.email,
+        google_profile.email,
+    ]
+    google_identity = asyncio.run(
+        fetch_identity(
+            oauth_account_context.database_url,
+            "google",
+            google_profile.subject,
+        )
+    )
+    github_identity = asyncio.run(
+        fetch_identity(
+            oauth_account_context.database_url,
+            "github",
+            github_profile.subject,
+        )
+    )
+    assert google_identity is not None and google_identity.user_id == user.id
+    assert github_identity is not None and github_identity.user_id == user.id
+    assert (
+        asyncio.run(
+            count_identities_for_user_provider(
+                oauth_account_context.database_url,
+                google_profile.email,
+                "google",
+            )
+        )
+        == 1
+    )
+    assert (
+        asyncio.run(
+            count_identities_for_user_provider(
+                oauth_account_context.database_url,
+                google_profile.email,
+                "github",
+            )
+        )
+        == 1
+    )
+    assert (
+        asyncio.run(
+            count_users_by_email(
+                oauth_account_context.database_url,
+                google_profile.email,
+            )
+        )
+        == 1
+    )
+    assert (
+        asyncio.run(
+            fetch_user_by_email(
+                oauth_account_context.database_url,
+                github_profile.email,
+            )
+        )
+        is None
+    )
+    methods = oauth_account_context.client.get(
+        "/api/v1/auth/methods",
+        headers={
+            "authorization": f"Bearer {password_login.json()['access_token']}",
+        },
+    )
+    assert methods.json() == {
+        "password_enabled": True,
+        "connected_providers": ["github", "google"],
+    }
+
+
 def test_link_intent_is_hashed_and_bound_to_authenticated_user_and_provider(
     oauth_account_context: OAuthAccountTestContext,
 ) -> None:
@@ -371,6 +571,21 @@ def test_link_intent_is_hashed_and_bound_to_authenticated_user_and_provider(
     assert stored.provider == "google"
     assert stored.code_hash != body["link_intent"]
     assert body["link_intent"] not in stored.code_hash
+
+
+def test_link_intent_requires_authentication_without_writing(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    before = asyncio.run(count_link_intents(oauth_account_context.database_url))
+
+    response = oauth_account_context.client.post(
+        "/api/v1/auth/oauth/link-intents",
+        json={"provider": "google"},
+    )
+
+    after = asyncio.run(count_link_intents(oauth_account_context.database_url))
+    assert response.status_code == 401
+    assert after == before
 
 
 def test_link_intent_rejects_connected_provider_without_creating_secret(
@@ -599,6 +814,118 @@ def test_explicit_link_flow_connects_google_and_github_to_one_user(
         )
         assert claims.subject == user.id
         assert claims.email == email
+
+
+@pytest.mark.parametrize("failure", ["provider_error", "provider_mismatch"])
+def test_link_callback_failures_return_to_security_without_linking(
+    oauth_account_context: OAuthAccountTestContext,
+    failure: str,
+) -> None:
+    email = f"link-{failure}@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="google" if failure == "provider_mismatch" else "github",
+        subject=f"{failure}-subject",
+        email=f"{failure}-provider@example.com",
+        full_name="Failed Link",
+    )
+    oauth_account_context.gateway.callback_error = failure == "provider_error"
+    before = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+    _link_intent, state = begin_provider_link(
+        oauth_account_context,
+        access_token,
+        "github",
+    )
+
+    callback = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        params={"state": state},
+        follow_redirects=False,
+    )
+    after = asyncio.run(auth_row_counts(oauth_account_context.database_url))
+
+    assert callback.status_code == 303
+    location = urlsplit(callback.headers["location"])
+    assert location.path == "/settings/security"
+    assert parse_qs(location.query) == {
+        "provider": ["github"],
+        "oauth_link": ["callback_failed"],
+    }
+    assert location.fragment == ""
+    assert after == before
+    assert (
+        asyncio.run(
+            count_identities_for_user_provider(
+                oauth_account_context.database_url,
+                email,
+                "github",
+            )
+        )
+        == 0
+    )
+
+
+def test_superseded_link_callback_fails_closed_instead_of_becoming_login(
+    oauth_account_context: OAuthAccountTestContext,
+) -> None:
+    email = "superseded-link@example.com"
+    register_password_user(oauth_account_context.client, email)
+    access_token = login_access_token(oauth_account_context.client, email)
+    oauth_account_context.gateway.profile = OAuthProfile(
+        provider="github",
+        subject="superseded-link-subject",
+        email="superseded-provider@example.com",
+        full_name="Superseded Link",
+    )
+    _first_intent, first_state = begin_provider_link(
+        oauth_account_context,
+        access_token,
+        "github",
+    )
+    _second_intent, second_state = begin_provider_link(
+        oauth_account_context,
+        access_token,
+        "github",
+    )
+
+    superseded = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        params={"state": first_state},
+        follow_redirects=False,
+    )
+    active = oauth_account_context.client.get(
+        "/api/v1/auth/oauth/github/callback",
+        params={"state": second_state},
+        follow_redirects=False,
+    )
+
+    superseded_location = urlsplit(superseded.headers["location"])
+    assert superseded.status_code == 303
+    assert superseded_location.path == "/settings/security"
+    assert parse_qs(superseded_location.query) == {
+        "provider": ["github"],
+        "oauth_link": ["callback_failed"],
+    }
+    assert superseded_location.fragment == ""
+
+    active_location = urlsplit(active.headers["location"])
+    assert active.status_code == 303
+    assert active_location.path == "/settings/security"
+    assert parse_qs(active_location.query) == {
+        "provider": ["github"],
+        "oauth_link": ["connected"],
+    }
+    assert (
+        asyncio.run(
+            count_identities_for_user_provider(
+                oauth_account_context.database_url,
+                email,
+                "github",
+            )
+        )
+        == 1
+    )
 
 
 def test_link_flow_rejects_identity_owned_by_another_user(

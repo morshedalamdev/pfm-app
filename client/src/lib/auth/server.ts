@@ -7,6 +7,8 @@ export const ACCESS_COOKIE = "pfm_mobile_access";
 export const REFRESH_COOKIE = "pfm_mobile_refresh";
 
 const REFRESH_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const REFRESH_SINGLE_FLIGHT_TTL_MS = 1_000;
+const refreshFlights = new Map<string, Promise<AuthTokens | null>>();
 
 const tokenSchema = z.object({
   access_token: z.string().min(1),
@@ -127,10 +129,30 @@ export async function parseSessionUser(response: Response): Promise<SessionUser 
 }
 
 async function refreshTokens(refreshToken: string): Promise<AuthTokens | null> {
-  const { tokens } = await requestTokens("/api/v1/auth/refresh", {
+  const existing = refreshFlights.get(refreshToken);
+  if (existing) return existing;
+
+  const flight = requestTokens("/api/v1/auth/refresh", {
     refresh_token: refreshToken,
-  });
-  return tokens;
+  }).then(({ tokens }) => tokens);
+  refreshFlights.set(refreshToken, flight);
+
+  void flight.then(
+    (tokens) => {
+      if (!tokens) {
+        refreshFlights.delete(refreshToken);
+        return;
+      }
+      const timer = setTimeout(() => {
+        if (refreshFlights.get(refreshToken) === flight) {
+          refreshFlights.delete(refreshToken);
+        }
+      }, REFRESH_SINGLE_FLIGHT_TTL_MS);
+      timer.unref();
+    },
+    () => refreshFlights.delete(refreshToken),
+  );
+  return flight;
 }
 
 function unauthorizedResponse(): Response {

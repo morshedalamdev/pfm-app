@@ -6,11 +6,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy import select
 
 from alembic import command
@@ -419,6 +421,111 @@ def test_parallel_password_changes_only_accept_current_password_once(
     assert statuses == [200, 400]
     assert sorted(successful_logins) == [200, 401]
     assert old_login.status_code == 401
+
+
+def test_password_change_racing_refresh_leaves_no_rotated_session_active(
+    refresh_context: RefreshTestContext,
+) -> None:
+    email = "password-refresh-race@example.com"
+    login = register_and_login(refresh_context, email)
+    headers = {"authorization": f"Bearer {login['access_token']}"}
+    barrier = Barrier(2)
+
+    def change_password() -> Response:
+        barrier.wait()
+        return refresh_context.client.put(
+            "/api/v1/auth/password",
+            headers=headers,
+            json={
+                "current_password": "CorrectHorse42",
+                "new_password": "RaceSafeHorse43",
+            },
+        )
+
+    def rotate_refresh() -> Response:
+        barrier.wait()
+        return refresh_context.client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": login["refresh_token"]},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        password_future = executor.submit(change_password)
+        refresh_future = executor.submit(rotate_refresh)
+        password_response = password_future.result()
+        refresh_response = refresh_future.result()
+
+    assert password_response.status_code == 200
+    assert refresh_response.status_code in {200, 401}
+    tokens_to_check = [str(login["refresh_token"])]
+    if refresh_response.status_code == 200:
+        tokens_to_check.append(str(refresh_response.json()["refresh_token"]))
+
+    for refresh_token in tokens_to_check:
+        rejected = refresh_context.client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+        assert rejected.status_code == 401
+
+    new_login = refresh_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "RaceSafeHorse43"},
+    )
+    assert new_login.status_code == 200
+
+
+def test_old_password_login_racing_change_cannot_keep_refresh_access(
+    refresh_context: RefreshTestContext,
+) -> None:
+    email = "password-login-race@example.com"
+    initial_login = register_and_login(refresh_context, email)
+    headers = {"authorization": f"Bearer {initial_login['access_token']}"}
+    barrier = Barrier(2)
+
+    def change_password() -> Response:
+        barrier.wait()
+        return refresh_context.client.put(
+            "/api/v1/auth/password",
+            headers=headers,
+            json={
+                "current_password": "CorrectHorse42",
+                "new_password": "LoginRaceHorse43",
+            },
+        )
+
+    def old_password_login() -> Response:
+        barrier.wait()
+        return refresh_context.client.post(
+            "/api/v1/auth/login",
+            json={"email": email, "password": "CorrectHorse42"},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        password_future = executor.submit(change_password)
+        login_future = executor.submit(old_password_login)
+        password_response = password_future.result()
+        raced_login = login_future.result()
+
+    assert password_response.status_code == 200
+    assert raced_login.status_code in {200, 401}
+    if raced_login.status_code == 200:
+        raced_refresh = refresh_context.client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": raced_login.json()["refresh_token"]},
+        )
+        assert raced_refresh.status_code == 401
+
+    old_login_after_change = refresh_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "CorrectHorse42"},
+    )
+    new_login = refresh_context.client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "LoginRaceHorse43"},
+    )
+    assert old_login_after_change.status_code == 401
+    assert new_login.status_code == 200
 
 
 def register_and_login(

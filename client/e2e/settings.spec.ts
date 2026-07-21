@@ -98,6 +98,7 @@ test("uses clear settings paths and edits and archives a custom category in a dr
 
 test("shows connected sign-in methods and explicitly links another provider", async ({ page }) => {
   let linkedProvider: string | null = null;
+  await page.route("**/api/backend/auth/methods", async (route) => route.fulfill({ contentType: "application/json", json: { connected_providers: linkedProvider ? ["google", "github"] : ["google"], password_enabled: false } }));
   await page.route("**/api/auth/oauth/github/link", async (route) => {
     linkedProvider = "github";
     await route.fulfill({
@@ -109,11 +110,66 @@ test("shows connected sign-in methods and explicitly links another provider", as
   await page.goto("/settings/security");
   await expect(page.getByText("Google", { exact: true })).toBeVisible();
   await expect(page.getByText("Connected to this account")).toBeVisible();
-  await page.getByRole("button", { name: "Connect" }).click();
+  await page.getByRole("button", { name: "Connect GitHub" }).click();
 
-  await expect(page).toHaveURL(/provider=github&oauth_link=connected/);
+  await expect(page).toHaveURL(/\/settings\/security$/);
   await expect(page.getByText("GitHub is now connected to this account.")).toBeVisible();
   expect(linkedProvider).toBe("github");
+});
+
+test("shows actionable provider-link failures without a misleading success", async ({ page }) => {
+  const failures = [
+    ["provider_in_use", "That GitHub identity is already connected to another PFM account."],
+    ["already_linked", "GitHub is already connected to this account with a different identity."],
+    ["callback_failed", "GitHub could not be connected. Please try again."],
+  ] as const;
+
+  for (const [result, message] of failures) {
+    await page.goto(`/settings/security?provider=github&oauth_link=${result}`);
+    await expect(page.getByText(message, { exact: true })).toBeVisible();
+  }
+
+  await page.goto("/settings/security?provider=unsupported&oauth_link=connected");
+  await expect(page.getByText(/is now connected to this account/)).toHaveCount(0);
+  await page.goto("/settings/security?provider=github&oauth_link=connected");
+  await expect(page.getByText("GitHub is now connected to this account.")).toHaveCount(0);
+
+  await page.route("**/api/auth/oauth/github/link", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: { error: { message: "GitHub connection was rejected." } },
+      status: 409,
+    });
+  });
+  await page.goto("/settings/security");
+  await page.getByRole("button", { name: "Connect GitHub" }).click();
+  await expect(page.getByText("GitHub connection was rejected.", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/security$/);
+});
+
+test("returns to authentication when security state loses its session", async ({ page }) => {
+  await page.route("**/api/backend/auth/methods", async (route) => route.fulfill({
+    contentType: "application/json",
+    json: { error: { message: "Authentication required" } },
+    status: 401,
+  }));
+
+  await page.goto("/settings/security");
+
+  await expect(page).toHaveURL(/\/auth\?next=%2Fsettings%2Fsecurity$/);
+});
+
+test("labels each available provider connection accessibly", async ({ page }) => {
+  await page.route("**/api/backend/auth/methods", async (route) => route.fulfill({
+    contentType: "application/json",
+    json: { connected_providers: [], password_enabled: false },
+  }));
+
+  await page.goto("/settings/security");
+
+  await expect(page.getByRole("button", { name: "Connect Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect GitHub" })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
 test("sets a first password and requires a fresh email sign-in", async ({ page }) => {

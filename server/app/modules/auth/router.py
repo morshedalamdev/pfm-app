@@ -77,6 +77,7 @@ OAuthLinkIntentQuery = Annotated[
     Query(min_length=32, max_length=512),
 ]
 OAUTH_LINK_FLOW_PREFIX = "pfm_oauth_link_flow_"
+OAUTH_LINK_STATE_PREFIX = "pfm-link-"
 
 
 @dataclass(frozen=True)
@@ -200,6 +201,7 @@ async def start_oauth(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="OAuth account connection session is invalid or expired",
             ) from exc
+        state = f"{OAUTH_LINK_STATE_PREFIX}{state}"
         link_flow = OAuthLinkFlow(user_id=intent.user_id, provider=provider)
         store_oauth_link_flow(request, state, link_flow)
 
@@ -237,16 +239,41 @@ async def complete_oauth(
     try:
         link_flow = pop_oauth_link_flow(request, provider)
     except ValueError:
+        state = request.query_params.get("state")
+        if state is not None and state.startswith(OAUTH_LINK_STATE_PREFIX):
+            return oauth_link_result_redirect(
+                settings,
+                provider,
+                "callback_failed",
+            )
         return oauth_callback_error_redirect(settings, provider, "callback_failed")
 
     try:
         profile = await gateway.complete(request, provider)
     except OAuthProviderNotConfiguredError:
+        if link_flow is not None:
+            return oauth_link_result_redirect(
+                settings,
+                provider,
+                "callback_failed",
+            )
         return oauth_callback_error_redirect(settings, provider, "not_configured")
     except OAuthCallbackError:
+        if link_flow is not None:
+            return oauth_link_result_redirect(
+                settings,
+                provider,
+                "callback_failed",
+            )
         return oauth_callback_error_redirect(settings, provider, "callback_failed")
 
     if profile.provider != provider:
+        if link_flow is not None:
+            return oauth_link_result_redirect(
+                settings,
+                provider,
+                "callback_failed",
+            )
         return oauth_callback_error_redirect(settings, provider, "callback_failed")
 
     if link_flow is not None:
@@ -425,6 +452,8 @@ def pop_oauth_link_flow(
         return None
     raw_flow = request.session.pop(oauth_link_flow_key(state, provider), None)
     if raw_flow is None:
+        if state.startswith(OAUTH_LINK_STATE_PREFIX):
+            raise ValueError("Invalid OAuth link flow")
         return None
     if not isinstance(raw_flow, dict) or raw_flow.get("provider") != provider:
         raise ValueError("Invalid OAuth link flow")

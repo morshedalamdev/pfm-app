@@ -1,7 +1,7 @@
 import { getBackendErrorMessage } from "@/lib/api/errors";
 
 export class BackendRequestError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly status?: number) {
     super(message);
     this.name = "BackendRequestError";
   }
@@ -22,7 +22,10 @@ export async function getBackendJson<T>(
   });
 
   if (!response.ok) {
-    throw new BackendRequestError(await getBackendErrorMessage(response, fallback));
+    throw new BackendRequestError(
+      await getBackendErrorMessage(response, fallback),
+      response.status,
+    );
   }
 
   try {
@@ -52,7 +55,10 @@ export async function mutateBackendJson<T>(
   const fallback = options.fallback ?? "We couldn't save your changes.";
 
   if (!response.ok) {
-    throw new BackendRequestError(await getBackendErrorMessage(response, fallback));
+    throw new BackendRequestError(
+      await getBackendErrorMessage(response, fallback),
+      response.status,
+    );
   }
 
   try {

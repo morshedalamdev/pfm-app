@@ -29,4 +29,12 @@ Authentication is handled by Next.js route handlers. Access and refresh tokens
 are stored only in HTTP-only, same-site cookies and are never returned to or
 persisted by browser JavaScript. Requests to the FastAPI backend use the
 same-origin `/api/backend/*` proxy, which refreshes expired access tokens before
-retrying once.
+retrying once. Concurrent requests share one in-flight refresh rotation.
+
+The `/settings/security` surface reads authoritative sign-in methods from the
+backend. Google and GitHub connections use authenticated, short-lived link
+intents; provider email matching never links accounts implicitly. OAuth-only
+users can add email/password sign-in, while an existing password must be
+confirmed before it can be changed. A successful password mutation clears the
+local cookies and requires a fresh sign-in because the backend revokes active
+refresh sessions.

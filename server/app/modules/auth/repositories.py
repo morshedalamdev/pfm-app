@@ -31,6 +31,7 @@ class RefreshSessionRepository:
             select(RefreshSession)
             .where(RefreshSession.token_hash == token_hash)
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
         return result.scalar_one_or_none()
 

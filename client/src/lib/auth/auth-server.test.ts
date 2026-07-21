@@ -16,6 +16,7 @@ import { GET as getSession } from "@/app/api/auth/session/route";
 import { GET as proxyBackendGet } from "@/app/api/backend/[...path]/route";
 import {
   ACCESS_COOKIE,
+  authenticatedBackendFetch,
   REFRESH_COOKIE,
 } from "@/lib/auth/server";
 import { proxy } from "@/proxy";
@@ -366,6 +367,63 @@ describe("auth server boundary", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("preserves a rejected password error without clearing a valid session", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { error: { message: "Current password is incorrect" } },
+        400,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await updatePassword(
+      new NextRequest("http://localhost/api/auth/password", {
+        body: JSON.stringify({
+          currentPassword: "WrongHorse42",
+          newPassword: "NewCorrectHorse42",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ACCESS_COOKIE}=valid-access; ${REFRESH_COOKIE}=valid-refresh`,
+          origin: "http://localhost",
+        },
+        method: "PUT",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: { message: "Current password is incorrect" },
+    });
+    expect(response.cookies.get(ACCESS_COOKIE)).toBeUndefined();
+    expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
+  });
+
+  it("forces reauthentication after an unparseable successful password mutation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ unexpected: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await updatePassword(
+      new NextRequest("http://localhost/api/auth/password", {
+        body: JSON.stringify({ newPassword: "NewCorrectHorse42" }),
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ACCESS_COOKIE}=valid-access; ${REFRESH_COOKIE}=valid-refresh`,
+          origin: "http://localhost",
+        },
+        method: "PUT",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      reauthentication_required: true,
+      status: "updated",
+    });
+    expect(response.cookies.get(ACCESS_COOKIE)?.value).toBe("");
+    expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("");
+  });
+
   it("rejects cross-origin authentication requests", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -430,7 +488,7 @@ describe("auth server boundary", () => {
 
     const request = new NextRequest("http://localhost/", {
       headers: {
-        cookie: `${ACCESS_COOKIE}=expired; ${REFRESH_COOKIE}=valid-refresh`,
+        cookie: `${ACCESS_COOKIE}=expired; ${REFRESH_COOKIE}=refresh-success`,
       },
     });
     const response = await proxy(request);
@@ -452,7 +510,7 @@ describe("auth server boundary", () => {
 
     const request = new NextRequest("http://localhost/", {
       headers: {
-        cookie: `${ACCESS_COOKIE}=expired; ${REFRESH_COOKIE}=valid-refresh`,
+        cookie: `${ACCESS_COOKIE}=expired; ${REFRESH_COOKIE}=still-unauthorized-refresh`,
       },
     });
     const response = await proxy(request);
@@ -488,5 +546,46 @@ describe("auth server boundary", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://localhost:8000/api/v1/reports/dashboard?period=month",
     );
+  });
+
+  it("shares one refresh rotation across concurrent authenticated requests", async () => {
+    let refreshCalls = 0;
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      const authorization = new Headers(init?.headers).get("authorization");
+      if (url.endsWith("/api/v1/auth/refresh")) {
+        refreshCalls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return jsonResponse(tokens);
+      }
+      if (authorization === "Bearer expired-access") {
+        return jsonResponse({ error: {} }, 401);
+      }
+      if (authorization === `Bearer ${tokens.access_token}`) {
+        return jsonResponse({ ok: true });
+      }
+      return jsonResponse({ error: {} }, 500);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const headers = {
+      cookie: `${ACCESS_COOKIE}=expired-access; ${REFRESH_COOKIE}=shared-refresh`,
+    };
+
+    const [first, second] = await Promise.all([
+      authenticatedBackendFetch(
+        new NextRequest("http://localhost/api/backend/auth/methods", { headers }),
+        "/api/v1/auth/methods",
+      ),
+      authenticatedBackendFetch(
+        new NextRequest("http://localhost/api/backend/users/me", { headers }),
+        "/api/v1/users/me",
+      ),
+    ]);
+
+    expect(refreshCalls).toBe(1);
+    expect(first.response.status).toBe(200);
+    expect(second.response.status).toBe(200);
+    expect(first.updatedTokens).toEqual(tokens);
+    expect(second.updatedTokens).toEqual(tokens);
   });
 });

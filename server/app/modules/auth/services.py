@@ -132,7 +132,7 @@ class AuthService:
         request: LoginRequest,
         settings: Settings,
     ) -> AccessTokenResponse:
-        user = await self.users.get_by_email(request.email)
+        user = await self.users.get_by_email_for_update(request.email)
         if user is None:
             raise InvalidCredentialsError
         if user.password_hash is None or not verify_password(
@@ -160,10 +160,22 @@ class AuthService:
         settings: Settings,
     ) -> AccessTokenResponse:
         now = datetime.now(UTC)
+        token_hash = hash_refresh_token(request.refresh_token, settings)
+        observed_session = await self.refresh_sessions.get_by_token_hash(token_hash)
+        if observed_session is None:
+            await self.refresh_sessions.rollback()
+            raise InvalidRefreshTokenError
+
+        user = await self.users.get_by_id_for_update(observed_session.user_id)
+        if user is None:
+            await self.refresh_sessions.rollback()
+            raise InvalidRefreshTokenError
+
         refresh_session = await self.refresh_sessions.get_by_token_hash_for_update(
-            hash_refresh_token(request.refresh_token, settings)
+            token_hash
         )
-        if refresh_session is None:
+        if refresh_session is None or refresh_session.user_id != user.id:
+            await self.refresh_sessions.rollback()
             raise InvalidRefreshTokenError
 
         if (
@@ -184,8 +196,7 @@ class AuthService:
             await self.refresh_sessions.commit()
             raise InvalidRefreshTokenError
 
-        user = await self.users.get_by_id(refresh_session.user_id)
-        if user is None or not user.is_active:
+        if not user.is_active:
             refresh_session.revoked_at = now
             refresh_session.revoked_reason = "invalid_user"
             await self.refresh_sessions.commit()

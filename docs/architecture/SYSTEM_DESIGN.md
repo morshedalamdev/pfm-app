@@ -81,21 +81,33 @@ Phase 06.4 hardens the worker path with PostgreSQL-backed retries. Outbox proces
 ```mermaid
 sequenceDiagram
   participant UI as Auth UI
+  participant BFF as Next.js route handlers
   participant API as FastAPI auth routes
   participant DB as PostgreSQL
 
-  UI->>API: register or login with email and password
+  UI->>BFF: register or login
+  BFF->>API: email/password or OAuth exchange
   API->>API: normalize email and verify Argon2 hash
   API->>DB: create user or refresh session
-  API-->>UI: short-lived access JWT and refresh token
-  UI->>API: refresh before access expiry
+  API-->>BFF: short-lived access JWT and refresh token
+  BFF-->>UI: HTTP-only same-site session cookies
+  UI->>BFF: connect Google or GitHub
+  BFF->>API: create authenticated one-time link intent
+  API->>DB: bind verified provider subject to current user
+  UI->>BFF: set or change password
+  BFF->>API: update Argon2 password hash
+  API->>DB: revoke every active refresh session
+  UI->>BFF: refresh before access expiry
+  BFF->>API: rotate refresh token
   API->>DB: rotate refresh session token hash
-  API-->>UI: new access JWT and refresh token
+  API-->>BFF: new access JWT and refresh token
 ```
 
-Password hashing uses Argon2 through `pwdlib`. Refresh tokens are stored only as hashes and rotate on use. Password reset uses short-lived hashed reset codes or tokens delivered through the email adapter. Social login buttons visible in the current UI are not part of the MVP backend unless the user explicitly expands scope.
+Password hashing uses Argon2 through `pwdlib`. Refresh tokens, OAuth login exchange codes, and OAuth account-link intents are stored only as hashes. Refresh tokens rotate on use, and the frontend coalesces concurrent refreshes so one browser session does not replay the same token. Setting or changing a password revokes every active refresh session; already-issued access JWTs remain valid only until their short expiry.
 
-Current MVP auth endpoints are `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/users/me`. Login returns a short-lived bearer access token and an opaque refresh token in the JSON response. Protected endpoints require the access token in the `Authorization: Bearer <token>` header. Refresh and logout accept the opaque refresh token in the JSON request body until a later frontend/deployment phase defines cookie domain, SameSite, and HTTPS-only policy.
+Google, GitHub, and email/password are credentials for one canonical `users` row. Provider identities are resolved only by their stable provider subject; matching email alone never auto-links an identity. An authenticated user connects another provider with a short-lived, single-use intent bound to that user and provider. A provider subject cannot move between users, and one user cannot silently replace an existing identity for the same provider. OAuth-only users may add a password; users who already have one must supply the current password.
+
+The primary auth contract includes `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/methods`, `PUT /api/v1/auth/password`, OAuth start/callback/register/exchange routes, and `POST /api/v1/auth/oauth/link-intents`. FastAPI returns bearer and refresh tokens to the server-side Next.js boundary. The browser receives only HTTP-only, same-site cookies and uses same-origin route handlers for authenticated requests.
 
 Login and registration throttling should be added before public deployment, but phase 02 has no shared rate-limit foundation yet. Do not use process-local counters because they fail across workers and deployments. A future implementation should prefer a PostgreSQL-backed throttle table keyed by endpoint, normalized email when present, client network bucket, and time window; keep responses generic so throttling cannot confirm whether an account exists. Store only throttle metadata, never raw passwords or tokens, and include `Retry-After` only when it does not create user-enumeration leakage.
 
@@ -104,6 +116,9 @@ Login and registration throttling should be added before public deployment, but 
 - `users` owns login identity and base user record.
 - `user_profiles` owns display name, phone, occupation, about text, and avatar metadata.
 - `refresh_sessions` owns refresh token rotation, revocation, and expiry.
+- `oauth_identities` owns stable Google and GitHub subjects linked to users.
+- `oauth_login_exchanges` owns hashed, expiring, single-use OAuth login codes.
+- `oauth_link_intents` owns hashed, expiring, user/provider-bound connection intents.
 - `password_reset_tokens` owns hashed reset codes or reset token hashes, expiry, and single-use state.
 - `accounts` owns cash, bank, card, wallet, or savings containers.
 - `categories` owns user and default income/expense categories.
@@ -128,6 +143,9 @@ Each user-owned record must include ownership checks at the service boundary. Ha
 | `users` | Authentication identity and ownership root | Unique normalized email; stores only password hashes; owns all user-scoped records. |
 | `user_profiles` | Editable profile fields and avatar metadata | One profile per user; avatar points to storage metadata rather than raw file bytes. |
 | `refresh_sessions` | Rotated refresh sessions | Stores token hashes, expiry, revocation metadata, and user/session metadata. |
+| `oauth_identities` | External sign-in identities | Unique by provider/subject and by user/provider; every identity belongs to one canonical user. |
+| `oauth_login_exchanges` | OAuth-to-session handoff | Stores only hashed short-lived exchange codes; each code is consumed once. |
+| `oauth_link_intents` | Explicit provider connection authorization | Stores only hashed short-lived codes bound to the authenticated user and requested provider; each intent is consumed once. |
 | `password_reset_tokens` | Password reset request and verification state | Stores hashed code/token, expiry, attempt count, and used timestamp. |
 | `accounts` | User money containers | Currency recorded; balances reproducible from source records; referenced accounts are archived rather than destructively removed. |
 | `categories` | Income and expense categorization | Includes type/kind, icon key, default/user-owned flag, and archive state. |
